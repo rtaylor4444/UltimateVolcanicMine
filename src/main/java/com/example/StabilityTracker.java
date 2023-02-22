@@ -7,6 +7,7 @@ public class StabilityTracker {
 
     //Constants
     private static final int STARTING_STABILITY = 50;
+    private static final int MAX_STABILITY = 100;
     private static final int MAX_STABILITY_UPDATES = 3;
 
     private boolean hasResetHistory = false;
@@ -36,7 +37,8 @@ public class StabilityTracker {
 
         stabilityHistory.addFirst(change);
         while(stabilityHistory.size() > MAX_STABILITY_UPDATES) stabilityHistory.removeLast();
-        return true;
+        //If stability is max highly likely the change was truncated so this update is invalid
+        return currentStability != MAX_STABILITY;
     }
 
     public String getStabilityText() {
@@ -58,4 +60,8 @@ public class StabilityTracker {
         return " (" + builder.toString() + ")";
     }
     public int getCurrentStability() { return currentStability; }
+    public int getCurrentChange() {
+        if(stabilityHistory.isEmpty()) return 0;
+        return stabilityHistory.getFirst();
+    }
 }
