@@ -7,12 +7,9 @@ import lombok.extern.slf4j.Slf4j;
 import net.runelite.api.ChatMessageType;
 import net.runelite.api.Client;
 import net.runelite.api.GameState;
-import net.runelite.api.events.GameStateChanged;
-import net.runelite.api.events.GameTick;
-import net.runelite.api.events.VarbitChanged;
-import net.runelite.api.events.ScriptPostFired;
+import net.runelite.api.events.*;
+import net.runelite.api.coords.WorldPoint;
 import net.runelite.api.widgets.WidgetID;
-import net.runelite.api.widgets.WidgetInfo;
 import net.runelite.client.Notifier;
 import net.runelite.client.config.ConfigManager;
 import net.runelite.client.eventbus.Subscribe;
@@ -37,6 +34,8 @@ public class UltimateVolcanicMinePlugin extends Plugin
 	@Inject
 	private UltimateVolcanicMineConfig config;
 
+
+
 	//Constants
 	private static final int PROC_VOLCANIC_MINE_SET_OTHERINFO = 2022;
 	private static final int VARBIT_STABILITY = 5938;
@@ -59,14 +58,18 @@ public class UltimateVolcanicMinePlugin extends Plugin
 	private static final int VM_GAME_FULL_TIME = 1000;
 	private static final int VM_GAME_RESET_TIME = 500;
 	private static final float SECONDS_TO_TICKS = 1.666f;
+	private static final int VENT_MOVE_TICK_TIME = 10;
 
 	private VentStatusPredicter ventStatusPredicter = new VentStatusPredicter();
 	private StabilityTracker stabilityTracker = new StabilityTracker();
+	private VMNotifier VM_notifier = new VMNotifier();
 	private int vmGameState = VM_GAME_STATE_NONE;
 	private int ventStatus[] = new int[3];
 	private int varbitsUpdated = 0;
 	private int chamberStatus;
 	private int timeRemainingFromServer, estimatedTimeRemaining;
+	private int ticksPassed, movementUpdateTick;
+
 
 
 	@Provides
@@ -76,9 +79,8 @@ public class UltimateVolcanicMinePlugin extends Plugin
 	}
 
 	@Override
-	protected void startUp() throws Exception
-	{
-		log.info("Example started!");
+	protected void startUp() throws Exception {
+
 	}
 
 	@Override
@@ -95,8 +97,7 @@ public class UltimateVolcanicMinePlugin extends Plugin
 		if (vmGameState == VM_GAME_STATE_IN_LOBBY) {
 			stabilityTracker.initialize();
 			ventStatusPredicter.initialize();
-			estimatedTimeRemaining = VM_GAME_FULL_TIME;
-			varbitsUpdated = timeRemainingFromServer = 0;
+			resetGameVariables();
 		}
 	}
 
@@ -104,6 +105,7 @@ public class UltimateVolcanicMinePlugin extends Plugin
 	public void onGameTick(GameTick tick) {
 		if(!isInVM()) {
 			vmGameState = VM_GAME_STATE_NONE;
+			resetGameVariables();
 			return;
 		}
 
@@ -125,11 +127,13 @@ public class UltimateVolcanicMinePlugin extends Plugin
 //		widget.setText(Integer.toString(varbitsUpdated));
 
 		ventStatusPredicter.updateVentStatus(ventStatus, chamberStatus);
-		if(ventStatusPredicter.updateVentMovement(varbitsUpdated))
+		if(ticksPassed % VENT_MOVE_TICK_TIME == movementUpdateTick) {
+			ventStatusPredicter.updateVentMovement(varbitsUpdated);
 			varbitsUpdated = 0;
+		}
 
 		if(stabilityTracker.updateStability(stability)) {
-			ventStatusPredicter.makeStatusState(stabilityTracker.getCurrentChange());
+			ventStatusPredicter.makeStatusState(client, stabilityTracker.getCurrentChange());
 			Widget widget = client.getWidget(WidgetID.VOLCANIC_MINE_GROUP_ID, HUD_VENT_A_PERCENTAGE);
 			client.addChatMessage(ChatMessageType.GAMEMESSAGE, "CyanWarrior4: ", ventStatusPredicter.getVentStatusText(0, widget.getText()), null);
 			widget = client.getWidget(WidgetID.VOLCANIC_MINE_GROUP_ID, HUD_VENT_B_PERCENTAGE);
@@ -143,16 +147,28 @@ public class UltimateVolcanicMinePlugin extends Plugin
 			stabilityTracker.resetStabilityHistory();
 			ventStatusPredicter.reset();
 		}
+
+		if (estimatedTimeRemaining <= (VM_GAME_RESET_TIME + 50))
+			VM_notifier.notify(notifier, VMNotifier.NotificationEvents.VM_RESET, ticksPassed);
+
+		if (estimatedTimeRemaining <= 70)
+			VM_notifier.notify(notifier, VMNotifier.NotificationEvents.VM_ERUPTION, ticksPassed);
+
+		++ticksPassed;
 	}
 
 	@Subscribe
 	public void onVarbitChanged(VarbitChanged event) {
 		//Exit if the game has not started yet
-		if(vmGameState < VM_GAME_STATE_IN_GAME) return;
+		if(!isInVM() || vmGameState < VM_GAME_STATE_IN_GAME) return;
 
 		if(event.getVarbitId() == VARBIT_VENT_STATUS_A) varbitsUpdated |= 1;
 		if(event.getVarbitId() == VARBIT_VENT_STATUS_B) varbitsUpdated |= 2;
 		if(event.getVarbitId() == VARBIT_VENT_STATUS_C) varbitsUpdated |= 4;
+
+		//BUG - might not be the exact tick but close enough
+		if(varbitsUpdated != 0 && movementUpdateTick == -1)
+			movementUpdateTick = ticksPassed % VENT_MOVE_TICK_TIME;
 	}
 
 	@Subscribe
@@ -175,7 +191,39 @@ public class UltimateVolcanicMinePlugin extends Plugin
 		widget.setText(ventStatusPredicter.getVentStatusText(2, widget.getText()));
 	}
 
-	//isInVM function taken from Hipipis Plugin hub VMPlugin
+	private void resetGameVariables() {
+		estimatedTimeRemaining = VM_GAME_FULL_TIME;
+		varbitsUpdated = timeRemainingFromServer = 0;
+		ticksPassed = 0;
+		movementUpdateTick = -1;
+	}
+
+	//Function(s) taken from Hipipis Plugin hub VMPlugin
+	private static final String PLATFORM_WARNING_MESSAGE = "The platform beneath you will disappear soon!";
+	// Constants
+	private static final int PLATFORM_STAGE_3_ID = 31000;
+	@Subscribe
+	public void onGameObjectSpawned(GameObjectSpawned event)
+	{
+		// Skip calculation if not in VM
+		if (!isInVM()) return;
+
+		// If warning is enabled and game object spawned is a stage 3 platform
+		if (event.getGameObject().getId() == PLATFORM_STAGE_3_ID)
+		{
+			// Fetch coordinates of player and game object
+			int playerX = client.getLocalPlayer().getWorldLocation().getX();
+			int playerY = client.getLocalPlayer().getWorldLocation().getY();
+			int objectX = event.getGameObject().getWorldLocation().getX();
+			int objectY = event.getGameObject().getWorldLocation().getY();
+
+			// Notify player if the stage 3 platform is beneath them
+			if (playerX == objectX && playerY == objectY)
+			{
+				notifier.notify(PLATFORM_WARNING_MESSAGE);
+			}
+		}
+	}
 	private boolean isInVM()
 	{
 		return WorldPoint.fromLocalInstance(client, client.getLocalPlayer().getLocalLocation()).getRegionID() == VM_REGION_NORTH ||

@@ -16,10 +16,8 @@ public class VentStatus {
 
     public VentStatus(char name) {
         ventName = name;
-        update(STARTING_VENT_VALUE, 0);
-        clearMovement();
-        lowerBoundStart = lowerBoundEnd = STARTING_VENT_VALUE;
-        upperBoundStart = upperBoundEnd = STARTING_VENT_VALUE;
+        this.movementDirection = 0;
+        doVMReset();
     }
     public VentStatus(VentStatus vent) {
         setEqualTo(vent);
@@ -45,11 +43,15 @@ public class VentStatus {
     public void update(int actualValue, int direction) {
         this.actualValue = actualValue;
         this.movementDirection = direction;
+        if(isIdentified()) {
+            lowerBoundStart = lowerBoundEnd = actualValue;
+            upperBoundStart = upperBoundEnd = actualValue;
+        }
     }
     public void updateMovement() {
+        if(movementDirection > 0 && upperBoundEnd == MAX_VENT_VALUE) return;
+        if(movementDirection < 0 && lowerBoundStart == MIN_VENT_VALUE) return;
         movementSinceLastState += movementDirection;
-        setLowerBoundRange(lowerBoundStart + movementDirection, lowerBoundEnd + movementDirection);
-        setUpperBoundRange(upperBoundStart + movementDirection, upperBoundEnd + movementDirection);
     }
     public void clearMovement() {
         movementSinceLastState = 0;
@@ -57,10 +59,20 @@ public class VentStatus {
     public void setLowerBoundRange(int start, int end) {
         lowerBoundStart = capVentValue(start);
         lowerBoundEnd = capVentValue(end);
+        //Merge ranges if they are both within bounds
+        if(isUpperBoundWithinRange(lowerBoundStart, lowerBoundEnd)) {
+            lowerBoundStart = upperBoundStart = Math.min(lowerBoundStart, upperBoundStart);
+            lowerBoundEnd = upperBoundEnd = Math.max(lowerBoundEnd, upperBoundEnd);
+        }
     }
     public void setUpperBoundRange(int start, int end) {
         upperBoundStart = capVentValue(start);
         upperBoundEnd = capVentValue(end);
+        //Merge ranges if they are both within bounds
+        if(isLowerBoundWithinRange(upperBoundStart, upperBoundEnd)) {
+            lowerBoundStart = upperBoundStart = Math.min(lowerBoundStart, upperBoundStart);
+            lowerBoundEnd = upperBoundEnd = Math.max(lowerBoundEnd, upperBoundEnd);
+        }
     }
 
     public boolean isIdentified() { return actualValue != STARTING_VENT_VALUE; }
@@ -68,6 +80,22 @@ public class VentStatus {
         if(lowerBoundStart == STARTING_VENT_VALUE || lowerBoundEnd == STARTING_VENT_VALUE) return false;
         if(upperBoundStart == STARTING_VENT_VALUE || upperBoundEnd == STARTING_VENT_VALUE) return false;
         return true;
+    }
+    public boolean isTwoSeperateValues() { return !(lowerBoundStart == upperBoundStart && lowerBoundEnd == upperBoundEnd); }
+    public boolean isLowerBoundSingleValue() { return (lowerBoundStart == lowerBoundEnd); }
+    public boolean isUpperBoundSingleValue() { return (upperBoundStart == upperBoundEnd); }
+    public boolean isLowerBoundWithinRange(int start, int end) {
+        return !(start > lowerBoundEnd || end < lowerBoundStart);
+    }
+    public boolean isUpperBoundWithinRange(int start, int end) {
+        return !(start > upperBoundEnd || end < upperBoundStart);
+    }
+    public boolean isWithinRange(int start, int end) {
+        if(isLowerBoundWithinRange(start, end)) return true;
+        if(isTwoSeperateValues()) {
+            if(isUpperBoundWithinRange(start, end)) return true;
+        }
+        return false;
     }
 
     private int capVentValue(int value) { return Math.min(MAX_VENT_VALUE, Math.max(MIN_VENT_VALUE, value));}

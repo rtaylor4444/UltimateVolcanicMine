@@ -3,10 +3,14 @@ package com.example;
 import static com.example.StatusState.*;
 import static com.example.VentStatus.*;
 
+import net.runelite.api.ChatMessageType;
+import net.runelite.api.Client;
+
 public class VentStatusPredicter {
 
     private static final char[] VENT_TAGS = {'A', 'B', 'C'};
     private static final int STABILITY_CHANGE_CONSTANT = 25;
+    private static final int TRUNCATION_POSSIBILITIES = NUM_VENTS - 1;
 
     private VentStatus vents[] = new VentStatus[NUM_VENTS];
     private StatusState currentState, previousState;
@@ -55,7 +59,7 @@ public class VentStatusPredicter {
             vents[i].clearMovement();
         }
     }
-    public void makeStatusState(int change) {
+    public void makeStatusState(Client client, int change) {
         if(currentState == null)
             currentState = new StatusState(vents, change);
         else {
@@ -64,50 +68,164 @@ public class VentStatusPredicter {
             currentState.update(vents, change);
         }
         clearVentMovement();
-        calcMissingSingleVentValue(change);
+
+        if(currentState.isAllVentsIdentified() || !currentState.isEnoughVentsIdentified()) return;
+
+        //Get the unidentified vent (we assume that there is just one)
+        int idVentIndex = -1;
+        for(int i = 0; i < vents.length; ++i) {
+            if(!vents[i].isIdentified()) {
+                idVentIndex = i;
+                break;
+            }
+        }
+
+        VentStatus currentVent = currentState.getVent(idVentIndex);
+        calcSingleVentValue(currentVent, change);
+        if(!fixRanges(client, idVentIndex)) {
+            vents[idVentIndex].setEqualTo(currentVent);
+            clearVentMovement();
+        }
+    }
+    public boolean fixRanges(Client client, int idVentIndex) {
+        if(previousState == null) return false;
+        VentStatus previousVent = previousState.getVent(idVentIndex);
+        if(!previousVent.isRangeDefined()) return false;
+
+        VentStatus currentVent = currentState.getVent(idVentIndex);
+        //Debug prints
+        int move = currentVent.getMovementSinceLastState();
+        int lowerDiff = currentVent.getLowerBoundStart() - previousVent.getLowerBoundStart();
+        int upperDiff = currentVent.getUpperBoundEnd() - previousVent.getUpperBoundEnd();
+        client.addChatMessage(ChatMessageType.GAMEMESSAGE, "CyanWarrior4: ", "move: " + move, null);
+        client.addChatMessage(ChatMessageType.GAMEMESSAGE, "CyanWarrior4: ", "lowerDiff: " + lowerDiff, null);
+        client.addChatMessage(ChatMessageType.GAMEMESSAGE, "CyanWarrior4: ", "upperDiff: " + upperDiff, null);
+
+        //Determine the correct diff of the two
+        int correctDiff = 0;
+        if(move < 0) correctDiff = Math.min(lowerDiff, upperDiff);
+        else if(move > 0) correctDiff = Math.max(lowerDiff, upperDiff);
+
+        int lowerBoundStart = vents[idVentIndex].getLowerBoundStart() + correctDiff;
+        int lowerBoundEnd = vents[idVentIndex].getLowerBoundEnd() + correctDiff;
+        int upperBoundStart = vents[idVentIndex].getUpperBoundStart() + correctDiff;
+        int upperBoundEnd = vents[idVentIndex].getUpperBoundEnd() + correctDiff;
+        boolean isLowerMatch = currentVent.isLowerBoundWithinRange(lowerBoundStart - TRUNCATION_POSSIBILITIES,
+                lowerBoundEnd + TRUNCATION_POSSIBILITIES);
+        boolean isUpperMatch = currentVent.isUpperBoundWithinRange(upperBoundStart - TRUNCATION_POSSIBILITIES,
+                upperBoundEnd + TRUNCATION_POSSIBILITIES);
+        if(isLowerMatch && isUpperMatch) {
+            vents[idVentIndex].setLowerBoundRange(currentVent.getLowerBoundStart(), currentVent.getLowerBoundEnd());
+            vents[idVentIndex].setUpperBoundRange(currentVent.getUpperBoundStart(), currentVent.getUpperBoundEnd());
+        }
+        else if(isLowerMatch) {
+            vents[idVentIndex].setLowerBoundRange(currentVent.getLowerBoundStart(), currentVent.getLowerBoundEnd());
+            vents[idVentIndex].setUpperBoundRange(currentVent.getLowerBoundStart(), currentVent.getLowerBoundEnd());
+        }
+        else if(isUpperMatch) {
+            vents[idVentIndex].setLowerBoundRange(currentVent.getUpperBoundStart(), currentVent.getUpperBoundEnd());
+            vents[idVentIndex].setUpperBoundRange(currentVent.getUpperBoundStart(), currentVent.getUpperBoundEnd());
+        }
+        return true;
     }
     public String getVentStatusText(int index, String startingText) {
         if(vents[index].isIdentified() || !vents[index].isRangeDefined()) return startingText;
         StringBuilder builder = new StringBuilder();
         builder.append(startingText.substring(0, 3));
         builder.append("<col=00ffff>");
-        builder.append(vents[index].getLowerBoundStart() +
-                "% | " + vents[index].getUpperBoundStart()).append("%");
-        return " " + builder.append("</col>").toString();
+        if(vents[index].isTwoSeperateValues()) {
+            if(vents[index].isLowerBoundSingleValue())
+                builder.append(Integer.toString(vents[index].getLowerBoundStart()) + "%");
+            else {
+                builder.append(Integer.toString(vents[index].getLowerBoundStart()) + "-");
+                builder.append(Integer.toString(vents[index].getLowerBoundEnd()));
+            }
+            builder.append(" ");
+            if(vents[index].isUpperBoundSingleValue())
+                builder.append(Integer.toString(vents[index].getUpperBoundStart()) + "%");
+            else {
+                builder.append(Integer.toString(vents[index].getUpperBoundStart()) + "-");
+                builder.append(Integer.toString(vents[index].getUpperBoundEnd()));
+            }
+        } else {
+            if(vents[index].isLowerBoundSingleValue())
+                builder.append(Integer.toString(vents[index].getLowerBoundStart()) + "%");
+            else {
+                builder.append(Integer.toString(vents[index].getLowerBoundStart()) + "-");
+                builder.append(Integer.toString(vents[index].getLowerBoundEnd()) + "%");
+            }
+        }
+        return builder.append("</col>").toString();
     }
     public void clearStabilityStates() {
         identifiedBitMask = 0;
         currentState = previousState = null;
     }
     private boolean isFrozen(VentStatus vent) {
+        boolean hasEstimatedARange = (vents[0].isIdentified() || vents[0].isRangeDefined());
+        boolean hasEstimatedBRange = (vents[1].isIdentified() || vents[1].isRangeDefined());
+
         switch(vent.getName()) {
             case 'A':
                 //A never freezes
+                return false;
+
+            case 'B':
+                //B will only freeze if A is within 49-59% and B is also 49-59%
+                //(undefined ranges means we assume frozen)
+                if(!hasEstimatedARange) return true;
+                if(!vents[0].isWithinRange(41, 59)) return false;
+                if(!hasEstimatedBRange) return true;
+                return vents[1].isWithinRange(41, 59);
+
+            case 'C':
+                if(!hasEstimatedARange || !hasEstimatedBRange) return true;
+                //If A is within 41-59%..
+                if(vents[0].isWithinRange(41, 59)) {
+                    //and B is within 41-59% C will freeze no matter what
+                    if(vents[1].isWithinRange(41, 59)) return true;
+                    //and B is not within 41-59% C will only freeze if its within 41-59%
+                    else if(vents[2].isWithinRange(41, 59)) return true;
+                }
+                //C will freeze if both B and C are within 49-59%
+                if(vents[1].isWithinRange(41, 59)) return vents[2].isWithinRange(41, 59);
                 return false;
         }
         return true;
     }
 
-    private void calcMissingSingleVentValue(int change) {
-        if(currentState.isAllVentsIdentified() || !currentState.isEnoughVentsIdentified()) return;
-
-        //Calculate the missing vent value
+    private void calcSingleVentValue(VentStatus unIdVent, int change) {
+     //Calculate the missing vent value
         int partialVentUpdate = 0;
-        VentStatus unIdVent = null;
         for(int i = 0; i < vents.length; ++i) {
-            if(!vents[i].isIdentified()) {
-                unIdVent = vents[i];
-                continue;
-            }
+            if(!vents[i].isIdentified()) continue;
             partialVentUpdate += getSpecificVentUpdate(vents[i].getActualValue());
         }
+
         int missingVentUpdate = getTotalVentUpdate(change) - partialVentUpdate;
-        unIdVent.setLowerBoundRange(PERFECT_VENT_VALUE - missingVentUpdate, PERFECT_VENT_VALUE - missingVentUpdate);
-        unIdVent.setUpperBoundRange(PERFECT_VENT_VALUE + missingVentUpdate, PERFECT_VENT_VALUE + missingVentUpdate);
+        int lowerBoundStart = (PERFECT_VENT_VALUE - TRUNCATION_POSSIBILITIES) - missingVentUpdate;
+        int lowerBoundEnd = (PERFECT_VENT_VALUE + TRUNCATION_POSSIBILITIES) - missingVentUpdate;
+        int upperBoundStart = (PERFECT_VENT_VALUE - TRUNCATION_POSSIBILITIES) + missingVentUpdate;
+        int upperBoundEnd = (PERFECT_VENT_VALUE + TRUNCATION_POSSIBILITIES) + missingVentUpdate;
+        while(lowerBoundStart < lowerBoundEnd) {
+            int newChange1 = calcStabilityChange(partialVentUpdate + lowerBoundStart);
+            int newChange2 = calcStabilityChange(partialVentUpdate + lowerBoundEnd);
+            if(newChange1 == change && newChange2 == change) break;
+
+            if(newChange1 != change) {
+                ++lowerBoundStart; --upperBoundEnd;
+            }
+            if(newChange2 != change) {
+                --lowerBoundEnd; ++upperBoundStart;
+            }
+        }
+        unIdVent.setLowerBoundRange(lowerBoundStart, lowerBoundEnd);
+        unIdVent.setUpperBoundRange(upperBoundStart, upperBoundEnd);
     }
-    private int getDirectionFromChambers(int index, int chambers) {
-        return (chambers & (1 << index)) != 0 ? 1 : -1;
+    private int calcStabilityChange(int totalVentValue) {
+        return STABILITY_CHANGE_CONSTANT - (totalVentValue / NUM_VENTS);
     }
+    private int getDirectionFromChambers(int index, int chambers) { return (chambers & (1 << index)) != 0 ? 1 : -1;}
     private int getTotalVentUpdate(int change) { return (STABILITY_CHANGE_CONSTANT - change) * NUM_VENTS; }
     private int getSpecificVentUpdate(int ventValue) { return Math.abs(PERFECT_VENT_VALUE - ventValue); }
 }

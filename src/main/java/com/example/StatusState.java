@@ -35,4 +35,8 @@ public class StatusState {
     }
     public boolean isEnoughVentsIdentified() { return numIdentifiedVents > 1; }
     public boolean isAllVentsIdentified() { return numIdentifiedVents == this.vents.length; }
+
+    public VentStatus getVent(int index) {
+        return vents[index];
+    }
 }
