@@ -123,8 +123,6 @@ public class UltimateVolcanicMinePlugin extends Plugin
 		chamberStatus = client.getVarbitValue(VARBIT_CHAMBER_STATUS);
 		int stability = client.getVarbitValue(VARBIT_STABILITY);
 
-//		Widget widget = client.getWidget(WidgetInfo.VOLCANIC_MINE_TIME_LEFT);
-//		widget.setText(Integer.toString(varbitsUpdated));
 
 		ventStatusPredicter.updateVentStatus(ventStatus, chamberStatus);
 		if(ticksPassed % VENT_MOVE_TICK_TIME == movementUpdateTick) {
@@ -161,12 +159,14 @@ public class UltimateVolcanicMinePlugin extends Plugin
 	public void onVarbitChanged(VarbitChanged event) {
 		//Exit if the game has not started yet
 		if(!isInVM() || vmGameState < VM_GAME_STATE_IN_GAME) return;
+		//Do not try to get the movement update tick until at least 1 vent
+		//is identified
+		if(!ventStatusPredicter.areAnyVentIdentified()) return;
 
 		if(event.getVarbitId() == VARBIT_VENT_STATUS_A) varbitsUpdated |= 1;
 		if(event.getVarbitId() == VARBIT_VENT_STATUS_B) varbitsUpdated |= 2;
 		if(event.getVarbitId() == VARBIT_VENT_STATUS_C) varbitsUpdated |= 4;
 
-		//BUG - might not be the exact tick but close enough
 		if(varbitsUpdated != 0 && movementUpdateTick == -1)
 			movementUpdateTick = ticksPassed % VENT_MOVE_TICK_TIME;
 	}
@@ -193,6 +193,7 @@ public class UltimateVolcanicMinePlugin extends Plugin
 
 	private void resetGameVariables() {
 		estimatedTimeRemaining = VM_GAME_FULL_TIME;
+		VM_notifier.reset();
 		varbitsUpdated = timeRemainingFromServer = 0;
 		ticksPassed = 0;
 		movementUpdateTick = -1;

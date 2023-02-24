@@ -101,6 +101,9 @@ public class VentStatusPredicter {
         client.addChatMessage(ChatMessageType.GAMEMESSAGE, "CyanWarrior4: ", "lowerDiff: " + lowerDiff, null);
         client.addChatMessage(ChatMessageType.GAMEMESSAGE, "CyanWarrior4: ", "upperDiff: " + upperDiff, null);
 
+        //If difference is 0 vent is either frozen or stuck at 0%/100%
+        if(lowerDiff == 0 && upperDiff == 0) return true;
+
         //Determine the correct diff of the two
         int correctDiff = 0;
         if(move < 0) correctDiff = Math.min(lowerDiff, upperDiff);
@@ -161,6 +164,7 @@ public class VentStatusPredicter {
         identifiedBitMask = 0;
         currentState = previousState = null;
     }
+    public boolean areAnyVentIdentified() { return identifiedBitMask > 0; }
     private boolean isFrozen(VentStatus vent) {
         boolean hasEstimatedARange = (vents[0].isIdentified() || vents[0].isRangeDefined());
         boolean hasEstimatedBRange = (vents[1].isIdentified() || vents[1].isRangeDefined());
@@ -193,7 +197,6 @@ public class VentStatusPredicter {
         }
         return true;
     }
-
     private void calcSingleVentValue(VentStatus unIdVent, int change) {
      //Calculate the missing vent value
         int partialVentUpdate = 0;
