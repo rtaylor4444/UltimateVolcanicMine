@@ -108,6 +108,12 @@ public class VentStatusPredicter {
         int correctDiff = 0;
         if(move < 0) correctDiff = Math.min(lowerDiff, upperDiff);
         else if(move > 0) correctDiff = Math.max(lowerDiff, upperDiff);
+        //On 0 move use the next best thing the current direction
+        //BUG - Direction could be changed multiple times
+        else {
+            if(currentVent.getDirection() > 0) correctDiff = Math.max(lowerDiff, upperDiff);
+            else if(currentVent.getDirection() < 0) correctDiff = Math.min(lowerDiff, upperDiff);
+        }
 
         int lowerBoundStart = vents[idVentIndex].getLowerBoundStart() + correctDiff;
         int lowerBoundEnd = vents[idVentIndex].getLowerBoundEnd() + correctDiff;

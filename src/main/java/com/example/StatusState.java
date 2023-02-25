@@ -39,4 +39,6 @@ public class StatusState {
     public VentStatus getVent(int index) {
         return vents[index];
     }
+    public int getStabilityChange() { return stabilityChange; }
+    public int getNumIdentifiedVents() { return numIdentifiedVents; }
 }
