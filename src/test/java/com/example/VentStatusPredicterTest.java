@@ -97,6 +97,32 @@ public class VentStatusPredicterTest {
         Assert.assertNull(predicter.getPreviousState());
     }
 
+    public void makeStatusStateRangeTest() {
+        VentStatusPredicter predicter = new VentStatusPredicter();
+        //No identified vents so ranges should NOT be made
+        predicter.makeStatusState(null, 10);
+        final VentStatus[] vents = predicter.getCurrentVents();
+        for(int i = 0; i < StatusState.NUM_VENTS; ++i) {
+            Assert.assertFalse(vents[i].isRangeDefined());
+        }
+
+        //All identified vents so ranges should NOT be made
+        predicter.updateVentStatus(new int[]{30, 40, 50}, 7);
+        predicter.makeStatusState(null, 10);
+        final VentStatus[] vents2 = predicter.getCurrentVents();
+        for(int i = 0; i < StatusState.NUM_VENTS; ++i) {
+            Assert.assertTrue(vents2[i].isIdentified());
+            Assert.assertFalse(vents2[i].isTwoSeperateValues());
+        }
+
+        //Right amount of vents are known a range should be made!
+        predicter.updateVentStatus(new int[]{VentStatus.STARTING_VENT_VALUE, 40, 50}, 7);
+        predicter.makeStatusState(null, 10);
+        final VentStatus[] vents3 = predicter.getCurrentVents();
+        Assert.assertFalse(vents3[0].isIdentified());
+        Assert.assertTrue(vents3[0].isRangeDefined());
+    }
+
     public void isFrozenATest() {
         VentStatusPredicter predicter = new VentStatusPredicter();
         int[] values = {0, 50, 50};
@@ -110,7 +136,36 @@ public class VentStatusPredicterTest {
 
     public void isFrozenBTest() {
         VentStatusPredicter predicter = new VentStatusPredicter();
+        //B cannot be frozen since it is not in freeze range
         int[] values = {VentStatus.STARTING_VENT_VALUE, 0, 50};
+        predicter.updateVentStatus(values, 7);
+        Assert.assertFalse(predicter.isFrozen('B'));
+
+        //We must assume B is frozen since it is in freeze range
+        //and the value of A vent is unknown
+        values = new int[]{VentStatus.STARTING_VENT_VALUE, 50, 50};
+        predicter.updateVentStatus(values, 7);
+        Assert.assertTrue(predicter.isFrozen('B'));
+
+        //B cannot be frozen if A is out of range
+        values = new int[]{0, 50, 50};
+        predicter.updateVentStatus(values, 7);
+        Assert.assertFalse(predicter.isFrozen('B'));
+
+        //If B is undefined and A is in range then we must assume its frozen
+        values = new int[]{50, VentStatus.STARTING_VENT_VALUE, 50};
+        predicter.updateVentStatus(values, 7);
+        Assert.assertTrue(predicter.isFrozen('B'));
+
+        //If B is out of range and A is in range then B is not frozen
+        values = new int[]{50, 0, 50};
+        predicter.updateVentStatus(values, 7);
+        Assert.assertFalse(predicter.isFrozen('B'));
+
+        //If B is in range and A is in range then B is frozen
+        values = new int[]{50, 50, 50};
+        predicter.updateVentStatus(values, 7);
+        Assert.assertTrue(predicter.isFrozen('B'));
     }
 
     public void updateVentMovementNoFrozenTest() {

@@ -68,7 +68,7 @@ public class VentStatusPredicter {
         if(currentState.isAllVentsIdentified() || !currentState.isEnoughVentsIdentified()) return;
 
         //Get the unidentified vent (we assume that there is just one)
-        int idVentIndex = -1;
+        int idVentIndex = 0;
         for(int i = 0; i < vents.length; ++i) {
             if(!vents[i].isIdentified()) {
                 idVentIndex = i;
@@ -234,8 +234,8 @@ public class VentStatusPredicter {
 
             case 'B':
                 //B will only freeze if A is within 49-59% and B is also 49-59%
-                //(undefined ranges means we assume frozen)
-                if(!hasEstimatedARange) return true;
+                //If A is undefined we must assume it could be in freeze range
+                if(!hasEstimatedARange) return vents[1].isWithinRange(41, 59);
                 if(!vents[0].isWithinRange(41, 59)) return false;
                 if(!hasEstimatedBRange) return true;
                 return vents[1].isWithinRange(41, 59);
