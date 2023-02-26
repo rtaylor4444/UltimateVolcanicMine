@@ -28,10 +28,10 @@ public class VentStatusTest {
         Assert.assertEquals(newVent.getName(), 'A');
         Assert.assertEquals(newVent.getDirection(), 1);
         Assert.assertEquals(newVent.getActualValue(), VentStatus.PERFECT_VENT_VALUE);
-        Assert.assertEquals(newVent.getLowerBoundStart(), VentStatus.PERFECT_VENT_VALUE);
-        Assert.assertEquals(newVent.getLowerBoundEnd(), VentStatus.PERFECT_VENT_VALUE);
-        Assert.assertEquals(newVent.getUpperBoundStart(), VentStatus.PERFECT_VENT_VALUE);
-        Assert.assertEquals(newVent.getUpperBoundEnd(), VentStatus.PERFECT_VENT_VALUE);
+        Assert.assertEquals(newVent.getLowerBoundStart(), VentStatus.PERFECT_VENT_VALUE+1);
+        Assert.assertEquals(newVent.getLowerBoundEnd(), VentStatus.PERFECT_VENT_VALUE+1);
+        Assert.assertEquals(newVent.getUpperBoundStart(), VentStatus.PERFECT_VENT_VALUE+1);
+        Assert.assertEquals(newVent.getUpperBoundEnd(), VentStatus.PERFECT_VENT_VALUE+1);
         Assert.assertEquals(newVent.getMovementSinceLastState(), 1);
     }
 
@@ -45,10 +45,10 @@ public class VentStatusTest {
         Assert.assertEquals(newVent.getName(), 'A');
         Assert.assertEquals(newVent.getDirection(), 1);
         Assert.assertEquals(newVent.getActualValue(), VentStatus.PERFECT_VENT_VALUE);
-        Assert.assertEquals(newVent.getLowerBoundStart(), VentStatus.PERFECT_VENT_VALUE);
-        Assert.assertEquals(newVent.getLowerBoundEnd(), VentStatus.PERFECT_VENT_VALUE);
-        Assert.assertEquals(newVent.getUpperBoundStart(), VentStatus.PERFECT_VENT_VALUE);
-        Assert.assertEquals(newVent.getUpperBoundEnd(), VentStatus.PERFECT_VENT_VALUE);
+        Assert.assertEquals(newVent.getLowerBoundStart(), VentStatus.PERFECT_VENT_VALUE+1);
+        Assert.assertEquals(newVent.getLowerBoundEnd(), VentStatus.PERFECT_VENT_VALUE+1);
+        Assert.assertEquals(newVent.getUpperBoundStart(), VentStatus.PERFECT_VENT_VALUE+1);
+        Assert.assertEquals(newVent.getUpperBoundEnd(), VentStatus.PERFECT_VENT_VALUE+1);
         Assert.assertEquals(newVent.getMovementSinceLastState(), 1);
     }
 

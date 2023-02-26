@@ -6,7 +6,6 @@ import lombok.extern.slf4j.Slf4j;
 
 import net.runelite.api.ChatMessageType;
 import net.runelite.api.Client;
-import net.runelite.api.GameState;
 import net.runelite.api.events.*;
 import net.runelite.api.coords.WorldPoint;
 import net.runelite.api.widgets.WidgetID;
@@ -16,7 +15,6 @@ import net.runelite.client.eventbus.Subscribe;
 import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDescriptor;
 
-import net.runelite.api.coords.WorldPoint;
 import net.runelite.api.widgets.Widget;
 
 @Slf4j
@@ -126,7 +124,7 @@ public class UltimateVolcanicMinePlugin extends Plugin
 
 		ventStatusPredicter.updateVentStatus(ventStatus, chamberStatus);
 		if(ticksPassed % VENT_MOVE_TICK_TIME == movementUpdateTick) {
-			ventStatusPredicter.updateVentMovement(varbitsUpdated);
+			ventStatusPredicter.updateVentMovement();
 			varbitsUpdated = 0;
 		}
 

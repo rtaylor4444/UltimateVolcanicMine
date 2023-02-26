@@ -19,7 +19,6 @@ public class VentStatusPredicter {
     public VentStatusPredicter() {
         initialize();
     }
-
     public void initialize() {
         hasReset = false;
         for(int i = 0; i < vents.length; ++i) {
@@ -42,13 +41,10 @@ public class VentStatusPredicter {
             if(vents[i].isIdentified()) identifiedBitMask |= (1 << i);
         }
     }
-    public boolean updateVentMovement(int varbitsUpdated) {
-        //Exit if no vents are identified or not all identified values have been updated from the server
-        if(identifiedBitMask == 0 || (identifiedBitMask != varbitsUpdated)) return false;
-
+    public boolean updateVentMovement() {
         int updatedVents = 0;
         for(int i = 0; i < vents.length; ++i) {
-            if(!vents[i].isRangeDefined() || isFrozen(vents[i])) continue;
+            if(!vents[i].isRangeDefined() || isFrozen(vents[i].getName())) continue;
             ++updatedVents;
             vents[i].updateMovement();
         }
@@ -97,9 +93,11 @@ public class VentStatusPredicter {
         int move = currentVent.getMovementSinceLastState();
         int lowerDiff = currentVent.getLowerBoundStart() - previousVent.getLowerBoundStart();
         int upperDiff = currentVent.getUpperBoundEnd() - previousVent.getUpperBoundEnd();
-        client.addChatMessage(ChatMessageType.GAMEMESSAGE, "CyanWarrior4: ", "move: " + move, null);
-        client.addChatMessage(ChatMessageType.GAMEMESSAGE, "CyanWarrior4: ", "lowerDiff: " + lowerDiff, null);
-        client.addChatMessage(ChatMessageType.GAMEMESSAGE, "CyanWarrior4: ", "upperDiff: " + upperDiff, null);
+        if(client != null) {
+            client.addChatMessage(ChatMessageType.GAMEMESSAGE, "CyanWarrior4: ", "move: " + move, null);
+            client.addChatMessage(ChatMessageType.GAMEMESSAGE, "CyanWarrior4: ", "lowerDiff: " + lowerDiff, null);
+            client.addChatMessage(ChatMessageType.GAMEMESSAGE, "CyanWarrior4: ", "upperDiff: " + upperDiff, null);
+        }
 
         //If difference is 0 vent is either frozen or stuck at 0%/100%
         if(lowerDiff == 0 && upperDiff == 0) return true;
@@ -115,10 +113,10 @@ public class VentStatusPredicter {
             else if(currentVent.getDirection() < 0) correctDiff = Math.min(lowerDiff, upperDiff);
         }
 
-        int lowerBoundStart = vents[idVentIndex].getLowerBoundStart() + correctDiff;
-        int lowerBoundEnd = vents[idVentIndex].getLowerBoundEnd() + correctDiff;
-        int upperBoundStart = vents[idVentIndex].getUpperBoundStart() + correctDiff;
-        int upperBoundEnd = vents[idVentIndex].getUpperBoundEnd() + correctDiff;
+        int lowerBoundStart = vents[idVentIndex].getLowerBoundStart() + correctDiff - move;
+        int lowerBoundEnd = vents[idVentIndex].getLowerBoundEnd() + correctDiff - move;
+        int upperBoundStart = vents[idVentIndex].getUpperBoundStart() + correctDiff - move;
+        int upperBoundEnd = vents[idVentIndex].getUpperBoundEnd() + correctDiff - move;
         boolean isLowerMatch = currentVent.isLowerBoundWithinRange(lowerBoundStart - TRUNCATION_POSSIBILITIES,
                 lowerBoundEnd + TRUNCATION_POSSIBILITIES);
         boolean isUpperMatch = currentVent.isUpperBoundWithinRange(upperBoundStart - TRUNCATION_POSSIBILITIES,
@@ -170,47 +168,19 @@ public class VentStatusPredicter {
         identifiedBitMask = 0;
         currentState = previousState = null;
     }
-    public boolean areAnyVentIdentified() { return identifiedBitMask > 0; }
-    private boolean isFrozen(VentStatus vent) {
-        boolean hasEstimatedARange = (vents[0].isIdentified() || vents[0].isRangeDefined());
-        boolean hasEstimatedBRange = (vents[1].isIdentified() || vents[1].isRangeDefined());
 
-        switch(vent.getName()) {
-            case 'A':
-                //A never freezes
-                return false;
 
-            case 'B':
-                //B will only freeze if A is within 49-59% and B is also 49-59%
-                //(undefined ranges means we assume frozen)
-                if(!hasEstimatedARange) return true;
-                if(!vents[0].isWithinRange(41, 59)) return false;
-                if(!hasEstimatedBRange) return true;
-                return vents[1].isWithinRange(41, 59);
-
-            case 'C':
-                if(!hasEstimatedARange || !hasEstimatedBRange) return true;
-                //If A is within 41-59%..
-                if(vents[0].isWithinRange(41, 59)) {
-                    //and B is within 41-59% C will freeze no matter what
-                    if(vents[1].isWithinRange(41, 59)) return true;
-                    //and B is not within 41-59% C will only freeze if its within 41-59%
-                    else if(vents[2].isWithinRange(41, 59)) return true;
-                }
-                //C will freeze if both B and C are within 49-59%
-                if(vents[1].isWithinRange(41, 59)) return vents[2].isWithinRange(41, 59);
-                return false;
-        }
-        return true;
-    }
-    private void calcSingleVentValue(VentStatus unIdVent, int change) {
-     //Calculate the missing vent value
-        int partialVentUpdate = 0;
+    private int getIdentifiedVentTotalValue() {
+        int totalVentUpdate = 0;
         for(int i = 0; i < vents.length; ++i) {
             if(!vents[i].isIdentified()) continue;
-            partialVentUpdate += getSpecificVentUpdate(vents[i].getActualValue());
+            totalVentUpdate += getSpecificVentUpdate(vents[i].getActualValue());
         }
+        return totalVentUpdate;
+    }
+    private void calcSingleVentValue(VentStatus unIdVent, int change) {
 
+        int partialVentUpdate = getIdentifiedVentTotalValue();
         int missingVentUpdate = getTotalVentUpdate(change) - partialVentUpdate;
         int lowerBoundStart = (PERFECT_VENT_VALUE - TRUNCATION_POSSIBILITIES) - missingVentUpdate;
         int lowerBoundEnd = (PERFECT_VENT_VALUE + TRUNCATION_POSSIBILITIES) - missingVentUpdate;
@@ -231,10 +201,63 @@ public class VentStatusPredicter {
         unIdVent.setLowerBoundRange(lowerBoundStart, lowerBoundEnd);
         unIdVent.setUpperBoundRange(upperBoundStart, upperBoundEnd);
     }
+    private void calcDoubleVentValue(VentStatus[] unIdVent, int change) {
+        int partialVentUpdate = getIdentifiedVentTotalValue();
+        int missingVentUpdate = getTotalVentUpdate(change) - partialVentUpdate;
+        int maxDistance = Math.min(MAX_VENT_VALUE - PERFECT_VENT_VALUE, missingVentUpdate);
+        int minDistance = Math.max(0, missingVentUpdate - PERFECT_VENT_VALUE);
+
+        int lowerBoundStart = PERFECT_VENT_VALUE - minDistance;
+        int lowerBoundEnd = PERFECT_VENT_VALUE - maxDistance;
+        int upperBoundStart = PERFECT_VENT_VALUE + minDistance;
+        int upperBoundEnd = PERFECT_VENT_VALUE + maxDistance;
+
+        for(int i = 0; i < unIdVent.length; ++i) {
+            unIdVent[i].setLowerBoundRange(lowerBoundStart, lowerBoundEnd);
+            unIdVent[i].setUpperBoundRange(upperBoundStart, upperBoundEnd);
+        }
+    }
     private int calcStabilityChange(int totalVentValue) {
         return STABILITY_CHANGE_CONSTANT - (totalVentValue / NUM_VENTS);
     }
     private int getDirectionFromChambers(int index, int chambers) { return (chambers & (1 << index)) != 0 ? 1 : -1;}
     private int getTotalVentUpdate(int change) { return (STABILITY_CHANGE_CONSTANT - change) * NUM_VENTS; }
     private int getSpecificVentUpdate(int ventValue) { return Math.abs(PERFECT_VENT_VALUE - ventValue); }
+    public boolean isFrozen(Character ventName) {
+        boolean hasEstimatedARange = (vents[0].isIdentified() || vents[0].isRangeDefined());
+        boolean hasEstimatedBRange = (vents[1].isIdentified() || vents[1].isRangeDefined());
+
+        switch(ventName) {
+            case 'A':
+                //A never freezes
+                return false;
+
+            case 'B':
+                //B will only freeze if A is within 49-59% and B is also 49-59%
+                //(undefined ranges means we assume frozen)
+                if(!hasEstimatedARange) return true;
+                if(!vents[0].isWithinRange(41, 59)) return false;
+                if(!hasEstimatedBRange) return true;
+                return vents[1].isWithinRange(41, 59);
+
+            case 'C':
+                if(!hasEstimatedARange || !hasEstimatedBRange) return true;
+                //If A is within 41-59%..
+                if(vents[0].isWithinRange(41, 59)) {
+                    //and B is within 41-59% C will freeze no matter what
+                    if(vents[1].isWithinRange(41, 59)) return true;
+                        //and B is not within 41-59% C will only freeze if its within 41-59%
+                    else if(vents[2].isWithinRange(41, 59)) return true;
+                }
+                //C will freeze if both B and C are within 49-59%
+                if(vents[1].isWithinRange(41, 59)) return vents[2].isWithinRange(41, 59);
+                return false;
+        }
+        return true;
+    }
+
+    public final StatusState getCurrentState() { return currentState; }
+    public final StatusState getPreviousState() { return previousState; }
+    public final VentStatus[] getCurrentVents() { return vents; }
+    public boolean areAnyVentIdentified() { return identifiedBitMask > 0; }
 }
