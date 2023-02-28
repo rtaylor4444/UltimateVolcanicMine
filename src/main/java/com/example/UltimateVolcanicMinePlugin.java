@@ -139,7 +139,9 @@ public class UltimateVolcanicMinePlugin extends Plugin
 			client.addChatMessage(ChatMessageType.GAMEMESSAGE, "CyanWarrior4: ", "Stability Update: " + stabilityTracker.getCurrentChange(), null);
 		}
 
-		if(estimatedTimeRemaining <= VM_GAME_RESET_TIME) {
+		//Reset around 5:00 when the server sends new unidentified vents
+		int mergedVentStatus = ventStatus[0] & ventStatus[1] & ventStatus[2];
+		if(mergedVentStatus == VentStatus.STARTING_VENT_VALUE && estimatedTimeRemaining <= (VM_GAME_RESET_TIME + 10)) {
 			stabilityTracker.resetStabilityHistory();
 			ventStatusPredicter.reset();
 		}

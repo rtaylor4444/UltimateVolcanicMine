@@ -27,8 +27,7 @@ public class VentStatus {
         //Direction state will remain the same as before
         actualValue = STARTING_VENT_VALUE;
         clearMovement();
-        lowerBoundStart = lowerBoundEnd = STARTING_VENT_VALUE;
-        upperBoundStart = upperBoundEnd = STARTING_VENT_VALUE;
+        clearRanges();
     }
     public void setEqualTo(VentStatus vent) {
         this.ventName = vent.ventName;
@@ -61,6 +60,10 @@ public class VentStatus {
     }
     public void clearMovement() {
         movementSinceLastState = 0;
+    }
+    public void clearRanges() {
+        lowerBoundStart = lowerBoundEnd = STARTING_VENT_VALUE;
+        upperBoundStart = upperBoundEnd = STARTING_VENT_VALUE;
     }
     public void setLowerBoundRange(int start, int end) {
         lowerBoundStart = capVentValue(start);

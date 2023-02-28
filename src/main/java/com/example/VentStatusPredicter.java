@@ -91,48 +91,42 @@ public class VentStatusPredicter {
         VentStatus currentVent = currentState.getVent(idVentIndex);
         //Debug prints
         int move = currentVent.getMovementSinceLastState();
-        int lowerDiff = currentVent.getLowerBoundStart() - previousVent.getLowerBoundStart();
-        int upperDiff = currentVent.getUpperBoundEnd() - previousVent.getUpperBoundEnd();
         if(client != null) {
             client.addChatMessage(ChatMessageType.GAMEMESSAGE, "CyanWarrior4: ", "move: " + move, null);
-            client.addChatMessage(ChatMessageType.GAMEMESSAGE, "CyanWarrior4: ", "lowerDiff: " + lowerDiff, null);
-            client.addChatMessage(ChatMessageType.GAMEMESSAGE, "CyanWarrior4: ", "upperDiff: " + upperDiff, null);
         }
 
-        //If difference is 0 vent is either frozen or stuck at 0%/100%
-        if(lowerDiff == 0 && upperDiff == 0) return true;
+        //If movement is 0 vent is either frozen or stuck at 0%/100%
+        if(move == 0) return true;
 
-        //Determine the correct diff of the two
-        int correctDiff = 0;
-        if(move < 0) correctDiff = Math.min(lowerDiff, upperDiff);
-        else if(move > 0) correctDiff = Math.max(lowerDiff, upperDiff);
-        //On 0 move use the next best thing the current direction
-        //BUG - Direction could be changed multiple times
+        //Clear previous ranges (just incase of merged values)
+        int lowerDiff = currentVent.getLowerBoundEnd() - previousVent.getLowerBoundEnd();
+        int upperDiff = currentVent.getUpperBoundStart() - previousVent.getUpperBoundStart();
+        if(lowerDiff != 0 || upperDiff != 0) {
+            vents[idVentIndex].clearRanges();
+        }
+
+        //Pick the correct answer based on our move
+        if(move < 0) {
+            if(lowerDiff < 0) {
+                vents[idVentIndex].setLowerBoundRange(currentVent.getLowerBoundStart(), currentVent.getLowerBoundEnd());
+                vents[idVentIndex].setUpperBoundRange(currentVent.getLowerBoundStart(), currentVent.getLowerBoundEnd());
+            }
+            if(upperDiff < 0) {
+                vents[idVentIndex].setLowerBoundRange(currentVent.getUpperBoundStart(), currentVent.getUpperBoundEnd());
+                vents[idVentIndex].setUpperBoundRange(currentVent.getUpperBoundStart(), currentVent.getUpperBoundEnd());
+            }
+        }
         else {
-            if(currentVent.getDirection() > 0) correctDiff = Math.max(lowerDiff, upperDiff);
-            else if(currentVent.getDirection() < 0) correctDiff = Math.min(lowerDiff, upperDiff);
+            if(lowerDiff > 0) {
+                vents[idVentIndex].setLowerBoundRange(currentVent.getLowerBoundStart(), currentVent.getLowerBoundEnd());
+                vents[idVentIndex].setUpperBoundRange(currentVent.getLowerBoundStart(), currentVent.getLowerBoundEnd());
+            }
+            if(upperDiff > 0) {
+                vents[idVentIndex].setLowerBoundRange(currentVent.getUpperBoundStart(), currentVent.getUpperBoundEnd());
+                vents[idVentIndex].setUpperBoundRange(currentVent.getUpperBoundStart(), currentVent.getUpperBoundEnd());
+            }
         }
-
-        int lowerBoundStart = vents[idVentIndex].getLowerBoundStart() + correctDiff - move;
-        int lowerBoundEnd = vents[idVentIndex].getLowerBoundEnd() + correctDiff - move;
-        int upperBoundStart = vents[idVentIndex].getUpperBoundStart() + correctDiff - move;
-        int upperBoundEnd = vents[idVentIndex].getUpperBoundEnd() + correctDiff - move;
-        boolean isLowerMatch = currentVent.isLowerBoundWithinRange(lowerBoundStart - TRUNCATION_POSSIBILITIES,
-                lowerBoundEnd + TRUNCATION_POSSIBILITIES);
-        boolean isUpperMatch = currentVent.isUpperBoundWithinRange(upperBoundStart - TRUNCATION_POSSIBILITIES,
-                upperBoundEnd + TRUNCATION_POSSIBILITIES);
-        if(isLowerMatch && isUpperMatch) {
-            vents[idVentIndex].setLowerBoundRange(currentVent.getLowerBoundStart(), currentVent.getLowerBoundEnd());
-            vents[idVentIndex].setUpperBoundRange(currentVent.getUpperBoundStart(), currentVent.getUpperBoundEnd());
-        }
-        else if(isLowerMatch) {
-            vents[idVentIndex].setLowerBoundRange(currentVent.getLowerBoundStart(), currentVent.getLowerBoundEnd());
-            vents[idVentIndex].setUpperBoundRange(currentVent.getLowerBoundStart(), currentVent.getLowerBoundEnd());
-        }
-        else if(isUpperMatch) {
-            vents[idVentIndex].setLowerBoundRange(currentVent.getUpperBoundStart(), currentVent.getUpperBoundEnd());
-            vents[idVentIndex].setUpperBoundRange(currentVent.getUpperBoundStart(), currentVent.getUpperBoundEnd());
-        }
+        //Do nothing on 0 difference (the answer is the same as the last one)
         return true;
     }
     public String getVentStatusText(int index, String startingText) {
@@ -142,24 +136,24 @@ public class VentStatusPredicter {
         builder.append("<col=00ffff>");
         if(vents[index].isTwoSeperateValues()) {
             if(vents[index].isLowerBoundSingleValue())
-                builder.append(Integer.toString(vents[index].getLowerBoundStart()) + "%");
+                builder.append(vents[index].getLowerBoundStart()).append("%");
             else {
-                builder.append(Integer.toString(vents[index].getLowerBoundStart()) + "-");
-                builder.append(Integer.toString(vents[index].getLowerBoundEnd()));
+                builder.append(vents[index].getLowerBoundStart()).append("-");
+                builder.append(vents[index].getLowerBoundEnd());
             }
             builder.append(" ");
             if(vents[index].isUpperBoundSingleValue())
-                builder.append(Integer.toString(vents[index].getUpperBoundStart()) + "%");
+                builder.append(vents[index].getUpperBoundStart()).append("%");
             else {
-                builder.append(Integer.toString(vents[index].getUpperBoundStart()) + "-");
-                builder.append(Integer.toString(vents[index].getUpperBoundEnd()));
+                builder.append(vents[index].getUpperBoundStart()).append("-");
+                builder.append(vents[index].getUpperBoundEnd());
             }
         } else {
             if(vents[index].isLowerBoundSingleValue())
-                builder.append(Integer.toString(vents[index].getLowerBoundStart()) + "%");
+                builder.append(vents[index].getLowerBoundStart()).append("%");
             else {
-                builder.append(Integer.toString(vents[index].getLowerBoundStart()) + "-");
-                builder.append(Integer.toString(vents[index].getLowerBoundEnd()) + "%");
+                builder.append(vents[index].getLowerBoundStart()).append("-");
+                builder.append(vents[index].getLowerBoundEnd()).append("%");
             }
         }
         return builder.append("</col>").toString();
@@ -179,7 +173,6 @@ public class VentStatusPredicter {
         return totalVentUpdate;
     }
     private void calcSingleVentValue(VentStatus unIdVent, int change) {
-
         int partialVentUpdate = getIdentifiedVentTotalValue();
         int missingVentUpdate = getTotalVentUpdate(change) - partialVentUpdate;
         int lowerBoundStart = (PERFECT_VENT_VALUE - TRUNCATION_POSSIBILITIES) - missingVentUpdate;
@@ -187,8 +180,8 @@ public class VentStatusPredicter {
         int upperBoundStart = (PERFECT_VENT_VALUE - TRUNCATION_POSSIBILITIES) + missingVentUpdate;
         int upperBoundEnd = (PERFECT_VENT_VALUE + TRUNCATION_POSSIBILITIES) + missingVentUpdate;
         while(lowerBoundStart < lowerBoundEnd) {
-            int newChange1 = calcStabilityChange(partialVentUpdate + lowerBoundStart);
-            int newChange2 = calcStabilityChange(partialVentUpdate + lowerBoundEnd);
+            int newChange1 = calcStabilityChange(partialVentUpdate + getSpecificVentUpdate(lowerBoundStart));
+            int newChange2 = calcStabilityChange(partialVentUpdate + getSpecificVentUpdate(lowerBoundEnd));
             if(newChange1 == change && newChange2 == change) break;
 
             if(newChange1 != change) {
@@ -198,6 +191,7 @@ public class VentStatusPredicter {
                 --lowerBoundEnd; ++upperBoundStart;
             }
         }
+        unIdVent.clearRanges();
         unIdVent.setLowerBoundRange(lowerBoundStart, lowerBoundEnd);
         unIdVent.setUpperBoundRange(upperBoundStart, upperBoundEnd);
     }
@@ -226,6 +220,7 @@ public class VentStatusPredicter {
     public boolean isFrozen(Character ventName) {
         boolean hasEstimatedARange = (vents[0].isIdentified() || vents[0].isRangeDefined());
         boolean hasEstimatedBRange = (vents[1].isIdentified() || vents[1].isRangeDefined());
+        boolean hasEstimatedCRange = (vents[2].isIdentified() || vents[2].isRangeDefined());
 
         switch(ventName) {
             case 'A':
@@ -241,16 +236,18 @@ public class VentStatusPredicter {
                 return vents[1].isWithinRange(41, 59);
 
             case 'C':
-                if(!hasEstimatedARange || !hasEstimatedBRange) return true;
+                //Undefined ranges means we must assume that they can be in range
+                if(!hasEstimatedARange && !hasEstimatedBRange) return true;
                 //If A is within 41-59%..
-                if(vents[0].isWithinRange(41, 59)) {
+                if(!hasEstimatedARange || vents[0].isWithinRange(41, 59)) {
                     //and B is within 41-59% C will freeze no matter what
-                    if(vents[1].isWithinRange(41, 59)) return true;
-                        //and B is not within 41-59% C will only freeze if its within 41-59%
-                    else if(vents[2].isWithinRange(41, 59)) return true;
+                    if(!hasEstimatedBRange || vents[1].isWithinRange(41, 59)) return true;
+                    //and B is not within 41-59% C will only freeze if its within 41-59%
+                    else if(!hasEstimatedCRange || vents[2].isWithinRange(41, 59)) return true;
                 }
                 //C will freeze if both B and C are within 49-59%
-                if(vents[1].isWithinRange(41, 59)) return vents[2].isWithinRange(41, 59);
+                if(!hasEstimatedBRange || vents[1].isWithinRange(41, 59))
+                    return !hasEstimatedCRange || vents[2].isWithinRange(41, 59);
                 return false;
         }
         return true;

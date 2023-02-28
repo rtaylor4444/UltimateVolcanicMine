@@ -70,9 +70,9 @@ public class VentStatusTest {
 
     public void isIdentifiedTest() {
         VentStatus vent = new VentStatus('A');
-        Assert.assertEquals(vent.isIdentified(), false);
+        Assert.assertFalse(vent.isIdentified());
         vent.update(20, 1);
-        Assert.assertEquals(vent.isIdentified(), true);
+        Assert.assertTrue(vent.isIdentified());
     }
 
     public void setLowerBoundRangeTest() {
@@ -107,28 +107,28 @@ public class VentStatusTest {
         VentStatus vent = new VentStatus('A');
         vent.setLowerBoundRange(35,50);
         //Actually out of range
-        Assert.assertEquals(vent.isLowerBoundWithinRange(10, 34), false);
-        Assert.assertEquals(vent.isLowerBoundWithinRange(51, 76), false);
+        Assert.assertFalse(vent.isLowerBoundWithinRange(10, 34));
+        Assert.assertFalse(vent.isLowerBoundWithinRange(51, 76));
         //Partially in range
-        Assert.assertEquals(vent.isLowerBoundWithinRange(10, 35), true);
-        Assert.assertEquals(vent.isLowerBoundWithinRange(50, 76), true);
+        Assert.assertTrue(vent.isLowerBoundWithinRange(10, 35));
+        Assert.assertTrue(vent.isLowerBoundWithinRange(50, 76));
         //Within the range
-        Assert.assertEquals(vent.isLowerBoundWithinRange(40, 45), true);
-        Assert.assertEquals(vent.isLowerBoundWithinRange(20, 55), true);
+        Assert.assertTrue(vent.isLowerBoundWithinRange(40, 45));
+        Assert.assertTrue(vent.isLowerBoundWithinRange(20, 55));
     }
 
     public void isUpperBoundWithinRange() {
         VentStatus vent = new VentStatus('A');
         vent.setUpperBoundRange(35,50);
         //Actually out of range
-        Assert.assertEquals(vent.isUpperBoundWithinRange(10, 34), false);
-        Assert.assertEquals(vent.isUpperBoundWithinRange(51, 76), false);
+        Assert.assertFalse(vent.isUpperBoundWithinRange(10, 34));
+        Assert.assertFalse(vent.isUpperBoundWithinRange(51, 76));
         //Partially in range
-        Assert.assertEquals(vent.isUpperBoundWithinRange(10, 35), true);
-        Assert.assertEquals(vent.isUpperBoundWithinRange(50, 76), true);
+        Assert.assertTrue(vent.isUpperBoundWithinRange(10, 35));
+        Assert.assertTrue(vent.isUpperBoundWithinRange(50, 76));
         //Within the range
-        Assert.assertEquals(vent.isUpperBoundWithinRange(40, 45), true);
-        Assert.assertEquals(vent.isUpperBoundWithinRange(20, 55), true);
+        Assert.assertTrue(vent.isUpperBoundWithinRange(40, 45));
+        Assert.assertTrue(vent.isUpperBoundWithinRange(20, 55));
     }
 
     public void setLowerBoundRangeMergeTest() {
@@ -158,7 +158,7 @@ public class VentStatusTest {
         vent.update(VentStatus.STARTING_VENT_VALUE, 1);
         vent.setLowerBoundRange(100, 100);
         vent.setUpperBoundRange(0, 0);
-        Assert.assertEquals(vent.isIdentified(), false);
+        Assert.assertFalse(vent.isIdentified());
         Assert.assertEquals(vent.getActualValue(), VentStatus.STARTING_VENT_VALUE);
         Assert.assertEquals(vent.getDirection(), 1);
         Assert.assertEquals(vent.getLowerBoundStart(), 100);
@@ -168,7 +168,7 @@ public class VentStatusTest {
 
         //Otherwise will change
         vent.update(50, 1);
-        Assert.assertEquals(vent.isIdentified(), true);
+        Assert.assertTrue(vent.isIdentified());
         Assert.assertEquals(vent.getActualValue(), 50);
         Assert.assertEquals(vent.getDirection(), 1);
         Assert.assertEquals(vent.getLowerBoundStart(), 50);
@@ -204,66 +204,75 @@ public class VentStatusTest {
 
     public void isRangeDefinedTest() {
         VentStatus vent = new VentStatus('A');
-        Assert.assertEquals(vent.isRangeDefined(), false);
+        Assert.assertFalse(vent.isRangeDefined());
         vent.setLowerBoundRange(40, 45);
-        Assert.assertEquals(vent.isRangeDefined(), false);
+        Assert.assertFalse(vent.isRangeDefined());
         vent.setUpperBoundRange(55, 60);
-        Assert.assertEquals(vent.isRangeDefined(), true);
+        Assert.assertTrue(vent.isRangeDefined());
+    }
+
+    public void clearRangesTest() {
+        VentStatus vent = new VentStatus('A');
+        vent.setLowerBoundRange(40, 45);
+        vent.setUpperBoundRange(40, 45);
+        Assert.assertTrue(vent.isRangeDefined());
+        vent.clearRanges();
+        Assert.assertFalse(vent.isRangeDefined());
     }
 
     public void isTwoSeperateValuesTest() {
         VentStatus vent = new VentStatus('A');
-        Assert.assertEquals(vent.isTwoSeperateValues(), false);
+        Assert.assertFalse(vent.isTwoSeperateValues());
         vent.setLowerBoundRange(40, 45);
-        Assert.assertEquals(vent.isTwoSeperateValues(), true);
+        Assert.assertTrue(vent.isTwoSeperateValues());
         vent.setUpperBoundRange(40, 45);
-        Assert.assertEquals(vent.isTwoSeperateValues(), false);
+        Assert.assertFalse(vent.isTwoSeperateValues());
     }
 
     public void isLowerBoundSingleValueTest() {
         VentStatus vent = new VentStatus('A');
-        Assert.assertEquals(vent.isLowerBoundSingleValue(), true);
+        Assert.assertTrue(vent.isLowerBoundSingleValue());
         vent.setLowerBoundRange(40, 45);
-        Assert.assertEquals(vent.isLowerBoundSingleValue(), false);
+        Assert.assertFalse(vent.isLowerBoundSingleValue());
         vent.setLowerBoundRange(45, 45);
-        Assert.assertEquals(vent.isLowerBoundSingleValue(), true);
+        Assert.assertTrue(vent.isLowerBoundSingleValue());
     }
 
     public void isUpperBoundSingleValueTest() {
         VentStatus vent = new VentStatus('A');
-        Assert.assertEquals(vent.isUpperBoundSingleValue(), true);
+        Assert.assertTrue(vent.isUpperBoundSingleValue());
         vent.setUpperBoundRange(50, 55);
-        Assert.assertEquals(vent.isUpperBoundSingleValue(), false);
+        Assert.assertFalse(vent.isUpperBoundSingleValue());
         vent.setUpperBoundRange(55, 55);
-        Assert.assertEquals(vent.isUpperBoundSingleValue(), true);
+        Assert.assertTrue(vent.isUpperBoundSingleValue());
     }
 
     public void isWithinRangeLowerTest() {
         VentStatus vent = new VentStatus('A');
         vent.setLowerBoundRange(35,50);
         //Actually out of range
-        Assert.assertEquals(vent.isWithinRange(10, 34), false);
-        Assert.assertEquals(vent.isWithinRange(51, 76), false);
+        Assert.assertFalse(vent.isWithinRange(10, 34));
+        Assert.assertFalse(vent.isWithinRange(51, 76));
         //Partially in range
-        Assert.assertEquals(vent.isWithinRange(10, 35), true);
-        Assert.assertEquals(vent.isWithinRange(50, 76), true);
+        Assert.assertTrue(vent.isWithinRange(10, 35));
+        Assert.assertTrue(vent.isWithinRange(50, 76));
         //Within the range
-        Assert.assertEquals(vent.isWithinRange(40, 45), true);
-        Assert.assertEquals(vent.isWithinRange(20, 55), true);
+        Assert.assertTrue(vent.isWithinRange(40, 45));
+        Assert.assertTrue(vent.isWithinRange(20, 55));
     }
 
     public void isWithinRangeUpperTest() {
         VentStatus vent = new VentStatus('A');
         vent.setUpperBoundRange(35,50);
         //Actually out of range
-        Assert.assertEquals(vent.isWithinRange(10, 34), false);
-        Assert.assertEquals(vent.isWithinRange(51, 76), false);
+        Assert.assertFalse(vent.isWithinRange(10, 34));
+        Assert.assertFalse(vent.isWithinRange(51, 76));
         //Partially in range
-        Assert.assertEquals(vent.isWithinRange(10, 35), true);
-        Assert.assertEquals(vent.isWithinRange(50, 76), true);
+        Assert.assertTrue(vent.isWithinRange(10, 35));
+        Assert.assertTrue(vent.isWithinRange(50, 76));
         //Within the range
-        Assert.assertEquals(vent.isWithinRange(40, 45), true);
-        Assert.assertEquals(vent.isWithinRange(20, 55), true);
+        Assert.assertTrue(vent.isWithinRange(40, 45));
+        Assert.assertTrue(vent.isWithinRange(20, 55));
     }
 
     public void isWithinRangeTest() {
@@ -271,15 +280,15 @@ public class VentStatusTest {
         vent.setLowerBoundRange(35,45);
         vent.setUpperBoundRange(55,60);
         //Out of range
-        Assert.assertEquals(vent.isWithinRange(10, 34), false);
-        Assert.assertEquals(vent.isWithinRange(61, 90), false);
+        Assert.assertFalse(vent.isWithinRange(10, 34));
+        Assert.assertFalse(vent.isWithinRange(61, 90));
         //Inbetween both ranges
-        Assert.assertEquals(vent.isWithinRange(46, 54), false);
+        Assert.assertFalse(vent.isWithinRange(46, 54));
         //Within one but not the other
-        Assert.assertEquals(vent.isWithinRange(10, 35), true);
-        Assert.assertEquals(vent.isWithinRange(59, 90), true);
+        Assert.assertTrue(vent.isWithinRange(10, 35));
+        Assert.assertTrue(vent.isWithinRange(59, 90));
         //Within both
-        Assert.assertEquals(vent.isWithinRange(45, 55), true);
-        Assert.assertEquals(vent.isWithinRange(VentStatus.MIN_VENT_VALUE-1, VentStatus.MAX_VENT_VALUE+1), true);
+        Assert.assertTrue(vent.isWithinRange(45, 55));
+        Assert.assertTrue(vent.isWithinRange(VentStatus.MIN_VENT_VALUE - 1, VentStatus.MAX_VENT_VALUE + 1));
     }
 }
