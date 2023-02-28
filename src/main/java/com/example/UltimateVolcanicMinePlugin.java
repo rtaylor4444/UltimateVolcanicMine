@@ -57,6 +57,7 @@ public class UltimateVolcanicMinePlugin extends Plugin
 	private static final int VM_GAME_RESET_TIME = 500;
 	private static final float SECONDS_TO_TICKS = 1.666f;
 	private static final int VENT_MOVE_TICK_TIME = 10;
+	private static final int TIME_MOVE_TICK_TIME = 6;
 
 	private VentStatusPredicter ventStatusPredicter = new VentStatusPredicter();
 	private StabilityTracker stabilityTracker = new StabilityTracker();
@@ -139,9 +140,10 @@ public class UltimateVolcanicMinePlugin extends Plugin
 			client.addChatMessage(ChatMessageType.GAMEMESSAGE, "CyanWarrior4: ", "Stability Update: " + stabilityTracker.getCurrentChange(), null);
 		}
 
-		//Reset around 5:00 when the server sends new unidentified vents
-		int mergedVentStatus = ventStatus[0] & ventStatus[1] & ventStatus[2];
-		if(mergedVentStatus == VentStatus.STARTING_VENT_VALUE && estimatedTimeRemaining <= (VM_GAME_RESET_TIME + 10)) {
+		//Ensure reset will not happen at start before the server sends the new game time
+		//Reset around 5:00 when the server sends new unidentified vent
+		if(ticksPassed > VMNotifier.NOTIFICATION_START_COOLDOWN_TICKS &&
+				estimatedTimeRemaining <= VM_GAME_RESET_TIME) {
 			stabilityTracker.resetStabilityHistory();
 			ventStatusPredicter.reset();
 		}

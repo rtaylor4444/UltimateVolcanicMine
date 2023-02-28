@@ -372,25 +372,25 @@ public class VentStatusPredicterTest {
         predicter.updateVentStatus(new int[]{VentStatus.STARTING_VENT_VALUE,
                 VentStatus.STARTING_VENT_VALUE, VentStatus.STARTING_VENT_VALUE}, 7);
         predicter.makeStatusState(null, 25);
-        predicter.updateVentStatus(new int[]{VentStatus.STARTING_VENT_VALUE, 50, 50}, 7);
+        predicter.updateVentStatus(new int[]{50, 50, VentStatus.STARTING_VENT_VALUE}, 7);
         predicter.makeStatusState(null, 25);
         final VentStatus[] vents = predicter.getCurrentVents();
-        Assert.assertTrue(vents[0].isRangeDefined());
+        Assert.assertTrue(vents[2].isRangeDefined());
 
-        //0 move ranges should remain unchanged
+        //If frozen ranges should remain unchanged
         predicter = new VentStatusPredicter();
-        predicter.updateVentStatus(new int[]{VentStatus.STARTING_VENT_VALUE, 50, 50}, 7);
+        predicter.updateVentStatus(new int[]{50, 50, VentStatus.STARTING_VENT_VALUE}, 7);
         predicter.makeStatusState(null, 25);
         final VentStatus[] vents2 = predicter.getCurrentVents();
-        int lowerBoundStart = vents[0].getLowerBoundStart();
-        int lowerBoundEnd = vents[0].getLowerBoundEnd();
-        int upperBoundStart = vents[0].getUpperBoundStart();
-        int upperBoundEnd = vents[0].getUpperBoundEnd();
+        int lowerBoundStart = vents[2].getLowerBoundStart();
+        int lowerBoundEnd = vents[2].getLowerBoundEnd();
+        int upperBoundStart = vents[2].getUpperBoundStart();
+        int upperBoundEnd = vents[2].getUpperBoundEnd();
         predicter.makeStatusState(null, 24);
-        Assert.assertEquals(vents2[0].getLowerBoundStart(), lowerBoundStart);
-        Assert.assertEquals(vents2[0].getLowerBoundEnd(), lowerBoundEnd);
-        Assert.assertEquals(vents2[0].getUpperBoundStart(), upperBoundStart);
-        Assert.assertEquals(vents2[0].getUpperBoundEnd(), upperBoundEnd);
+        Assert.assertEquals(vents2[2].getLowerBoundStart(), lowerBoundStart);
+        Assert.assertEquals(vents2[2].getLowerBoundEnd(), lowerBoundEnd);
+        Assert.assertEquals(vents2[2].getUpperBoundStart(), upperBoundStart);
+        Assert.assertEquals(vents2[2].getUpperBoundEnd(), upperBoundEnd);
 
     }
 
@@ -484,5 +484,9 @@ public class VentStatusPredicterTest {
         predicter.makeStatusState(null, 24);
         result = Text.removeTags(predicter.getVentStatusText(0, "A: "));
         Assert.assertEquals(result, "A: 45-47 53-55");
+    }
+
+    public void fixRangesStressTest() {
+
     }
 }

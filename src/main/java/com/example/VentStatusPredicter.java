@@ -95,8 +95,7 @@ public class VentStatusPredicter {
             client.addChatMessage(ChatMessageType.GAMEMESSAGE, "CyanWarrior4: ", "move: " + move, null);
         }
 
-        //If movement is 0 vent is either frozen or stuck at 0%/100%
-        if(move == 0) return true;
+        if(isFrozen(currentVent.getName())) return true;
 
         //Clear previous ranges (just incase of merged values)
         int lowerDiff = currentVent.getLowerBoundEnd() - previousVent.getLowerBoundEnd();
@@ -105,7 +104,10 @@ public class VentStatusPredicter {
             vents[idVentIndex].clearRanges();
         }
 
+        //If movement is 0 vent is stuck at 0%/100%
+        if(move == 0) move += currentVent.getDirection();
         //Pick the correct answer based on our move
+        //BUG - both lower + upper same direction
         if(move < 0) {
             if(lowerDiff < 0) {
                 vents[idVentIndex].setLowerBoundRange(currentVent.getLowerBoundStart(), currentVent.getLowerBoundEnd());

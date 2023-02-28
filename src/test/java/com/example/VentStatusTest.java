@@ -178,6 +178,7 @@ public class VentStatusTest {
     }
 
     public void updateMovementTest() {
+        //Upward movement should update since neither 0% or 100% are in range
         VentStatus vent = new VentStatus('A');
         vent.update(VentStatus.STARTING_VENT_VALUE, 1);
         vent.setLowerBoundRange(VentStatus.MIN_VENT_VALUE+1, 47);
@@ -185,17 +186,98 @@ public class VentStatusTest {
         vent.updateMovement();
         Assert.assertEquals(vent.getMovementSinceLastState(), 1);
 
-        vent.setLowerBoundRange(-1, 3);
+        //Upward movement should not be updated 100% is in range
+        vent.update(VentStatus.STARTING_VENT_VALUE, 1);
+        vent.setLowerBoundRange(VentStatus.MIN_VENT_VALUE+1, 47);
+        vent.setUpperBoundRange(53, VentStatus.MAX_VENT_VALUE+1);
+        vent.clearMovement();
+        vent.updateMovement();
+        Assert.assertEquals(vent.getMovementSinceLastState(), 0);
+
+        //Upward movement should update even though 0% is in range
+        vent.update(VentStatus.STARTING_VENT_VALUE, 1);
+        vent.setLowerBoundRange(VentStatus.MIN_VENT_VALUE-1, 47);
+        vent.setUpperBoundRange(53, VentStatus.MAX_VENT_VALUE-1);
+        vent.clearMovement();
+        vent.updateMovement();
         Assert.assertEquals(vent.getMovementSinceLastState(), 1);
 
-        vent.setLowerBoundRange(45, 47);
-        vent.setUpperBoundRange(97, 101);
-        Assert.assertEquals(vent.getMovementSinceLastState(), 1);
+
+        //Downward movement should update since neither 0% or 100% are in range
+        vent.update(VentStatus.STARTING_VENT_VALUE, -1);
+        vent.setLowerBoundRange(VentStatus.MIN_VENT_VALUE+1, 47);
+        vent.setUpperBoundRange(53, VentStatus.MAX_VENT_VALUE-1);
+        vent.clearMovement();
+        vent.updateMovement();
+        Assert.assertEquals(vent.getMovementSinceLastState(), -1);
+
+        //Downward movement should not be updated 0% is in range
+        vent.update(VentStatus.STARTING_VENT_VALUE, -1);
+        vent.setLowerBoundRange(VentStatus.MIN_VENT_VALUE-1, 47);
+        vent.setUpperBoundRange(53, VentStatus.MAX_VENT_VALUE+1);
+        vent.clearMovement();
+        vent.updateMovement();
+        Assert.assertEquals(vent.getMovementSinceLastState(), 0);
+
+        //Downward movement should update even though 100% is in range
+        vent.update(VentStatus.STARTING_VENT_VALUE, -1);
+        vent.setLowerBoundRange(VentStatus.MIN_VENT_VALUE+1, 47);
+        vent.setUpperBoundRange(53, VentStatus.MAX_VENT_VALUE+1);
+        vent.clearMovement();
+        vent.updateMovement();
+        Assert.assertEquals(vent.getMovementSinceLastState(), -1);
+    }
+
+    public void updateMovementRangeTest() {
+        //Ranges should not be made if they are undefined
+        VentStatus vent = new VentStatus('A');
+        vent.update(VentStatus.STARTING_VENT_VALUE, 1);
+        vent.updateMovement();
+        Assert.assertFalse(vent.isRangeDefined());
+
+        //Ranges should be updated and capped at 100%
+        vent.setLowerBoundRange(VentStatus.MIN_VENT_VALUE, 3);
+        vent.setUpperBoundRange(97, VentStatus.MAX_VENT_VALUE);
+        vent.updateMovement();
+        Assert.assertEquals(vent.getLowerBoundStart(), VentStatus.MIN_VENT_VALUE+1);
+        Assert.assertEquals(vent.getLowerBoundEnd(), 4);
+        Assert.assertEquals(vent.getUpperBoundStart(), 98);
+        Assert.assertEquals(vent.getUpperBoundEnd(), VentStatus.MAX_VENT_VALUE);
+
+        //Ranges should be updated and capped at 0%
+        vent.update(VentStatus.STARTING_VENT_VALUE, -1);
+        vent.setLowerBoundRange(VentStatus.MIN_VENT_VALUE, 3);
+        vent.setUpperBoundRange(97, VentStatus.MAX_VENT_VALUE);
+        vent.updateMovement();
+        Assert.assertEquals(vent.getLowerBoundStart(), VentStatus.MIN_VENT_VALUE);
+        Assert.assertEquals(vent.getLowerBoundEnd(), 2);
+        Assert.assertEquals(vent.getUpperBoundStart(), 96);
+        Assert.assertEquals(vent.getUpperBoundEnd(), VentStatus.MAX_VENT_VALUE-1);
+
+        //Ranges should merge and move properly
+        vent.setLowerBoundRange(47, VentStatus.PERFECT_VENT_VALUE);
+        vent.setUpperBoundRange(VentStatus.PERFECT_VENT_VALUE, 53);
+        vent.updateMovement();
+        Assert.assertEquals(vent.getLowerBoundStart(), 46);
+        Assert.assertEquals(vent.getLowerBoundEnd(), 52);
+        Assert.assertEquals(vent.getUpperBoundStart(), 46);
+        Assert.assertEquals(vent.getUpperBoundEnd(), 52);
+
+        //Ranges should merge and move properly even max ranges
+        vent.setLowerBoundRange(VentStatus.MIN_VENT_VALUE, VentStatus.PERFECT_VENT_VALUE);
+        vent.setUpperBoundRange(VentStatus.PERFECT_VENT_VALUE, VentStatus.MAX_VENT_VALUE);
+        vent.updateMovement();
+        Assert.assertEquals(vent.getLowerBoundStart(), VentStatus.MIN_VENT_VALUE);
+        Assert.assertEquals(vent.getLowerBoundEnd(), VentStatus.MAX_VENT_VALUE-1);
+        Assert.assertEquals(vent.getUpperBoundStart(), VentStatus.MIN_VENT_VALUE);
+        Assert.assertEquals(vent.getUpperBoundEnd(), VentStatus.MAX_VENT_VALUE-1);
     }
 
     public void clearMovementTest() {
         VentStatus vent = new VentStatus('A');
         vent.update(VentStatus.STARTING_VENT_VALUE, 1);
+        vent.setLowerBoundRange(50, 50);
+        vent.setUpperBoundRange(50, 50);
         vent.updateMovement();
         Assert.assertEquals(vent.getMovementSinceLastState(), 1);
         vent.clearMovement();

@@ -48,15 +48,23 @@ public class VentStatus {
         }
     }
     public void updateMovement() {
-        if(movementDirection > 0 && upperBoundEnd == MAX_VENT_VALUE) return;
-        if(movementDirection < 0 && lowerBoundStart == MIN_VENT_VALUE) return;
-        movementSinceLastState += movementDirection;
+        //Update our current ranges
+        int lowerStart = getLowerBoundStart();
+        int upperEnd = getUpperBoundEnd();
         if(isRangeDefined()) {
-            setLowerBoundRange(getLowerBoundStart() + movementDirection,
-                    getLowerBoundEnd() + movementDirection);
-            setUpperBoundRange(getUpperBoundStart() + movementDirection,
-                    getUpperBoundEnd() + movementDirection);
+            int lowerEnd = getLowerBoundEnd();
+            int upperStart = getUpperBoundStart();
+
+            clearRanges();
+            setLowerBoundRange(lowerStart + movementDirection,
+                    lowerEnd + movementDirection);
+            setUpperBoundRange(upperStart + movementDirection,
+                    upperEnd + movementDirection);
         }
+
+        if(movementDirection > 0 && upperEnd >= MAX_VENT_VALUE) return;
+        if(movementDirection < 0 && lowerStart <= MIN_VENT_VALUE) return;
+        movementSinceLastState += movementDirection;
     }
     public void clearMovement() {
         movementSinceLastState = 0;

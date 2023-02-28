@@ -9,7 +9,7 @@ public class VMNotifier {
         VM_RESET,
         VM_ERUPTION;
     }
-    private static final int NOTIFICATION_START_COOLDOWN_TICKS = 10;
+    public static final int NOTIFICATION_START_COOLDOWN_TICKS = 10;
     private HashSet<NotificationEvents> oneTimeEvents = new HashSet<>();
     VMNotifier() {
         reset();
