@@ -116,15 +116,20 @@ public class UltimateVolcanicMinePlugin extends Plugin
 			estimatedTimeRemaining = timeRemainingFromServer = newTimeRemaining;
 		} else --estimatedTimeRemaining;
 
+		int prevStatusA = ventStatus[0];
 		ventStatus[0] = client.getVarbitValue(VARBIT_VENT_STATUS_A);
+		int prevStatusB = ventStatus[1];
 		ventStatus[1] = client.getVarbitValue(VARBIT_VENT_STATUS_B);
+		int prevStatusC = ventStatus[2];
 		ventStatus[2] = client.getVarbitValue(VARBIT_VENT_STATUS_C);
 		chamberStatus = client.getVarbitValue(VARBIT_CHAMBER_STATUS);
 		int stability = client.getVarbitValue(VARBIT_STABILITY);
 
 
 		ventStatusPredicter.updateVentStatus(ventStatus, chamberStatus);
-		if(ticksPassed % VENT_MOVE_TICK_TIME == movementUpdateTick) {
+		//Update our movement on the same exact tick the vent status changes
+		if(prevStatusA != ventStatus[0] || prevStatusB != ventStatus[1]
+				|| prevStatusC != ventStatus[2]) {
 			ventStatusPredicter.updateVentMovement();
 			varbitsUpdated = 0;
 		}
