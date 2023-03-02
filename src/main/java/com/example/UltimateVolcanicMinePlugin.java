@@ -61,6 +61,7 @@ public class UltimateVolcanicMinePlugin extends Plugin
 
 	private VentStatusPredicter ventStatusPredicter = new VentStatusPredicter();
 	private StabilityTracker stabilityTracker = new StabilityTracker();
+	private StabilityTracker futureStabilityTracker = new StabilityTracker();
 	private VMNotifier VM_notifier = new VMNotifier();
 	private int vmGameState = VM_GAME_STATE_NONE;
 	private int ventStatus[] = new int[3];
@@ -96,6 +97,7 @@ public class UltimateVolcanicMinePlugin extends Plugin
 		if (vmGameState == VM_GAME_STATE_IN_LOBBY) {
 			stabilityTracker.initialize();
 			ventStatusPredicter.initialize();
+			futureStabilityTracker.initialize();
 			resetGameVariables();
 		}
 	}
@@ -116,11 +118,8 @@ public class UltimateVolcanicMinePlugin extends Plugin
 			estimatedTimeRemaining = timeRemainingFromServer = newTimeRemaining;
 		} else --estimatedTimeRemaining;
 
-		int prevStatusA = ventStatus[0];
 		ventStatus[0] = client.getVarbitValue(VARBIT_VENT_STATUS_A);
-		int prevStatusB = ventStatus[1];
 		ventStatus[1] = client.getVarbitValue(VARBIT_VENT_STATUS_B);
-		int prevStatusC = ventStatus[2];
 		ventStatus[2] = client.getVarbitValue(VARBIT_VENT_STATUS_C);
 		chamberStatus = client.getVarbitValue(VARBIT_CHAMBER_STATUS);
 		int stability = client.getVarbitValue(VARBIT_STABILITY);
@@ -128,10 +127,17 @@ public class UltimateVolcanicMinePlugin extends Plugin
 
 		ventStatusPredicter.updateVentStatus(ventStatus, chamberStatus);
 		//Update our movement on the same exact tick the vent status changes
-		if(prevStatusA != ventStatus[0] || prevStatusB != ventStatus[1]
-				|| prevStatusC != ventStatus[2]) {
+		if(ticksPassed % VENT_MOVE_TICK_TIME == movementUpdateTick) {
 			ventStatusPredicter.updateVentMovement();
 			varbitsUpdated = 0;
+
+			//Check if we have to fix vents in the future
+			int futureChange = ventStatusPredicter.getFutureStabilityChange();
+			if(futureChange != VentStatus.STARTING_VENT_VALUE) {
+				futureStabilityTracker.addChange(futureChange);
+				if (futureStabilityTracker.isFutureStabilityBad() && estimatedTimeRemaining > 595)
+					VM_notifier.notify(notifier, VMNotifier.NotificationEvents.VM_PRE_RESET_VENT_FIX, ticksPassed);
+			}
 		}
 
 		if(stabilityTracker.updateStability(stability)) {
@@ -143,6 +149,10 @@ public class UltimateVolcanicMinePlugin extends Plugin
 			widget = client.getWidget(WidgetID.VOLCANIC_MINE_GROUP_ID, HUD_VENT_C_PERCENTAGE);
 			client.addChatMessage(ChatMessageType.GAMEMESSAGE, "CyanWarrior4: ", ventStatusPredicter.getVentStatusText(2, widget.getText()), null);
 			client.addChatMessage(ChatMessageType.GAMEMESSAGE, "CyanWarrior4: ", "Stability Update: " + stabilityTracker.getCurrentChange(), null);
+
+			//Check if we have to fix vents now
+//			if(stabilityTracker.getCurrentStability() < 0 && estimatedTimeRemaining > 595)
+//				VM_notifier.notify(notifier, VMNotifier.NotificationEvents.VM_PRE_RESET_VENT_FIX, ticksPassed);
 		}
 
 		//Ensure reset will not happen at start before the server sends the new game time
@@ -150,6 +160,7 @@ public class UltimateVolcanicMinePlugin extends Plugin
 		if(ticksPassed > VMNotifier.NOTIFICATION_START_COOLDOWN_TICKS &&
 				estimatedTimeRemaining <= VM_GAME_RESET_TIME) {
 			stabilityTracker.resetStabilityHistory();
+			futureStabilityTracker.resetStabilityHistory();
 			ventStatusPredicter.reset();
 		}
 
@@ -184,10 +195,13 @@ public class UltimateVolcanicMinePlugin extends Plugin
 			return;
 		}
 
+		//Stability Trackers
 		Widget widget = client.getWidget(WidgetID.VOLCANIC_MINE_GROUP_ID, HUD_STABILITY_COMPONENT);
 		if (widget != null) {
 			widget.setText(widget.getText() + stabilityTracker.getStabilityText());
 		}
+		widget = client.getWidget(WidgetID.VOLCANIC_MINE_GROUP_ID, HUD_STABILITY_COMPONENT-1);
+		widget.setText("Stab." + futureStabilityTracker.getStabilityText());
 
 		//Vent Status
 		widget = client.getWidget(WidgetID.VOLCANIC_MINE_GROUP_ID, HUD_VENT_A_PERCENTAGE);

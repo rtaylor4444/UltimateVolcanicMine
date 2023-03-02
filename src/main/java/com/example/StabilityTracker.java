@@ -9,6 +9,7 @@ public class StabilityTracker {
     private static final int STARTING_STABILITY = 50;
     private static final int MAX_STABILITY = 100;
     private static final int MAX_STABILITY_UPDATES = 3;
+    private static final int DOWNWARD_STABILITY_CONSTANT = 1;
 
     private boolean hasResetHistory = false;
     private int currentStability;
@@ -35,17 +36,35 @@ public class StabilityTracker {
         int change = newStability - currentStability;
         currentStability = newStability;
 
-        stabilityHistory.addFirst(change);
-        while(stabilityHistory.size() > MAX_STABILITY_UPDATES) stabilityHistory.removeLast();
+        addChange(change);
         //If stability is max highly likely the change was truncated so this update is invalid
         return currentStability != MAX_STABILITY;
     }
 
+    private int calcTrend() {
+        if(stabilityHistory.size() < 2) return 0;
+        int currentTrend = 0, nextChange = Integer.MIN_VALUE;
+        Iterator<Integer> it = stabilityHistory.iterator();
+        while(it.hasNext()) {
+            int change = (Integer)it.next();
+            if(nextChange != Integer.MIN_VALUE) {
+                currentTrend += (nextChange - change);
+            }
+            nextChange = change;
+        }
+        return currentTrend / (MAX_STABILITY_UPDATES - 1);
+    }
+
+    public boolean isFutureStabilityBad() {
+        int trend = calcTrend();
+        if(trend >= 0) return false;
+        return getCurrentChange() + trend <= DOWNWARD_STABILITY_CONSTANT;
+    }
     public String getStabilityText() {
         if(stabilityHistory.isEmpty()) return "";
 
         StringBuilder builder = new StringBuilder();
-        Iterator it = stabilityHistory.iterator();
+        Iterator<Integer> it = stabilityHistory.iterator();
         int numIterations = 0;
         while(it.hasNext()) {
             if(++numIterations > 1) builder.append(",");
@@ -63,5 +82,9 @@ public class StabilityTracker {
     public int getCurrentChange() {
         if(stabilityHistory.isEmpty()) return 0;
         return stabilityHistory.getFirst();
+    }
+    public void addChange(int change) {
+        stabilityHistory.addFirst(change);
+        while(stabilityHistory.size() > MAX_STABILITY_UPDATES) stabilityHistory.removeLast();
     }
 }

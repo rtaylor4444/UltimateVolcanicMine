@@ -6,6 +6,8 @@ import static com.example.VentStatus.*;
 import net.runelite.api.ChatMessageType;
 import net.runelite.api.Client;
 
+import java.util.ArrayList;
+
 public class VentStatusPredicter {
 
     private static final char[] VENT_TAGS = {'A', 'B', 'C'};
@@ -132,10 +134,6 @@ public class VentStatusPredicter {
             upperBoundEnd += vents[idVentIndex].getDirection();
             int totalDistanceToLower = Math.abs(currentVent.getLowerBoundStart() - lowerBoundStart);
             int totalDistanceToUpper = Math.abs(currentVent.getUpperBoundEnd() - upperBoundEnd);
-            if(vents[idVentIndex].isTwoSeperateValues()) {
-                totalDistanceToLower = currentVent.getLowerBoundStart() - lowerBoundStart;
-                totalDistanceToUpper = upperBoundEnd - currentVent.getUpperBoundEnd();
-            }
 
             if(totalDistanceToLower < totalDistanceToUpper) {
                 vents[idVentIndex].clearRanges();
@@ -187,6 +185,34 @@ public class VentStatusPredicter {
     public void clearStabilityStates() {
         identifiedBitMask = 0;
         currentState = previousState = null;
+    }
+    public int getFutureStabilityChange() {
+        int totalVentValue = 0;
+        ArrayList<VentStatus> estimatedVents = new ArrayList<>();
+        for(int i = 0; i < NUM_VENTS; ++i) {
+            if(!vents[i].isRangeDefined())
+                return STARTING_VENT_VALUE;
+            if(vents[i].isIdentified())
+                totalVentValue += getSpecificVentUpdate(vents[i].getActualValue());
+            else
+                estimatedVents.add(vents[i]);
+        }
+
+        int estimatedVentValue = Integer.MAX_VALUE;
+        for(int i = 0; i < estimatedVents.size(); ++i) {
+            VentStatus vent = estimatedVents.get(i);
+            int avgLower = (vent.getLowerBoundEnd() + vent.getLowerBoundStart()) / 2;
+            int avgUpper = (vent.getUpperBoundStart() + vent.getUpperBoundEnd()) / 2;
+            int ventUpdate = Math.max(getSpecificVentUpdate(avgLower),
+                    getSpecificVentUpdate(avgUpper));
+
+            if(estimatedVentValue == Integer.MAX_VALUE) estimatedVentValue = ventUpdate;
+            else estimatedVentValue += ventUpdate;
+        }
+
+        if(estimatedVentValue != Integer.MAX_VALUE)
+            totalVentValue += estimatedVentValue;
+        return calcStabilityChange(totalVentValue);
     }
 
 

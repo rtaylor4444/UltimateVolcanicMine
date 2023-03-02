@@ -7,7 +7,8 @@ import net.runelite.client.Notifier;
 public class VMNotifier {
     public enum NotificationEvents {
         VM_RESET,
-        VM_ERUPTION;
+        VM_ERUPTION,
+        VM_PRE_RESET_VENT_FIX;
     }
     public static final int NOTIFICATION_START_COOLDOWN_TICKS = 10;
     private HashSet<NotificationEvents> oneTimeEvents = new HashSet<>();
@@ -17,6 +18,7 @@ public class VMNotifier {
     private void setOneTimeEvents() {
         oneTimeEvents.add(NotificationEvents.VM_RESET);
         oneTimeEvents.add(NotificationEvents.VM_ERUPTION);
+        oneTimeEvents.add(NotificationEvents.VM_PRE_RESET_VENT_FIX);
     }
     public void reset() {
         setOneTimeEvents();
@@ -33,6 +35,10 @@ public class VMNotifier {
 
             case VM_ERUPTION:
                 notifier.notify("The volcano will erupt in " + 40 + " seconds!");
+                break;
+
+            case VM_PRE_RESET_VENT_FIX:
+                notifier.notify("Fix your vent! -Cyanwarrior4");
                 break;
         }
     }

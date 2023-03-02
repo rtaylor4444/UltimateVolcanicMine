@@ -565,4 +565,21 @@ public class VentStatusPredicterTest {
         Assert.assertEquals(vents6[2].getUpperBoundStart(), 45);
         Assert.assertEquals(vents6[2].getUpperBoundEnd(), 47);
     }
+
+    public void fixRangeInaccurateMovementTest2() {
+        //Lets assume stability is at 100% for a bit and vent changed signficantly
+        //Move is now quite a bit short
+        VentStatusPredicter predicter = new VentStatusPredicter();
+        predicter.updateVentStatus(new int[]{VentStatus.STARTING_VENT_VALUE, 41, 72}, 4);
+        for(int i = 0; i < 3; ++i) predicter.updateVentMovement();
+        predicter.makeStatusState(null, 11);
+        predicter.updateVentStatus(new int[]{VentStatus.STARTING_VENT_VALUE, 40, 75}, 4);
+        for(int i = 0; i < 2; ++i) predicter.updateVentMovement();
+        predicter.makeStatusState(null, 7);
+        final VentStatus[] vents = predicter.getCurrentVents();
+        Assert.assertEquals(vents[0].getLowerBoundStart(), 29);
+        Assert.assertEquals(vents[0].getLowerBoundEnd(), 31);
+        Assert.assertEquals(vents[0].getUpperBoundStart(), 29);
+        Assert.assertEquals(vents[0].getUpperBoundEnd(), 31);
+    }
 }
