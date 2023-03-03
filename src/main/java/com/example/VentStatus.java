@@ -9,7 +9,8 @@ public class VentStatus {
     private char ventName;
     private int actualValue;
     private int movementDirection;
-    private int movementSinceLastState;
+    private int pessimisticMovement;
+    private int optimisticMovement;
 
     private int lowerBoundStart, lowerBoundEnd;
     private int upperBoundStart, upperBoundEnd;
@@ -33,7 +34,8 @@ public class VentStatus {
         this.ventName = vent.ventName;
         this.actualValue = vent.actualValue;
         this.movementDirection = vent.movementDirection;
-        this.movementSinceLastState = vent.movementSinceLastState;
+        this.pessimisticMovement = vent.pessimisticMovement;
+        this.optimisticMovement = vent.optimisticMovement;
         this.lowerBoundStart = vent.lowerBoundStart;
         this.lowerBoundEnd = vent.lowerBoundEnd;
         this.upperBoundStart = vent.upperBoundStart;
@@ -47,11 +49,11 @@ public class VentStatus {
             upperBoundStart = upperBoundEnd = actualValue;
         }
     }
-    public void updateMovement() {
+    public void updateMovement(boolean isFrozen) {
         //Update our current ranges
         int lowerStart = getLowerBoundStart();
         int upperEnd = getUpperBoundEnd();
-        if(isRangeDefined()) {
+        if(!isFrozen && isRangeDefined()) {
             int lowerEnd = getLowerBoundEnd();
             int upperStart = getUpperBoundStart();
 
@@ -64,10 +66,11 @@ public class VentStatus {
 
         if(movementDirection > 0 && upperEnd >= MAX_VENT_VALUE) return;
         if(movementDirection < 0 && lowerStart <= MIN_VENT_VALUE) return;
-        movementSinceLastState += movementDirection;
+        if(!isFrozen) pessimisticMovement += movementDirection;
+        optimisticMovement += movementDirection;
     }
     public void clearMovement() {
-        movementSinceLastState = 0;
+        optimisticMovement = pessimisticMovement = 0;
     }
     public void clearRanges() {
         lowerBoundStart = lowerBoundEnd = STARTING_VENT_VALUE;
@@ -110,9 +113,21 @@ public class VentStatus {
     public boolean isWithinRange(int start, int end) {
         if(isLowerBoundWithinRange(start, end)) return true;
         if(isTwoSeperateValues()) {
-            if(isUpperBoundWithinRange(start, end)) return true;
+            return isUpperBoundWithinRange(start, end);
         }
         return false;
+    }
+    public int[] getOverlappedLowerBoundRange(int start, int end) {
+        if(!isLowerBoundWithinRange(start, end)) return new int[]{0, 0};
+        int maxStart = Math.max(getLowerBoundStart(), start);
+        int minEnd = Math.min(getLowerBoundEnd(), end);
+        return new int[]{maxStart, minEnd};
+    }
+    public int[] getOverlappedUpperBoundRange(int start, int end) {
+        if(!isUpperBoundWithinRange(start, end)) return new int[]{0, 0};
+        int maxStart = Math.max(getUpperBoundStart(), start);
+        int minEnd = Math.min(getUpperBoundEnd(), end);
+        return new int[]{maxStart, minEnd};
     }
 
     private int capVentValue(int value) { return Math.min(MAX_VENT_VALUE, Math.max(MIN_VENT_VALUE, value));}
@@ -124,5 +139,10 @@ public class VentStatus {
     public int getLowerBoundEnd() { return lowerBoundEnd; }
     public int getUpperBoundStart() { return upperBoundStart; }
     public int getUpperBoundEnd() { return upperBoundEnd; }
-    public int getMovementSinceLastState() { return movementSinceLastState; }
+    public int getPessimisticMovement() { return pessimisticMovement; }
+    public int getOptimisticMovement() {
+        if(optimisticMovement > 0) return optimisticMovement + 1;
+        else if(optimisticMovement < 0) return optimisticMovement - 1;
+        return optimisticMovement;
+    }
 }

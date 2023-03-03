@@ -46,9 +46,9 @@ public class VentStatusPredicter {
     public boolean updateVentMovement() {
         int updatedVents = 0;
         for(int i = 0; i < vents.length; ++i) {
-            if(!vents[i].isRangeDefined() || isFrozen(vents[i].getName())) continue;
+            if(!vents[i].isRangeDefined()) continue;
             ++updatedVents;
-            vents[i].updateMovement();
+            vents[i].updateMovement(isFrozen(vents[i].getName()));
         }
         return updatedVents > 0;
     }
@@ -92,15 +92,35 @@ public class VentStatusPredicter {
 
         VentStatus currentVent = currentState.getVent(idVentIndex);
         //Debug prints
-        int move = currentVent.getMovementSinceLastState();
+        int pesMove = currentVent.getPessimisticMovement();
+        int optMove = currentVent.getOptimisticMovement();
         if(client != null) {
-            client.addChatMessage(ChatMessageType.GAMEMESSAGE, "CyanWarrior4: ", "move: " + move, null);
+            client.addChatMessage(ChatMessageType.GAMEMESSAGE, "CyanWarrior4: ", "PessimisticMovement: " + pesMove, null);
+            client.addChatMessage(ChatMessageType.GAMEMESSAGE, "CyanWarrior4: ", "OptimisticMovement: " + optMove, null);
         }
 
+        //Fix our ranges to account for movement inaccuracies
+        //EX: Update movement tick is off (pes move varies by -1 or +1)
         int lowerBoundStart = vents[idVentIndex].getLowerBoundStart();
         int lowerBoundEnd = vents[idVentIndex].getLowerBoundEnd();
         int upperBoundStart = vents[idVentIndex].getUpperBoundStart();
         int upperBoundEnd = vents[idVentIndex].getUpperBoundEnd();
+        if(optMove < 0) {
+            //maximum possible estimated value
+            lowerBoundStart += ((optMove * 2) - pesMove);
+            upperBoundStart += ((optMove * 2) - pesMove);
+            //minimum possible estimated value (pesMove could be off)
+            lowerBoundEnd -= pesMove;
+            upperBoundEnd -= pesMove;
+        }
+        else if(optMove > 0) {
+            //maximum possible estimated value
+            lowerBoundEnd += ((optMove * 2) - pesMove);
+            upperBoundEnd += ((optMove * 2) - pesMove);
+            //minimum possible estimated value (pesMove could be off)
+            lowerBoundStart -= pesMove;
+            upperBoundStart -= pesMove;
+        }
 
         //Pick the correct ranges
         boolean isWithinLowerRange = currentVent.isLowerBoundWithinRange(lowerBoundStart, lowerBoundEnd);
@@ -127,29 +147,32 @@ public class VentStatusPredicter {
         else {
             //Neither or both range(s) match so our movement is inaccurate
             //we must pick the answer that is the closest to our estimate
-
-            //Use direction in case of 0 move
-            //BUG - Not super reliable since player can change it easy but best we got
-            lowerBoundStart += vents[idVentIndex].getDirection();
-            upperBoundEnd += vents[idVentIndex].getDirection();
-            int totalDistanceToLower = Math.abs(currentVent.getLowerBoundStart() - lowerBoundStart);
-            int totalDistanceToUpper = Math.abs(currentVent.getUpperBoundEnd() - upperBoundEnd);
-
-            if(totalDistanceToLower < totalDistanceToUpper) {
+            int[] lowerOverlap = currentVent.getOverlappedLowerBoundRange(lowerBoundStart, lowerBoundEnd);
+            int[] upperOverlap = currentVent.getOverlappedUpperBoundRange(upperBoundStart, upperBoundEnd);
+            int lowerRangeLength = (lowerOverlap[1] - lowerOverlap[0]);
+            int upperRangeLength = (upperOverlap[1] - upperOverlap[0]);
+            if(lowerRangeLength > upperRangeLength) {
                 vents[idVentIndex].clearRanges();
                 vents[idVentIndex].setLowerBoundRange(currentVent.getLowerBoundStart(),
                         currentVent.getLowerBoundEnd());
                 vents[idVentIndex].setUpperBoundRange(currentVent.getLowerBoundStart(),
                         currentVent.getLowerBoundEnd());
             }
-            else if(totalDistanceToLower > totalDistanceToUpper) {
+            else if(lowerRangeLength < upperRangeLength) {
                 vents[idVentIndex].clearRanges();
                 vents[idVentIndex].setLowerBoundRange(currentVent.getUpperBoundStart(),
                         currentVent.getUpperBoundEnd());
                 vents[idVentIndex].setUpperBoundRange(currentVent.getUpperBoundStart(),
                         currentVent.getUpperBoundEnd());
             }
-            //If neither above conditions match that means ranges are exactly the same!
+            else {
+                //If they are even pick both answers and start over next time
+                vents[idVentIndex].clearRanges();
+                vents[idVentIndex].setLowerBoundRange(currentVent.getLowerBoundStart(),
+                        currentVent.getLowerBoundEnd());
+                vents[idVentIndex].setUpperBoundRange(currentVent.getUpperBoundStart(),
+                        currentVent.getUpperBoundEnd());
+            }
         }
         return true;
     }
