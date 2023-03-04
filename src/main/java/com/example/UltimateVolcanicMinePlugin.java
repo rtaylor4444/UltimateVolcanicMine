@@ -14,7 +14,7 @@ import net.runelite.client.config.ConfigManager;
 import net.runelite.client.eventbus.Subscribe;
 import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDescriptor;
-
+import net.runelite.client.ui.overlay.infobox.InfoBoxManager;
 import net.runelite.api.widgets.Widget;
 
 @Slf4j
@@ -32,7 +32,8 @@ public class UltimateVolcanicMinePlugin extends Plugin
 	@Inject
 	private UltimateVolcanicMineConfig config;
 
-
+	@Inject
+	private InfoBoxManager infoBoxManager;
 
 	//Constants
 	private static final int PROC_VOLCANIC_MINE_SET_OTHERINFO = 2022;
@@ -43,6 +44,7 @@ public class UltimateVolcanicMinePlugin extends Plugin
 	private static final int VARBIT_VENT_STATUS_B = 5940;
 	private static final int VARBIT_VENT_STATUS_C = 5942;
 	private static final int VARBIT_CHAMBER_STATUS = 5936;
+	private static final int VARBIT_POINTS = 5934;
 	private static final int HUD_STABILITY_COMPONENT = 11;
 	private static final int HUD_VENT_A_PERCENTAGE = 17;
 	private static final int HUD_VENT_B_PERCENTAGE = 18;
@@ -52,6 +54,8 @@ public class UltimateVolcanicMinePlugin extends Plugin
 	private static final int VM_GAME_STATE_IN_GAME = 2;
 	private static final int VM_REGION_NORTH = 15263;
 	private static final int VM_REGION_SOUTH = 15262;
+	private static final int GAME_OBJ_CHAMBER_BLOCKED = 31044;
+	private static final int GAME_OBJ_CHAMBER_UNBLOCKED = 31043;
 
 	private static final int VM_GAME_FULL_TIME = 1000;
 	private static final int VM_GAME_RESET_TIME = 500;
@@ -63,6 +67,8 @@ public class UltimateVolcanicMinePlugin extends Plugin
 	private StabilityTracker stabilityTracker = new StabilityTracker();
 	private StabilityTracker futureStabilityTracker = new StabilityTracker();
 	private VMNotifier VM_notifier = new VMNotifier();
+	private CapCounter capCounter = new CapCounter();
+	private CapCounterInfoBox capInfoBox;
 	private int vmGameState = VM_GAME_STATE_NONE;
 	private int ventStatus[] = new int[3];
 	private int varbitsUpdated = 0;
@@ -80,7 +86,7 @@ public class UltimateVolcanicMinePlugin extends Plugin
 
 	@Override
 	protected void startUp() throws Exception {
-
+		capInfoBox = new CapCounterInfoBox(capCounter, this);
 	}
 
 	@Override
@@ -106,12 +112,15 @@ public class UltimateVolcanicMinePlugin extends Plugin
 	public void onGameTick(GameTick tick) {
 		if(!isInVM()) {
 			vmGameState = VM_GAME_STATE_NONE;
+			infoBoxManager.removeInfoBox(capInfoBox);
 			resetGameVariables();
 			return;
 		}
 
 		//Exit if the game has not started yet
 		if(vmGameState < VM_GAME_STATE_IN_GAME) return;
+
+		Widget widget = client.getWidget(WidgetID.VOLCANIC_MINE_GROUP_ID, 6);
 
 		int newTimeRemaining = client.getVarbitValue(VARBIT_TIME_REMAINING);
 		if(newTimeRemaining != timeRemainingFromServer) {
@@ -142,7 +151,7 @@ public class UltimateVolcanicMinePlugin extends Plugin
 
 		if(stabilityTracker.updateStability(stability)) {
 			ventStatusPredicter.makeStatusState(client, stabilityTracker.getCurrentChange());
-			Widget widget = client.getWidget(WidgetID.VOLCANIC_MINE_GROUP_ID, HUD_VENT_A_PERCENTAGE);
+			widget = client.getWidget(WidgetID.VOLCANIC_MINE_GROUP_ID, HUD_VENT_A_PERCENTAGE);
 			client.addChatMessage(ChatMessageType.GAMEMESSAGE, "CyanWarrior4: ", ventStatusPredicter.getVentStatusText(0, widget.getText()), null);
 			widget = client.getWidget(WidgetID.VOLCANIC_MINE_GROUP_ID, HUD_VENT_B_PERCENTAGE);
 			client.addChatMessage(ChatMessageType.GAMEMESSAGE, "CyanWarrior4: ", ventStatusPredicter.getVentStatusText(1, widget.getText()), null);
@@ -177,7 +186,18 @@ public class UltimateVolcanicMinePlugin extends Plugin
 	public void onVarbitChanged(VarbitChanged event) {
 		//Exit if the game has not started yet
 		if(!isInVM() || vmGameState < VM_GAME_STATE_IN_GAME) return;
-		//Do not try to get the movement update tick until at least 1 vent
+
+		//Keep track of points for our cap counter
+		if(event.getVarbitId() == VARBIT_POINTS) {
+			int playerX = client.getLocalPlayer().getWorldLocation().getX();
+			int playerY = client.getLocalPlayer().getWorldLocation().getY();
+			if(capCounter.updateScore(client.getVarbitValue(VARBIT_POINTS), playerX, playerY)) {
+				//Only add the info box once the player caps for the first time
+				if (capCounter.getTimesCapped() == 1) infoBoxManager.addInfoBox(capInfoBox);
+			}
+		}
+
+		//Do not get the movement update tick until at least 1 vent
 		//is identified
 		if(!ventStatusPredicter.areAnyVentIdentified()) return;
 
@@ -203,6 +223,7 @@ public class UltimateVolcanicMinePlugin extends Plugin
 		widget = client.getWidget(WidgetID.VOLCANIC_MINE_GROUP_ID, HUD_STABILITY_COMPONENT-1);
 		widget.setText("Stab." + futureStabilityTracker.getStabilityText());
 
+
 		//Vent Status
 		widget = client.getWidget(WidgetID.VOLCANIC_MINE_GROUP_ID, HUD_VENT_A_PERCENTAGE);
 		widget.setText(ventStatusPredicter.getVentStatusText(0, widget.getText()));
@@ -215,6 +236,7 @@ public class UltimateVolcanicMinePlugin extends Plugin
 	private void resetGameVariables() {
 		estimatedTimeRemaining = VM_GAME_FULL_TIME;
 		VM_notifier.reset();
+		capCounter.initialize();
 		varbitsUpdated = timeRemainingFromServer = 0;
 		ticksPassed = 0;
 		movementUpdateTick = -1;
@@ -230,20 +252,29 @@ public class UltimateVolcanicMinePlugin extends Plugin
 		// Skip calculation if not in VM
 		if (!isInVM()) return;
 
-		// If warning is enabled and game object spawned is a stage 3 platform
-		if (event.getGameObject().getId() == PLATFORM_STAGE_3_ID)
-		{
-			// Fetch coordinates of player and game object
-			int playerX = client.getLocalPlayer().getWorldLocation().getX();
-			int playerY = client.getLocalPlayer().getWorldLocation().getY();
-			int objectX = event.getGameObject().getWorldLocation().getX();
-			int objectY = event.getGameObject().getWorldLocation().getY();
+		// Fetch coordinates of player and game object
+		int playerX = client.getLocalPlayer().getWorldLocation().getX();
+		int playerY = client.getLocalPlayer().getWorldLocation().getY();
+		int objectX = event.getGameObject().getWorldLocation().getX();
+		int objectY = event.getGameObject().getWorldLocation().getY();
 
+		// If warning is enabled and game object spawned is a stage 3 platform
+		int gameObjectId = event.getGameObject().getId();
+		if (gameObjectId == PLATFORM_STAGE_3_ID)
+		{
 			// Notify player if the stage 3 platform is beneath them
 			if (playerX == objectX && playerY == objectY)
 			{
 				notifier.notify(PLATFORM_WARNING_MESSAGE);
 			}
+		}
+
+		if(gameObjectId == GAME_OBJ_CHAMBER_BLOCKED || gameObjectId == GAME_OBJ_CHAMBER_UNBLOCKED) {
+			objectX = event.getGameObject().getWorldLocation().getX();
+			objectY = event.getGameObject().getWorldLocation().getY();
+			capCounter.addCappingPositions(objectX, objectY);
+//			client.addChatMessage(ChatMessageType.GAMEMESSAGE, "CyanWarrior4: ", "obj spawned x:" + objectX + " y: " + objectY, null);
+//			client.addChatMessage(ChatMessageType.GAMEMESSAGE, "CyanWarrior4: ", "player x:" + playerX + " y: " + playerY, null);
 		}
 	}
 	private boolean isInVM()

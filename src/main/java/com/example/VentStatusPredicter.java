@@ -94,10 +94,10 @@ public class VentStatusPredicter {
         //Debug prints
         int pesMove = currentVent.getPessimisticMovement();
         int optMove = currentVent.getOptimisticMovement();
-        if(client != null) {
-            client.addChatMessage(ChatMessageType.GAMEMESSAGE, "CyanWarrior4: ", "PessimisticMovement: " + pesMove, null);
-            client.addChatMessage(ChatMessageType.GAMEMESSAGE, "CyanWarrior4: ", "OptimisticMovement: " + optMove, null);
-        }
+//        if(client != null) {
+//            client.addChatMessage(ChatMessageType.GAMEMESSAGE, "CyanWarrior4: ", "PessimisticMovement: " + pesMove, null);
+//            client.addChatMessage(ChatMessageType.GAMEMESSAGE, "CyanWarrior4: ", "OptimisticMovement: " + optMove, null);
+//        }
 
         //Fix our ranges to account for movement inaccuracies
         //EX: Update movement tick is off (pes move varies by -1 or +1)
@@ -226,8 +226,8 @@ public class VentStatusPredicter {
             VentStatus vent = estimatedVents.get(i);
             int avgLower = (vent.getLowerBoundEnd() + vent.getLowerBoundStart()) / 2;
             int avgUpper = (vent.getUpperBoundStart() + vent.getUpperBoundEnd()) / 2;
-            int ventUpdate = Math.max(getSpecificVentUpdate(avgLower),
-                    getSpecificVentUpdate(avgUpper));
+            int ventUpdate = (getSpecificVentUpdate(avgLower) +
+                    getSpecificVentUpdate(avgUpper)) / 2;
 
             if(estimatedVentValue == Integer.MAX_VALUE) estimatedVentValue = ventUpdate;
             else estimatedVentValue += ventUpdate;
