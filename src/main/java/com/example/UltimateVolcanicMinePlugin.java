@@ -15,6 +15,7 @@ import net.runelite.client.eventbus.Subscribe;
 import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDescriptor;
 import net.runelite.client.ui.overlay.infobox.InfoBoxManager;
+import net.runelite.client.ui.overlay.OverlayManager;
 import net.runelite.api.widgets.Widget;
 
 @Slf4j
@@ -34,6 +35,12 @@ public class UltimateVolcanicMinePlugin extends Plugin
 
 	@Inject
 	private InfoBoxManager infoBoxManager;
+
+	@Inject
+	private OverlayManager overlayManager;
+
+	@Inject
+	private CappingRockOverlay cappingRockOverlay;
 
 	//Constants
 	private static final int PROC_VOLCANIC_MINE_SET_OTHERINFO = 2022;
@@ -56,6 +63,8 @@ public class UltimateVolcanicMinePlugin extends Plugin
 	private static final int VM_REGION_SOUTH = 15262;
 	private static final int GAME_OBJ_CHAMBER_BLOCKED = 31044;
 	private static final int GAME_OBJ_CHAMBER_UNBLOCKED = 31043;
+	private static final int GAME_OBJ_TAKEN_ROCK = 31046;
+	private static final int GAME_OBJ_ROCK = 31045;
 
 	private static final int VM_GAME_FULL_TIME = 1000;
 	private static final int VM_GAME_RESET_TIME = 500;
@@ -68,6 +77,7 @@ public class UltimateVolcanicMinePlugin extends Plugin
 	private StabilityTracker futureStabilityTracker = new StabilityTracker();
 	private VMNotifier VM_notifier = new VMNotifier();
 	private CapCounter capCounter = new CapCounter();
+	private CappingRockTracker rockTracker = new CappingRockTracker();
 	private CapCounterInfoBox capInfoBox;
 	private int vmGameState = VM_GAME_STATE_NONE;
 	private int ventStatus[] = new int[3];
@@ -87,12 +97,14 @@ public class UltimateVolcanicMinePlugin extends Plugin
 	@Override
 	protected void startUp() throws Exception {
 		capInfoBox = new CapCounterInfoBox(capCounter, this);
+		cappingRockOverlay.setRockTracker(rockTracker);
+		overlayManager.add(cappingRockOverlay);
 	}
 
 	@Override
 	protected void shutDown() throws Exception
 	{
-		log.info("Example stopped!");
+		overlayManager.remove(cappingRockOverlay);
 	}
 
 	@Subscribe
@@ -133,7 +145,7 @@ public class UltimateVolcanicMinePlugin extends Plugin
 		chamberStatus = client.getVarbitValue(VARBIT_CHAMBER_STATUS);
 		int stability = client.getVarbitValue(VARBIT_STABILITY);
 
-
+		rockTracker.updateRockTimers();
 		ventStatusPredicter.updateVentStatus(ventStatus, chamberStatus);
 		//Update our movement on the same exact tick the vent status changes
 		if(ticksPassed % VENT_MOVE_TICK_TIME == movementUpdateTick) {
@@ -247,19 +259,30 @@ public class UltimateVolcanicMinePlugin extends Plugin
 	// Constants
 	private static final int PLATFORM_STAGE_3_ID = 31000;
 	@Subscribe
-	public void onGameObjectSpawned(GameObjectSpawned event)
-	{
-		// Skip calculation if not in VM
+	public void onGameObjectSpawned(GameObjectSpawned event) {
 		if (!isInVM()) return;
 
-		// Fetch coordinates of player and game object
+		int gameObjectId = event.getGameObject().getId();
 		int playerX = client.getLocalPlayer().getWorldLocation().getX();
 		int playerY = client.getLocalPlayer().getWorldLocation().getY();
 		int objectX = event.getGameObject().getWorldLocation().getX();
 		int objectY = event.getGameObject().getWorldLocation().getY();
 
+		//Get initial positions the player must be on to cap
+		if(gameObjectId == GAME_OBJ_CHAMBER_BLOCKED || gameObjectId == GAME_OBJ_CHAMBER_UNBLOCKED) {
+			objectX = event.getGameObject().getWorldLocation().getX();
+			objectY = event.getGameObject().getWorldLocation().getY();
+			capCounter.addCappingPositions(objectX, objectY);
+		}
+		//A rock was taken so lets add a new rock to track
+		if(gameObjectId == GAME_OBJ_TAKEN_ROCK) {
+			rockTracker.addRock(event.getGameObject().getWorldLocation());
+		}
+
+		if(gameObjectId == GAME_OBJ_ROCK)
+			client.addChatMessage(ChatMessageType.GAMEMESSAGE, "CyanWarrior4: ", ""+ticksPassed, null);
+
 		// If warning is enabled and game object spawned is a stage 3 platform
-		int gameObjectId = event.getGameObject().getId();
 		if (gameObjectId == PLATFORM_STAGE_3_ID)
 		{
 			// Notify player if the stage 3 platform is beneath them
@@ -267,14 +290,6 @@ public class UltimateVolcanicMinePlugin extends Plugin
 			{
 				notifier.notify(PLATFORM_WARNING_MESSAGE);
 			}
-		}
-
-		if(gameObjectId == GAME_OBJ_CHAMBER_BLOCKED || gameObjectId == GAME_OBJ_CHAMBER_UNBLOCKED) {
-			objectX = event.getGameObject().getWorldLocation().getX();
-			objectY = event.getGameObject().getWorldLocation().getY();
-			capCounter.addCappingPositions(objectX, objectY);
-//			client.addChatMessage(ChatMessageType.GAMEMESSAGE, "CyanWarrior4: ", "obj spawned x:" + objectX + " y: " + objectY, null);
-//			client.addChatMessage(ChatMessageType.GAMEMESSAGE, "CyanWarrior4: ", "player x:" + playerX + " y: " + playerY, null);
 		}
 	}
 	private boolean isInVM()
