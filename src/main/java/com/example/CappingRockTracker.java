@@ -10,7 +10,7 @@ public class CappingRockTracker {
     }
 
     public void addRock(WorldPoint worldLocation) {
-        rocks.add(new CappingRock(worldLocation));
+        rocks.addLast(new CappingRock(worldLocation));
     }
     public void updateRockTimers() {
         for (CappingRock rock : rocks) {

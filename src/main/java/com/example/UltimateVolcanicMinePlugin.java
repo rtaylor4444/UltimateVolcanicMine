@@ -275,12 +275,9 @@ public class UltimateVolcanicMinePlugin extends Plugin
 			capCounter.addCappingPositions(objectX, objectY);
 		}
 		//A rock was taken so lets add a new rock to track
-		if(gameObjectId == GAME_OBJ_TAKEN_ROCK) {
-			rockTracker.addRock(event.getGameObject().getWorldLocation());
-		}
-
-		if(gameObjectId == GAME_OBJ_ROCK)
-			client.addChatMessage(ChatMessageType.GAMEMESSAGE, "CyanWarrior4: ", ""+ticksPassed, null);
+//		if(gameObjectId == GAME_OBJ_TAKEN_ROCK) {
+//			rockTracker.addRock(event.getGameObject().getWorldLocation());
+//		}
 
 		// If warning is enabled and game object spawned is a stage 3 platform
 		if (gameObjectId == PLATFORM_STAGE_3_ID)
@@ -291,6 +288,14 @@ public class UltimateVolcanicMinePlugin extends Plugin
 				notifier.notify(PLATFORM_WARNING_MESSAGE);
 			}
 		}
+	}
+	@Subscribe
+	void onGameObjectDespawned(GameObjectDespawned event) {
+		int gameObjectId = event.getGameObject().getId();
+		if(gameObjectId == GAME_OBJ_ROCK) {
+			rockTracker.addRock(event.getGameObject().getWorldLocation());
+		}
+
 	}
 	private boolean isInVM()
 	{

@@ -15,7 +15,7 @@ public class CappingRock {
     public Color getStateColor() {
         double ratio = ticksPassed / TICK_RESPAWN_TIME;
         if(ratio < 0.4) return new Color(255, 50, 0);
-        else if(ratio < 0.7) return new Color(255, 187, 0);
+        else if(ratio < 0.8) return new Color(255, 187, 0);
         return new Color(0, 217, 0);
     }
     public void updateTimeRemaining() {
