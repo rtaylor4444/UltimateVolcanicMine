@@ -1,4 +1,4 @@
-package com.example;
+package com.ultimatevm;
 
 import java.awt.Dimension;
 import java.awt.Graphics2D;

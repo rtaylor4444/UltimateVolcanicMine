@@ -1,4 +1,4 @@
-package com.example;
+package com.ultimatevm;
 
 import java.util.LinkedList;
 import java.util.Iterator;
@@ -9,7 +9,6 @@ public class StabilityTracker {
     private static final int STARTING_STABILITY = 50;
     private static final int MAX_STABILITY = 100;
     private static final int MAX_STABILITY_UPDATES = 3;
-    private static final int DOWNWARD_STABILITY_CONSTANT = 1;
 
     private boolean hasResetHistory = false;
     private int currentStability;
@@ -55,10 +54,10 @@ public class StabilityTracker {
         return currentTrend / (MAX_STABILITY_UPDATES - 1);
     }
 
-    public boolean isFutureStabilityBad() {
+    public boolean isFutureStabilityBad(int stabilityThreshold) {
         int trend = calcTrend();
         if(trend >= 0) return false;
-        return getCurrentChange() + trend <= DOWNWARD_STABILITY_CONSTANT;
+        return getCurrentChange() + trend <= stabilityThreshold;
     }
     public String getStabilityText() {
         if(stabilityHistory.isEmpty()) return "";

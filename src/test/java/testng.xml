@@ -3,7 +3,7 @@
 <suite name="UltimateVMSuite" verbose="1" >
     <test name="UltimateVMTest"   >
         <packages>
-            <package name="com.example" />
+            <package name="com.ultimatevm" />
         </packages>
     </test>
 </suite>

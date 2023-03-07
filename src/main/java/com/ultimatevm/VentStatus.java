@@ -1,4 +1,4 @@
-package com.example;
+package com.ultimatevm;
 
 public class VentStatus {
 

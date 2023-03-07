@@ -1,4 +1,4 @@
-package com.example;
+package com.ultimatevm;
 
 import net.runelite.client.util.Text;
 import org.testng.annotations.Test;

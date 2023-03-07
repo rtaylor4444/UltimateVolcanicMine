@@ -1,4 +1,4 @@
-package com.example;
+package com.ultimatevm;
 
 import com.google.inject.Provides;
 import javax.inject.Inject;
@@ -12,6 +12,7 @@ import net.runelite.api.widgets.WidgetID;
 import net.runelite.client.Notifier;
 import net.runelite.client.config.ConfigManager;
 import net.runelite.client.eventbus.Subscribe;
+import net.runelite.client.events.ConfigChanged;
 import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDescriptor;
 import net.runelite.client.ui.overlay.infobox.InfoBoxManager;
@@ -70,22 +71,20 @@ public class UltimateVolcanicMinePlugin extends Plugin
 	private static final int VM_GAME_RESET_TIME = 500;
 	private static final float SECONDS_TO_TICKS = 1.666f;
 	private static final int VENT_MOVE_TICK_TIME = 10;
-	private static final int TIME_MOVE_TICK_TIME = 6;
 
 	private VentStatusPredicter ventStatusPredicter = new VentStatusPredicter();
 	private StabilityTracker stabilityTracker = new StabilityTracker();
 	private StabilityTracker futureStabilityTracker = new StabilityTracker();
-	private VMNotifier VM_notifier = new VMNotifier();
+	private VMNotifier VM_notifier;
 	private CapCounter capCounter = new CapCounter();
 	private CappingRockTracker rockTracker = new CappingRockTracker();
 	private CapCounterInfoBox capInfoBox;
 	private int vmGameState = VM_GAME_STATE_NONE;
 	private int ventStatus[] = new int[3];
 	private int varbitsUpdated = 0;
-	private int chamberStatus;
 	private int timeRemainingFromServer, estimatedTimeRemaining;
 	private int ticksPassed, movementUpdateTick;
-
+	private int eruptionTime, ventWarningTime;
 
 
 	@Provides
@@ -94,17 +93,34 @@ public class UltimateVolcanicMinePlugin extends Plugin
 		return configManager.getConfig(UltimateVolcanicMineConfig.class);
 	}
 
+	@Subscribe
+	public void onConfigChanged(ConfigChanged event)
+	{
+		eruptionTime = (int) (config.eruptionWarningTime() * SECONDS_TO_TICKS);
+		ventWarningTime = (int) (config.ventWarningTime() * SECONDS_TO_TICKS);
+
+		infoBoxManager.removeInfoBox(capInfoBox);
+		if(config.capCounter() && capCounter.getTimesCapped() >= 1) infoBoxManager.addInfoBox(capInfoBox);
+
+		overlayManager.remove(cappingRockOverlay);
+		if(config.rockTimer()) overlayManager.add(cappingRockOverlay);
+	}
+
 	@Override
 	protected void startUp() throws Exception {
+		VM_notifier = new VMNotifier(config);
 		capInfoBox = new CapCounterInfoBox(capCounter, this);
 		cappingRockOverlay.setRockTracker(rockTracker);
 		overlayManager.add(cappingRockOverlay);
+		eruptionTime = (int) (config.eruptionWarningTime() * SECONDS_TO_TICKS);
+		ventWarningTime = (int) (config.ventWarningTime() * SECONDS_TO_TICKS);
 	}
 
 	@Override
 	protected void shutDown() throws Exception
 	{
 		overlayManager.remove(cappingRockOverlay);
+		infoBoxManager.removeInfoBox(capInfoBox);
 	}
 
 	@Subscribe
@@ -142,7 +158,7 @@ public class UltimateVolcanicMinePlugin extends Plugin
 		ventStatus[0] = client.getVarbitValue(VARBIT_VENT_STATUS_A);
 		ventStatus[1] = client.getVarbitValue(VARBIT_VENT_STATUS_B);
 		ventStatus[2] = client.getVarbitValue(VARBIT_VENT_STATUS_C);
-		chamberStatus = client.getVarbitValue(VARBIT_CHAMBER_STATUS);
+		int chamberStatus = client.getVarbitValue(VARBIT_CHAMBER_STATUS);
 		int stability = client.getVarbitValue(VARBIT_STABILITY);
 
 		rockTracker.updateRockTimers();
@@ -156,8 +172,8 @@ public class UltimateVolcanicMinePlugin extends Plugin
 			int futureChange = ventStatusPredicter.getFutureStabilityChange();
 			if(futureChange != VentStatus.STARTING_VENT_VALUE) {
 				futureStabilityTracker.addChange(futureChange);
-				if (futureStabilityTracker.isFutureStabilityBad() && estimatedTimeRemaining > 595)
-					VM_notifier.notify(notifier, VMNotifier.NotificationEvents.VM_PRE_RESET_VENT_FIX, ticksPassed);
+				if (futureStabilityTracker.isFutureStabilityBad(config.predictedStabilityChange()) && estimatedTimeRemaining > 595)
+					VM_notifier.notify(notifier, VMNotifier.NotificationEvents.VM_PREDICTED_VENT_FIX, ticksPassed);
 			}
 		}
 
@@ -172,8 +188,8 @@ public class UltimateVolcanicMinePlugin extends Plugin
 			client.addChatMessage(ChatMessageType.GAMEMESSAGE, "CyanWarrior4: ", "Stability Update: " + stabilityTracker.getCurrentChange(), null);
 
 			//Check if we have to fix vents now
-//			if(stabilityTracker.getCurrentStability() < 0 && estimatedTimeRemaining > 595)
-//				VM_notifier.notify(notifier, VMNotifier.NotificationEvents.VM_PRE_RESET_VENT_FIX, ticksPassed);
+			if(stabilityTracker.getCurrentStability() < 0 && estimatedTimeRemaining > 595)
+				VM_notifier.notify(notifier, VMNotifier.NotificationEvents.VM_PRE_RESET_VENT_FIX, ticksPassed);
 		}
 
 		//Ensure reset will not happen at start before the server sends the new game time
@@ -185,10 +201,10 @@ public class UltimateVolcanicMinePlugin extends Plugin
 			ventStatusPredicter.reset();
 		}
 
-		if (estimatedTimeRemaining <= (VM_GAME_RESET_TIME + 50))
+		if (estimatedTimeRemaining <= (VM_GAME_RESET_TIME + ventWarningTime))
 			VM_notifier.notify(notifier, VMNotifier.NotificationEvents.VM_RESET, ticksPassed);
 
-		if (estimatedTimeRemaining <= 70)
+		if (estimatedTimeRemaining <= eruptionTime)
 			VM_notifier.notify(notifier, VMNotifier.NotificationEvents.VM_ERUPTION, ticksPassed);
 
 		++ticksPassed;
@@ -274,14 +290,11 @@ public class UltimateVolcanicMinePlugin extends Plugin
 			objectY = event.getGameObject().getWorldLocation().getY();
 			capCounter.addCappingPositions(objectX, objectY);
 		}
-		//A rock was taken so lets add a new rock to track
-//		if(gameObjectId == GAME_OBJ_TAKEN_ROCK) {
-//			rockTracker.addRock(event.getGameObject().getWorldLocation());
-//		}
 
 		// If warning is enabled and game object spawned is a stage 3 platform
 		if (gameObjectId == PLATFORM_STAGE_3_ID)
 		{
+			if(!config.showPlatformWarning()) return;
 			// Notify player if the stage 3 platform is beneath them
 			if (playerX == objectX && playerY == objectY)
 			{

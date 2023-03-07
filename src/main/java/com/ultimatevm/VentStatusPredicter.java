@@ -1,9 +1,8 @@
-package com.example;
+package com.ultimatevm;
 
-import static com.example.StatusState.*;
-import static com.example.VentStatus.*;
+import static com.ultimatevm.StatusState.*;
+import static com.ultimatevm.VentStatus.*;
 
-import net.runelite.api.ChatMessageType;
 import net.runelite.api.Client;
 
 import java.util.ArrayList;
@@ -270,22 +269,7 @@ public class VentStatusPredicter {
         unIdVent.setLowerBoundRange(lowerBoundStart, lowerBoundEnd);
         unIdVent.setUpperBoundRange(upperBoundStart, upperBoundEnd);
     }
-    private void calcDoubleVentValue(VentStatus[] unIdVent, int change) {
-        int partialVentUpdate = getIdentifiedVentTotalValue();
-        int missingVentUpdate = getTotalVentUpdate(change) - partialVentUpdate;
-        int maxDistance = Math.min(MAX_VENT_VALUE - PERFECT_VENT_VALUE, missingVentUpdate);
-        int minDistance = Math.max(0, missingVentUpdate - PERFECT_VENT_VALUE);
 
-        int lowerBoundStart = PERFECT_VENT_VALUE - minDistance;
-        int lowerBoundEnd = PERFECT_VENT_VALUE - maxDistance;
-        int upperBoundStart = PERFECT_VENT_VALUE + minDistance;
-        int upperBoundEnd = PERFECT_VENT_VALUE + maxDistance;
-
-        for(int i = 0; i < unIdVent.length; ++i) {
-            unIdVent[i].setLowerBoundRange(lowerBoundStart, lowerBoundEnd);
-            unIdVent[i].setUpperBoundRange(upperBoundStart, upperBoundEnd);
-        }
-    }
     private int calcStabilityChange(int totalVentValue) {
         return STABILITY_CHANGE_CONSTANT - (totalVentValue / NUM_VENTS);
     }

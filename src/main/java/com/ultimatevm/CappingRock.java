@@ -1,4 +1,4 @@
-package com.example;
+package com.ultimatevm;
 
 import java.awt.Color;
 import net.runelite.api.coords.WorldPoint;
