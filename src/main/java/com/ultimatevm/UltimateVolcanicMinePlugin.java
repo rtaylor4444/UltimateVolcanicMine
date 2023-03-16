@@ -187,6 +187,8 @@ public class UltimateVolcanicMinePlugin extends Plugin
 			client.addChatMessage(ChatMessageType.GAMEMESSAGE, "CyanWarrior4: ", ventStatusPredicter.getVentStatusText(2, widget.getText()), null);
 			client.addChatMessage(ChatMessageType.GAMEMESSAGE, "CyanWarrior4: ", "Stability Update: " + stabilityTracker.getCurrentChange(), null);
 
+			ventStatusPredicter.log();
+
 			//Check if we have to fix vents now
 			if(stabilityTracker.getCurrentChange() < 0 && estimatedTimeRemaining > 595)
 				VM_notifier.notify(notifier, VMNotifier.NotificationEvents.VM_PRE_RESET_VENT_FIX, ticksPassed);
