@@ -17,6 +17,8 @@ public class VentStatusPredicter {
     private StatusState currentState, previousState;
     private int identifiedBitMask;
     private boolean hasReset = false;
+
+
     public VentStatusPredicter() {
         initialize();
     }
@@ -68,57 +70,54 @@ public class VentStatusPredicter {
 
         if(currentState.isAllVentsIdentified() || !currentState.isEnoughVentsIdentified()) return;
 
-        //Get the unidentified vent (we assume that there is just one)
-        int idVentIndex = 0;
+        //Get the unidentified vents
+        int curIndex = 0;
+        int[] unknownVentIndices = new int[NUM_VENTS - currentState.getNumIdentifiedVents()];
         for(int i = 0; i < vents.length; ++i) {
             if(!vents[i].isIdentified()) {
-                idVentIndex = i;
-                break;
+                unknownVentIndices[curIndex++] = i;
             }
         }
 
-        VentStatus currentVent = currentState.getVent(idVentIndex);
+        VentStatus currentVent = currentState.getVent(unknownVentIndices[0]);
         calcSingleVentValue(currentVent, change);
-        if(!fixRanges(client, idVentIndex)) {
-            vents[idVentIndex].setEqualTo(currentVent);
+        if (!fixRangesSingle(unknownVentIndices[0])) {
+            vents[unknownVentIndices[0]].setEqualTo(currentVent);
             clearVentMovement();
         }
     }
-    public boolean fixRanges(Client client, int idVentIndex) {
+    public boolean fixRangesSingle(int idVentIndex) {
         if(previousState == null) return false;
         VentStatus previousVent = previousState.getVent(idVentIndex);
         if(!previousVent.isRangeDefined()) return false;
-
         VentStatus currentVent = currentState.getVent(idVentIndex);
-        //Debug prints
+
         int pesMove = currentVent.getPessimisticMovement();
         int optMove = currentVent.getOptimisticMovement();
-//        if(client != null) {
-//            client.addChatMessage(ChatMessageType.GAMEMESSAGE, "CyanWarrior4: ", "PessimisticMovement: " + pesMove, null);
-//            client.addChatMessage(ChatMessageType.GAMEMESSAGE, "CyanWarrior4: ", "OptimisticMovement: " + optMove, null);
-//        }
 
         //Fix our ranges to account for movement inaccuracies
         //EX: Update movement tick is off (pes move varies by -1 or +1)
-        int lowerBoundStart = vents[idVentIndex].getLowerBoundStart();
-        int lowerBoundEnd = vents[idVentIndex].getLowerBoundEnd();
-        int upperBoundStart = vents[idVentIndex].getUpperBoundStart();
-        int upperBoundEnd = vents[idVentIndex].getUpperBoundEnd();
+        int lowerBoundStart = vents[idVentIndex].getLowerBoundStart() - pesMove;
+        int lowerBoundEnd = vents[idVentIndex].getLowerBoundEnd() - pesMove;
+        int upperBoundStart = vents[idVentIndex].getUpperBoundStart() - pesMove;
+        int upperBoundEnd = vents[idVentIndex].getUpperBoundEnd() - pesMove;
         if(optMove < 0) {
             //maximum possible estimated value
-            lowerBoundStart += ((optMove * 2) - pesMove);
-            upperBoundStart += ((optMove * 2) - pesMove);
-            //minimum possible estimated value (pesMove could be off)
-            lowerBoundEnd -= pesMove;
-            upperBoundEnd -= pesMove;
+            lowerBoundStart += (optMove * 2);
+            upperBoundStart += (optMove * 2);
+            //minimum possible estimated value (account for truncation possibilities)
+            //ex: 31-33 shifted to 32-34 its possible it moved from 33 to 32
+            //31-33 shifted to 33-35 its possible its frozen at 33
+            lowerBoundEnd += TRUNCATION_POSSIBILITIES;
+            upperBoundEnd += TRUNCATION_POSSIBILITIES;
         }
         else if(optMove > 0) {
             //maximum possible estimated value
-            lowerBoundEnd += ((optMove * 2) - pesMove);
-            upperBoundEnd += ((optMove * 2) - pesMove);
-            //minimum possible estimated value (pesMove could be off)
-            lowerBoundStart -= pesMove;
-            upperBoundStart -= pesMove;
+            lowerBoundEnd += (optMove * 2);
+            upperBoundEnd += (optMove * 2);
+            //minimum possible estimated value (account for truncation possibilities)
+            lowerBoundStart -= TRUNCATION_POSSIBILITIES;
+            upperBoundStart -= TRUNCATION_POSSIBILITIES;
         }
 
         //Pick the correct ranges
@@ -175,6 +174,7 @@ public class VentStatusPredicter {
         }
         return true;
     }
+
     public String getVentStatusText(int index, String startingText) {
         if(vents[index].isIdentified() || !vents[index].isRangeDefined()) return startingText;
         StringBuilder builder = new StringBuilder();
@@ -208,7 +208,7 @@ public class VentStatusPredicter {
         identifiedBitMask = 0;
         currentState = previousState = null;
     }
-    public int getFutureStabilityChange() {
+    public int getFutureStabilityChange(UltimateVolcanicMineConfig.PredictionScenario scenario) {
         int totalVentValue = 0;
         ArrayList<VentStatus> estimatedVents = new ArrayList<>();
         for(int i = 0; i < NUM_VENTS; ++i) {
@@ -225,8 +225,20 @@ public class VentStatusPredicter {
             VentStatus vent = estimatedVents.get(i);
             int avgLower = (vent.getLowerBoundEnd() + vent.getLowerBoundStart()) / 2;
             int avgUpper = (vent.getUpperBoundStart() + vent.getUpperBoundEnd()) / 2;
-            int ventUpdate = (getSpecificVentUpdate(avgLower) +
-                    getSpecificVentUpdate(avgUpper)) / 2;
+            int ventUpdate = 0;
+
+            switch(scenario) {
+                case WORST_CASE:
+                    ventUpdate = Math.max(getSpecificVentUpdate(avgLower), getSpecificVentUpdate(avgUpper));
+                    break;
+                case BEST_CASE:
+                    ventUpdate = Math.min(getSpecificVentUpdate(avgLower), getSpecificVentUpdate(avgUpper));
+                    break;
+                default:
+                    //Average-case (crap)
+                    ventUpdate = (getSpecificVentUpdate(avgLower) + getSpecificVentUpdate(avgUpper)) / 2;
+                    break;
+            }
 
             if(estimatedVentValue == Integer.MAX_VALUE) estimatedVentValue = ventUpdate;
             else estimatedVentValue += ventUpdate;
@@ -236,7 +248,6 @@ public class VentStatusPredicter {
             totalVentValue += estimatedVentValue;
         return calcStabilityChange(totalVentValue);
     }
-
 
     private int getIdentifiedVentTotalValue() {
         int totalVentUpdate = 0;
@@ -281,32 +292,24 @@ public class VentStatusPredicter {
         boolean hasEstimatedBRange = (vents[1].isIdentified() || vents[1].isRangeDefined());
         boolean hasEstimatedCRange = (vents[2].isIdentified() || vents[2].isRangeDefined());
 
+        boolean isAWithinRange = !hasEstimatedARange || vents[0].isWithinRange(41, 59);
+        boolean isBWithinRange = !hasEstimatedBRange || vents[1].isWithinRange(41, 59);
+        boolean isCWithinRange = !hasEstimatedCRange || vents[2].isWithinRange(41, 59);
         switch(ventName) {
             case 'A':
                 //A never freezes
                 return false;
 
             case 'B':
-                //B will only freeze if A is within 49-59% and B is also 49-59%
-                //If A is undefined we must assume it could be in freeze range
-                if(!hasEstimatedARange) return vents[1].isWithinRange(41, 59);
-                if(!vents[0].isWithinRange(41, 59)) return false;
-                if(!hasEstimatedBRange) return true;
-                return vents[1].isWithinRange(41, 59);
+                //B will only freeze if A is within 41-59% and B is also 41-59%
+                if(isAWithinRange) return isBWithinRange;
+                return false;
 
             case 'C':
-                //Undefined ranges means we must assume that they can be in range
-                if(!hasEstimatedARange && !hasEstimatedBRange) return true;
-                //If A is within 41-59%..
-                if(!hasEstimatedARange || vents[0].isWithinRange(41, 59)) {
-                    //and B is within 41-59% C will freeze no matter what
-                    if(!hasEstimatedBRange || vents[1].isWithinRange(41, 59)) return true;
-                    //and B is not within 41-59% C will only freeze if its within 41-59%
-                    else if(!hasEstimatedCRange || vents[2].isWithinRange(41, 59)) return true;
-                }
-                //C will freeze if both B and C are within 49-59%
-                if(!hasEstimatedBRange || vents[1].isWithinRange(41, 59))
-                    return !hasEstimatedCRange || vents[2].isWithinRange(41, 59);
+                //C will always freeze if both A and B are 41-59%
+                //C will also freeze if either A or B are 41-59% and C is 41-59%
+                if(isAWithinRange && isBWithinRange) return true;
+                if(isAWithinRange || isBWithinRange) return isCWithinRange;
                 return false;
         }
         return true;
