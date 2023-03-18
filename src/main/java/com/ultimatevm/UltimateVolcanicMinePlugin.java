@@ -148,28 +148,30 @@ public class UltimateVolcanicMinePlugin extends Plugin
 		//Exit if the game has not started yet
 		if(vmGameState < VM_GAME_STATE_IN_GAME) return;
 
-		Widget widget = client.getWidget(WidgetID.VOLCANIC_MINE_GROUP_ID, 6);
-
 		int newTimeRemaining = client.getVarbitValue(VARBIT_TIME_REMAINING);
 		if(newTimeRemaining != timeRemainingFromServer) {
 			estimatedTimeRemaining = timeRemainingFromServer = newTimeRemaining;
 		} else --estimatedTimeRemaining;
 
-		ventStatus[0] = client.getVarbitValue(VARBIT_VENT_STATUS_A);
-		ventStatus[1] = client.getVarbitValue(VARBIT_VENT_STATUS_B);
-		ventStatus[2] = client.getVarbitValue(VARBIT_VENT_STATUS_C);
-		int chamberStatus = client.getVarbitValue(VARBIT_CHAMBER_STATUS);
-		int stability = client.getVarbitValue(VARBIT_STABILITY);
-
 		rockTracker.updateRockTimers();
-		ventStatusPredicter.updateVentStatus(ventStatus, chamberStatus);
+
+//		ventStatus[0] = client.getVarbitValue(VARBIT_VENT_STATUS_A);
+//		ventStatus[1] = client.getVarbitValue(VARBIT_VENT_STATUS_B);
+//		ventStatus[2] = client.getVarbitValue(VARBIT_VENT_STATUS_C);
+//		int chamberStatus = client.getVarbitValue(VARBIT_CHAMBER_STATUS)
+
+
+//		ventStatusPredicter.updateVentStatus(ventStatus, chamberStatus);
+		updateVentStatus(client.getVarbitValue(VARBIT_VENT_STATUS_A),
+				client.getVarbitValue(VARBIT_VENT_STATUS_B),
+				client.getVarbitValue(VARBIT_VENT_STATUS_C),
+				client.getVarbitValue(VARBIT_CHAMBER_STATUS));
 		//Update our movement on the same exact tick the vent status changes
 		if(ticksPassed % VENT_MOVE_TICK_TIME == movementUpdateTick) {
-			ventStatusPredicter.updateVentMovement();
-			varbitsUpdated = 0;
+			updateVentMovement();
 
 			//Check if we have to fix vents in the future
-			int futureChange = ventStatusPredicter.getFutureStabilityChange();
+			int futureChange = ventStatusPredicter.getFutureStabilityChange(config.predictedVentFixScenario());
 			if(futureChange != VentStatus.STARTING_VENT_VALUE) {
 				futureStabilityTracker.addChange(futureChange);
 				if (futureStabilityTracker.isFutureStabilityBad(config.predictedStabilityChange()) && estimatedTimeRemaining > 595)
@@ -177,17 +179,14 @@ public class UltimateVolcanicMinePlugin extends Plugin
 			}
 		}
 
-		if(stabilityTracker.updateStability(stability)) {
-			ventStatusPredicter.makeStatusState(client, stabilityTracker.getCurrentChange());
-			widget = client.getWidget(WidgetID.VOLCANIC_MINE_GROUP_ID, HUD_VENT_A_PERCENTAGE);
+		if(updateStability(client.getVarbitValue(VARBIT_STABILITY))) {
+			Widget widget = client.getWidget(WidgetID.VOLCANIC_MINE_GROUP_ID, HUD_VENT_A_PERCENTAGE);
 			client.addChatMessage(ChatMessageType.GAMEMESSAGE, "CyanWarrior4: ", ventStatusPredicter.getVentStatusText(0, widget.getText()), null);
 			widget = client.getWidget(WidgetID.VOLCANIC_MINE_GROUP_ID, HUD_VENT_B_PERCENTAGE);
 			client.addChatMessage(ChatMessageType.GAMEMESSAGE, "CyanWarrior4: ", ventStatusPredicter.getVentStatusText(1, widget.getText()), null);
 			widget = client.getWidget(WidgetID.VOLCANIC_MINE_GROUP_ID, HUD_VENT_C_PERCENTAGE);
 			client.addChatMessage(ChatMessageType.GAMEMESSAGE, "CyanWarrior4: ", ventStatusPredicter.getVentStatusText(2, widget.getText()), null);
 			client.addChatMessage(ChatMessageType.GAMEMESSAGE, "CyanWarrior4: ", "Stability Update: " + stabilityTracker.getCurrentChange(), null);
-
-			ventStatusPredicter.log();
 
 			//Check if we have to fix vents now
 			if(stabilityTracker.getCurrentChange() < 0 && estimatedTimeRemaining > 595)
@@ -211,6 +210,24 @@ public class UltimateVolcanicMinePlugin extends Plugin
 
 		++ticksPassed;
 	}
+
+	//Helper functions for testing
+	public boolean updateStability(int newStability) {
+		if(stabilityTracker.updateStability(newStability)) {
+			ventStatusPredicter.makeStatusState(client, stabilityTracker.getCurrentChange());
+			ventStatusPredicter.log();
+			return true;
+		}
+		return false;
+	}
+	public void updateVentStatus(int ventA, int ventB, int ventC, int chamberStatus) {
+		ventStatusPredicter.updateVentStatus(new int[]{ventA, ventB, ventC}, chamberStatus);
+	}
+	public void updateVentMovement() {
+		ventStatusPredicter.updateVentMovement();
+		varbitsUpdated = 0;
+	}
+	public final VentStatusPredicter getVentStatusPredicter() { return ventStatusPredicter; }
 
 	@Subscribe
 	public void onVarbitChanged(VarbitChanged event) {

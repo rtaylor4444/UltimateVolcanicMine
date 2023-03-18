@@ -3,9 +3,15 @@ package com.ultimatevm;
 import net.runelite.client.config.Config;
 import net.runelite.client.config.*;
 
-@ConfigGroup("volcanic mine")
+@ConfigGroup("ultimate-volcanic-mine")
 public interface UltimateVolcanicMineConfig extends Config
 {
+	enum PredictionScenario
+	{
+		WORST_CASE,
+		BEST_CASE
+	}
+
 	@ConfigItem(
 			keyName = "ventWarning",
 			name = "Vent Shift Notification",
@@ -91,10 +97,19 @@ public interface UltimateVolcanicMineConfig extends Config
 		return true;
 	}
 	@ConfigItem(
+			keyName = "predictedVentFixScenario",
+			name = "Prediction Scenario",
+			description = "Uses best or worst case scenario when predicting fixes or stability changes",
+			position = 7
+	)
+	default PredictionScenario predictedVentFixScenario() {
+		return PredictionScenario.WORST_CASE;
+	}
+	@ConfigItem(
 			keyName = "predictedStabilityChange",
 			name = "Predicted Stability Change",
 			description = "The estimated change before a recommended vent fix",
-			position = 7
+			position = 8
 	)
 	@Range(
 			max = 5,
@@ -106,7 +121,7 @@ public interface UltimateVolcanicMineConfig extends Config
 	}
 
 	@ConfigItem(
-			position = 8,
+			position = 9,
 			keyName = "capCounter",
 			name = "Cap counter",
 			description = "Displays an infobox with the total vents capped"
@@ -117,7 +132,7 @@ public interface UltimateVolcanicMineConfig extends Config
 	}
 
 	@ConfigItem(
-			position = 9,
+			position = 10,
 			keyName = "rockTimer",
 			name = "Rock Timer",
 			description = "Shows a respawn timer when a rock is taken"

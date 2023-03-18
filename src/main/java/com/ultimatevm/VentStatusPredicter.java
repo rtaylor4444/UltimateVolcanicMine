@@ -281,7 +281,7 @@ public class VentStatusPredicter {
         identifiedBitMask = 0;
         currentState = previousState = null;
     }
-    public int getFutureStabilityChange() {
+    public int getFutureStabilityChange(UltimateVolcanicMineConfig.PredictionScenario scenario) {
         int totalVentValue = 0;
         ArrayList<VentStatus> estimatedVents = new ArrayList<>();
         for(int i = 0; i < NUM_VENTS; ++i) {
@@ -298,8 +298,20 @@ public class VentStatusPredicter {
             VentStatus vent = estimatedVents.get(i);
             int avgLower = (vent.getLowerBoundEnd() + vent.getLowerBoundStart()) / 2;
             int avgUpper = (vent.getUpperBoundStart() + vent.getUpperBoundEnd()) / 2;
-            int ventUpdate = (getSpecificVentUpdate(avgLower) +
-                    getSpecificVentUpdate(avgUpper)) / 2;
+            int ventUpdate = 0;
+
+            switch(scenario) {
+                case WORST_CASE:
+                    ventUpdate = Math.max(getSpecificVentUpdate(avgLower), getSpecificVentUpdate(avgUpper));
+                    break;
+                case BEST_CASE:
+                    ventUpdate = Math.min(getSpecificVentUpdate(avgLower), getSpecificVentUpdate(avgUpper));
+                    break;
+                default:
+                    //Average-case (crap)
+                    ventUpdate = (getSpecificVentUpdate(avgLower) + getSpecificVentUpdate(avgUpper)) / 2;
+                    break;
+            }
 
             if(estimatedVentValue == Integer.MAX_VALUE) estimatedVentValue = ventUpdate;
             else estimatedVentValue += ventUpdate;
