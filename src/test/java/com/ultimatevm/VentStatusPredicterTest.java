@@ -598,47 +598,6 @@ public class VentStatusPredicterTest {
         Assert.assertEquals(vents6[2].getUpperBoundEnd(), 47);
     }
 
-    public void calcDoubleVentValueTest() {
-        VentStatusPredicter predicter = new VentStatusPredicter();
-        predicter.updateVentStatus(new int[]{VentStatus.STARTING_VENT_VALUE, 50, VentStatus.STARTING_VENT_VALUE}, 7);
-        final VentStatus[] vents = predicter.getCurrentVents();
-        predicter.calcDoubleVentValue(new VentStatus[]{vents[0], vents[2]}, 20);
-        Assert.assertEquals(vents[0].getLowerBoundStart(), 35);
-        Assert.assertEquals(vents[0].getLowerBoundEnd(), 65);
-        Assert.assertEquals(vents[0].getUpperBoundStart(), 35);
-        Assert.assertEquals(vents[0].getUpperBoundEnd(), 65);
-        Assert.assertEquals(vents[2].getLowerBoundStart(), 35);
-        Assert.assertEquals(vents[2].getLowerBoundEnd(), 65);
-        Assert.assertEquals(vents[2].getUpperBoundStart(), 35);
-        Assert.assertEquals(vents[2].getUpperBoundEnd(), 65);
-
-        predicter = new VentStatusPredicter();
-        predicter.updateVentStatus(new int[]{VentStatus.STARTING_VENT_VALUE, 50, VentStatus.STARTING_VENT_VALUE}, 7);
-        final VentStatus[] vents2 = predicter.getCurrentVents();
-        predicter.calcDoubleVentValue(new VentStatus[]{vents2[0], vents2[2]}, 0);
-        Assert.assertEquals(vents2[0].getLowerBoundStart(), 0);
-        Assert.assertEquals(vents2[0].getLowerBoundEnd(), 25);
-        Assert.assertEquals(vents2[0].getUpperBoundStart(), 75);
-        Assert.assertEquals(vents2[0].getUpperBoundEnd(), 100);
-        Assert.assertEquals(vents2[2].getLowerBoundStart(), 0);
-        Assert.assertEquals(vents2[2].getLowerBoundEnd(), 25);
-        Assert.assertEquals(vents2[2].getUpperBoundStart(), 75);
-        Assert.assertEquals(vents2[2].getUpperBoundEnd(), 100);
-
-        predicter = new VentStatusPredicter();
-        predicter.updateVentStatus(new int[]{VentStatus.STARTING_VENT_VALUE, 50, VentStatus.STARTING_VENT_VALUE}, 7);
-        final VentStatus[] vents3 = predicter.getCurrentVents();
-        predicter.calcDoubleVentValue(new VentStatus[]{vents3[0], vents3[2]}, -5);
-        Assert.assertEquals(vents3[0].getLowerBoundStart(), 0);
-        Assert.assertEquals(vents3[0].getLowerBoundEnd(), 10);
-        Assert.assertEquals(vents3[0].getUpperBoundStart(), 90);
-        Assert.assertEquals(vents3[0].getUpperBoundEnd(), 100);
-        Assert.assertEquals(vents3[2].getLowerBoundStart(), 0);
-        Assert.assertEquals(vents3[2].getLowerBoundEnd(), 10);
-        Assert.assertEquals(vents3[2].getUpperBoundStart(), 90);
-        Assert.assertEquals(vents3[2].getUpperBoundEnd(), 100);
-    }
-
     public void futureTimingTests() {
         //Inaccurate movement downward
 //        VentStatusPredicter predicter = new VentStatusPredicter();

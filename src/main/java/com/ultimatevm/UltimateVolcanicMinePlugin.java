@@ -155,13 +155,6 @@ public class UltimateVolcanicMinePlugin extends Plugin
 
 		rockTracker.updateRockTimers();
 
-//		ventStatus[0] = client.getVarbitValue(VARBIT_VENT_STATUS_A);
-//		ventStatus[1] = client.getVarbitValue(VARBIT_VENT_STATUS_B);
-//		ventStatus[2] = client.getVarbitValue(VARBIT_VENT_STATUS_C);
-//		int chamberStatus = client.getVarbitValue(VARBIT_CHAMBER_STATUS)
-
-
-//		ventStatusPredicter.updateVentStatus(ventStatus, chamberStatus);
 		updateVentStatus(client.getVarbitValue(VARBIT_VENT_STATUS_A),
 				client.getVarbitValue(VARBIT_VENT_STATUS_B),
 				client.getVarbitValue(VARBIT_VENT_STATUS_C),
@@ -215,7 +208,6 @@ public class UltimateVolcanicMinePlugin extends Plugin
 	public boolean updateStability(int newStability) {
 		if(stabilityTracker.updateStability(newStability)) {
 			ventStatusPredicter.makeStatusState(client, stabilityTracker.getCurrentChange());
-			ventStatusPredicter.log();
 			return true;
 		}
 		return false;
