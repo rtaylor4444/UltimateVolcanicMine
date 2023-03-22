@@ -6,7 +6,7 @@ import java.util.Iterator;
 public class StabilityTracker {
 
     //Constants
-    private static final int STARTING_STABILITY = 50;
+    public static final int STARTING_STABILITY = 50;
     private static final int MAX_STABILITY = 100;
     private static final int MAX_STABILITY_UPDATES = 3;
 

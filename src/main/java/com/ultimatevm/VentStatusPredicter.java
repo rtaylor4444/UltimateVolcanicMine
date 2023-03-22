@@ -20,6 +20,7 @@ public class VentStatusPredicter {
 
     private VentStatus vents[] = new VentStatus[NUM_VENTS];
     private StatusState currentState, previousState;
+    private StatusState preFrameState;
     private int identifiedBitMask;
     private boolean hasReset = false;
 
@@ -27,7 +28,7 @@ public class VentStatusPredicter {
     public VentStatusPredicter() {
         try {
             logWriter = new FileWriter(FILE_PATH, false);
-        } catch (IOException e) {
+        } catch (IOException ignored) {
 
         }
         initialize();
@@ -42,7 +43,7 @@ public class VentStatusPredicter {
         try {
             logWriter.close();
             logWriter = new FileWriter(FILE_PATH, false);
-        } catch (IOException e) {
+        } catch (IOException ignored) {
 
         }
 
@@ -63,11 +64,11 @@ public class VentStatusPredicter {
         }
     }
     public boolean updateVentMovement() {
-        int updatedVents = 0;
+        int updatedVents = 0, currentVentInfluence = 0;
         for(int i = 0; i < vents.length; ++i) {
-            if(!vents[i].isRangeDefined()) continue;
-            ++updatedVents;
-            vents[i].updateMovement(isFrozen(vents[i].getName()));
+            if(vents[i].isRangeDefined()) ++updatedVents;
+            vents[i].updateMovement(currentVentInfluence);
+            currentVentInfluence += vents[i].getEstimatedInfluence();
         }
         return updatedVents > 0;
     }
@@ -76,7 +77,15 @@ public class VentStatusPredicter {
             vents[i].clearMovement();
         }
     }
-    public void makeStatusState(Client client, int change) {
+    public void makePreFrameState(int change) {
+        if(preFrameState == null) preFrameState = new StatusState(vents, change);
+        preFrameState.update(vents, change);
+        int[] unknownVentIndices = preFrameState.getUnidentifiedVentIndices();
+        if(unknownVentIndices.length == 0) return;
+        VentStatus currentVent = preFrameState.getVent(unknownVentIndices[0]);
+        calcSingleVentValue(currentVent, change);
+    }
+    public void makeStatusState(int change) {
         if(currentState == null)
             currentState = new StatusState(vents, change);
         else {
@@ -88,14 +97,7 @@ public class VentStatusPredicter {
 
         if(currentState.isAllVentsIdentified() || !currentState.isEnoughVentsIdentified()) return;
 
-        //Get the unidentified vents
-        int curIndex = 0;
-        int[] unknownVentIndices = new int[NUM_VENTS - currentState.getNumIdentifiedVents()];
-        for(int i = 0; i < vents.length; ++i) {
-            if(!vents[i].isIdentified()) {
-                unknownVentIndices[curIndex++] = i;
-            }
-        }
+        int[] unknownVentIndices = currentState.getUnidentifiedVentIndices();
 
         if(currentState.getNumIdentifiedVents() == 2) {
             VentStatus currentVent = currentState.getVent(unknownVentIndices[0]);
@@ -122,30 +124,49 @@ public class VentStatusPredicter {
         VentStatus previousVent = previousState.getVent(idVentIndex);
         if(!previousVent.isRangeDefined()) return false;
         VentStatus currentVent = currentState.getVent(idVentIndex);
+        //Check if calculated answers are outside our possible bounds
+        int totalBoundStart = vents[idVentIndex].getTotalBoundStart();// - BASE_MOVE_RATE;
+        if(totalBoundStart > currentVent.getLowerBoundEnd()) {
+            //Calculated lower bound is out of possible range
+            vents[idVentIndex].clearRanges();
+            vents[idVentIndex].setLowerBoundRange(currentVent.getUpperBoundStart(),
+                    currentVent.getUpperBoundEnd());
+            vents[idVentIndex].setUpperBoundRange(currentVent.getUpperBoundStart(),
+                    currentVent.getUpperBoundEnd());
+            return true;
+        }
+        int totalBoundEnd = vents[idVentIndex].getTotalBoundEnd();// + BASE_MOVE_RATE;
+        if(totalBoundEnd < currentVent.getUpperBoundStart()) {
+            //Calculated upper bound is out of possible range
+            vents[idVentIndex].clearRanges();
+            vents[idVentIndex].setLowerBoundRange(currentVent.getLowerBoundStart(),
+                    currentVent.getLowerBoundEnd());
+            vents[idVentIndex].setUpperBoundRange(currentVent.getLowerBoundStart(),
+                    currentVent.getLowerBoundEnd());
+            return true;
+        }
 
-        int pesMove = currentVent.getPessimisticMovement();
-        int optMove = currentVent.getOptimisticMovement();
-
+        int totalDirMove = currentVent.getTotalDirectionalMovement();
         //Fix our ranges to account for movement inaccuracies
         //EX: Update movement tick is off (pes move varies by -1 or +1)
-        int lowerBoundStart = vents[idVentIndex].getLowerBoundStart() - pesMove;
-        int lowerBoundEnd = vents[idVentIndex].getLowerBoundEnd() - pesMove;
-        int upperBoundStart = vents[idVentIndex].getUpperBoundStart() - pesMove;
-        int upperBoundEnd = vents[idVentIndex].getUpperBoundEnd() - pesMove;
-        if(optMove < 0) {
+        int lowerBoundStart = vents[idVentIndex].getLowerBoundStart() - vents[idVentIndex].getLowerBoundStartMove();
+        int lowerBoundEnd = vents[idVentIndex].getLowerBoundEnd() - vents[idVentIndex].getLowerBoundEndMove();
+        int upperBoundStart = vents[idVentIndex].getUpperBoundStart() - vents[idVentIndex].getUpperBoundStartMove();
+        int upperBoundEnd = vents[idVentIndex].getUpperBoundEnd() - vents[idVentIndex].getUpperBoundEndMove();
+        if(totalDirMove < 0) {
             //maximum possible estimated value
-            lowerBoundStart += (optMove * 2);
-            upperBoundStart += (optMove * 2);
+            lowerBoundStart += (vents[idVentIndex].getLowerBoundStartMove() - BASE_MOVE_RATE);
+            upperBoundStart += (vents[idVentIndex].getUpperBoundStartMove() - BASE_MOVE_RATE);
             //minimum possible estimated value (account for truncation possibilities)
             //ex: 31-33 shifted to 32-34 its possible it moved from 33 to 32
             //31-33 shifted to 33-35 its possible its frozen at 33
             lowerBoundEnd += TRUNCATION_POSSIBILITIES;
             upperBoundEnd += TRUNCATION_POSSIBILITIES;
         }
-        else if(optMove > 0) {
+        else if(totalDirMove > 0) {
             //maximum possible estimated value
-            lowerBoundEnd += (optMove * 2);
-            upperBoundEnd += (optMove * 2);
+            lowerBoundEnd += (vents[idVentIndex].getLowerBoundEndMove() + BASE_MOVE_RATE);
+            upperBoundEnd += (vents[idVentIndex].getUpperBoundEndMove() + BASE_MOVE_RATE);
             //minimum possible estimated value (account for truncation possibilities)
             lowerBoundStart -= TRUNCATION_POSSIBILITIES;
             upperBoundStart -= TRUNCATION_POSSIBILITIES;
@@ -251,7 +272,7 @@ public class VentStatusPredicter {
     public String getVentStatusText(int index, String startingText) {
         if(vents[index].isIdentified() || !vents[index].isRangeDefined()) return startingText;
         StringBuilder builder = new StringBuilder();
-        builder.append(startingText.substring(0, 3));
+        builder.append(startingText, 0, 3);
         builder.append("<col=00ffff>");
         if(vents[index].isTwoSeperateValues()) {
             if(vents[index].isLowerBoundSingleValue())
@@ -279,7 +300,7 @@ public class VentStatusPredicter {
     }
     public void clearStabilityStates() {
         identifiedBitMask = 0;
-        currentState = previousState = null;
+        preFrameState = currentState = previousState = null;
     }
     public int getFutureStabilityChange(UltimateVolcanicMineConfig.PredictionScenario scenario) {
         int totalVentValue = 0;
@@ -288,7 +309,7 @@ public class VentStatusPredicter {
             if(!vents[i].isRangeDefined())
                 return STARTING_VENT_VALUE;
             if(vents[i].isIdentified())
-                totalVentValue += getSpecificVentUpdate(vents[i].getActualValue());
+                totalVentValue += vents[i].getStabilityInfluence();
             else
                 estimatedVents.add(vents[i]);
         }
@@ -302,14 +323,14 @@ public class VentStatusPredicter {
 
             switch(scenario) {
                 case WORST_CASE:
-                    ventUpdate = Math.max(getSpecificVentUpdate(avgLower), getSpecificVentUpdate(avgUpper));
+                    ventUpdate = Math.max(getVentStabilityInfluence(avgLower), getVentStabilityInfluence(avgUpper));
                     break;
                 case BEST_CASE:
-                    ventUpdate = Math.min(getSpecificVentUpdate(avgLower), getSpecificVentUpdate(avgUpper));
+                    ventUpdate = Math.min(getVentStabilityInfluence(avgLower), getVentStabilityInfluence(avgUpper));
                     break;
                 default:
                     //Average-case (crap)
-                    ventUpdate = (getSpecificVentUpdate(avgLower) + getSpecificVentUpdate(avgUpper)) / 2;
+                    ventUpdate = (getVentStabilityInfluence(avgLower) + getVentStabilityInfluence(avgUpper)) / 2;
                     break;
             }
 
@@ -326,8 +347,7 @@ public class VentStatusPredicter {
     private int getIdentifiedVentTotalValue() {
         int totalVentUpdate = 0;
         for(int i = 0; i < vents.length; ++i) {
-            if(!vents[i].isIdentified()) continue;
-            totalVentUpdate += getSpecificVentUpdate(vents[i].getActualValue());
+            totalVentUpdate += vents[i].getStabilityInfluence();
         }
         return totalVentUpdate;
     }
@@ -339,8 +359,8 @@ public class VentStatusPredicter {
         int upperBoundStart = (PERFECT_VENT_VALUE - TRUNCATION_POSSIBILITIES) + missingVentUpdate;
         int upperBoundEnd = (PERFECT_VENT_VALUE + TRUNCATION_POSSIBILITIES) + missingVentUpdate;
         while(lowerBoundStart < lowerBoundEnd) {
-            int newChange1 = calcStabilityChange(partialVentUpdate + getSpecificVentUpdate(lowerBoundStart));
-            int newChange2 = calcStabilityChange(partialVentUpdate + getSpecificVentUpdate(lowerBoundEnd));
+            int newChange1 = calcStabilityChange(partialVentUpdate + getVentStabilityInfluence(lowerBoundStart));
+            int newChange2 = calcStabilityChange(partialVentUpdate + getVentStabilityInfluence(lowerBoundEnd));
             if(newChange1 == change && newChange2 == change) break;
 
             if(newChange1 != change) {
@@ -375,7 +395,6 @@ public class VentStatusPredicter {
     }
     private int getDirectionFromChambers(int index, int chambers) { return (chambers & (1 << index)) != 0 ? 1 : -1;}
     private int getTotalVentUpdate(int change) { return (STABILITY_CHANGE_CONSTANT - change) * NUM_VENTS; }
-    private int getSpecificVentUpdate(int ventValue) { return Math.abs(PERFECT_VENT_VALUE - ventValue); }
     public boolean isFrozen(Character ventName) {
         boolean hasEstimatedARange = (vents[0].isIdentified() || vents[0].isRangeDefined());
         boolean hasEstimatedBRange = (vents[1].isIdentified() || vents[1].isRangeDefined());
@@ -410,31 +429,45 @@ public class VentStatusPredicter {
     public boolean areAnyVentIdentified() { return identifiedBitMask > 0; }
     public void log() {
         try {
+            logWriter.write("-------------------------------------------------------------------------------" + "\n");
+            logWriter.write("Pre State " + "\n");
+            logState(preFrameState);
+            logWriter.write("Post State " + "\n");
+            logState(currentState);
+        } catch (IOException ignored) {
+
+        }
+    }
+    private void logState(StatusState state) {
+        try {
             if(!vents[0].isIdentified()) {
-                VentStatus AVent = currentState.getVent(0);
-                logWriter.write("A PessimisticMovement: " + AVent.getPessimisticMovement() + "\n");
-                logWriter.write("A OptimisticMovement: " + AVent.getOptimisticMovement() + "\n");
+                VentStatus AVent = state.getVent(0);
+                logWriter.write("A Movement: " + AVent.getLowerBoundStartMove() + ", ");
+                logWriter.write(AVent.getLowerBoundEndMove() + " | " + AVent.getUpperBoundStartMove());
+                logWriter.write(", " + AVent.getUpperBoundEndMove() + "\n");
             }
             logWriter.write(getVentStatusText(0, "A: " +
                     vents[0].getActualValue()) + "\n");
 
             if(!vents[1].isIdentified()) {
-                VentStatus BVent = currentState.getVent(1);
-                logWriter.write("B PessimisticMovement: " + BVent.getPessimisticMovement() + "\n");
-                logWriter.write("B OptimisticMovement: " + BVent.getOptimisticMovement() + "\n");
+                VentStatus BVent = state.getVent(1);
+                logWriter.write("A Movement: " + BVent.getLowerBoundStartMove() + ", ");
+                logWriter.write(BVent.getLowerBoundEndMove() + " | " + BVent.getUpperBoundStartMove());
+                logWriter.write(", " + BVent.getUpperBoundEndMove() + "\n");
             }
             logWriter.write(getVentStatusText(1, "B: " +
                     vents[1].getActualValue()) + "\n");
 
             if(!vents[2].isIdentified()) {
-                VentStatus CVent = currentState.getVent(2);
-                logWriter.write("C PessimisticMovement: " + CVent.getPessimisticMovement() + "\n");
-                logWriter.write("C OptimisticMovement: " + CVent.getOptimisticMovement() + "\n");
+                VentStatus CVent = state.getVent(2);
+                logWriter.write("A Movement: " + CVent.getLowerBoundStartMove() + ", ");
+                logWriter.write(CVent.getLowerBoundEndMove() + " | " + CVent.getUpperBoundStartMove());
+                logWriter.write(", " + CVent.getUpperBoundEndMove() + "\n");
             }
             logWriter.write(getVentStatusText(2, "C: " +
                     vents[2].getActualValue()) + "\n");
 
-            logWriter.write("Stability Change: " + currentState.getStabilityChange() + "\n");
+            logWriter.write("Stability Change: " + state.getStabilityChange() + "\n");
             logWriter.write("\n");
             logWriter.flush();
         } catch (IOException ignored) {
