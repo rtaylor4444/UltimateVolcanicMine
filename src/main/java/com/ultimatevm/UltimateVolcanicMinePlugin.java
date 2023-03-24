@@ -174,11 +174,7 @@ public class UltimateVolcanicMinePlugin extends Plugin
 			}
 		}
 
-		currentStability = client.getVarbitValue(VARBIT_STABILITY);
-		if(stabilityTracker.updateStability(client.getVarbitValue(VARBIT_STABILITY))) {
-			ventStatusPredicter.makeStatusState(stabilityTracker.getCurrentChange());
-			ventStatusPredicter.log();
-
+		if(updateStability(client.getVarbitValue(VARBIT_STABILITY))) {
 			Widget widget = client.getWidget(WidgetID.VOLCANIC_MINE_GROUP_ID, HUD_VENT_A_PERCENTAGE);
 			client.addChatMessage(ChatMessageType.GAMEMESSAGE, "CyanWarrior4: ", ventStatusPredicter.getVentStatusText(0, widget.getText()), null);
 			widget = client.getWidget(WidgetID.VOLCANIC_MINE_GROUP_ID, HUD_VENT_B_PERCENTAGE);
@@ -214,7 +210,6 @@ public class UltimateVolcanicMinePlugin extends Plugin
 	public boolean updateStability(int newStability) {
 		if(stabilityTracker.updateStability(newStability)) {
 			ventStatusPredicter.makeStatusState(stabilityTracker.getCurrentChange());
-			ventStatusPredicter.log();
 			return true;
 		}
 		return false;
@@ -232,11 +227,6 @@ public class UltimateVolcanicMinePlugin extends Plugin
 	public void onVarbitChanged(VarbitChanged event) {
 		//Exit if the game has not started yet
 		if(!isInVM() || vmGameState < VM_GAME_STATE_IN_GAME) return;
-
-		//Make varbit change status state; in case stability update occurs the same
-		//tick as a vent percentage update.
-		if(event.getVarbitId() == VARBIT_STABILITY)
-			ventStatusPredicter.makePreFrameState(client.getVarbitValue(VARBIT_STABILITY) - currentStability);
 
 		//Keep track of points for our cap counter
 		if(event.getVarbitId() == VARBIT_POINTS) {

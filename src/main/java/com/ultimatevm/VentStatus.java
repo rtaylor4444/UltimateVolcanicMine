@@ -1,7 +1,6 @@
 package com.ultimatevm;
 
 public class VentStatus {
-
     public static final int STARTING_VENT_VALUE = 127;
     public static final int MIN_VENT_VALUE = 0;
     public static final int MIN_VENT_START_VALUE = 25;
@@ -9,6 +8,15 @@ public class VentStatus {
     public static final int MAX_VENT_START_VALUE = 75;
     public static final int MAX_VENT_VALUE = 100;
     public static int BASE_MOVE_RATE = 2;
+
+    public enum VentChangeState {
+        UNIDENTIFIED,
+        IDENTIFIED,
+        BOUNDED,
+        NO_CHANGE,
+        ONE_CHANGE,
+        TWO_CHANGE
+    }
     private char ventName;
     private int actualValue;
     private int movementDirection;
@@ -62,13 +70,23 @@ public class VentStatus {
         this.upperBoundEndMove = vent.upperBoundEndMove;
         this.totalDirectionalMovement = vent.totalDirectionalMovement;
     }
-    public void update(int actualValue, int direction) {
+    public VentChangeState update(int actualValue, int direction) {
+        int prevValue = this.actualValue;
         this.actualValue = actualValue;
         this.movementDirection = direction;
         if(isIdentified()) {
             lowerBoundStart = lowerBoundEnd = actualValue;
             upperBoundStart = upperBoundEnd = actualValue;
-        }
+        } else return VentChangeState.UNIDENTIFIED;
+
+        int diff = Math.abs(this.actualValue - prevValue);
+        if(diff == 1) return VentChangeState.ONE_CHANGE;
+        else if(diff == 2) return VentChangeState.TWO_CHANGE;
+        else if(diff > 2) return VentChangeState.IDENTIFIED;
+
+        if(this.actualValue == MIN_VENT_VALUE || this.actualValue == MAX_VENT_VALUE)
+            return VentChangeState.BOUNDED;
+        return VentChangeState.NO_CHANGE;
     }
     public void updateMovement(int outsideVentInfluence) {
         if(isIdentified()) return;

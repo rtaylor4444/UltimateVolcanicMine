@@ -213,6 +213,31 @@ public class VentStatusTest {
         Assert.assertEquals(vent.getUpperBoundEnd(), 50);
     }
 
+    public void updateDifferenceTest() {
+        VentStatus vent = new VentStatus('A');
+        //Vent still remains unidentified
+        Assert.assertEquals(vent.update(VentStatus.STARTING_VENT_VALUE, 1), VentStatus.VentChangeState.UNIDENTIFIED);
+        //Vent was just identified
+        Assert.assertEquals(vent.update(100, 1), VentStatus.VentChangeState.IDENTIFIED);
+        //Vent must be bounded
+        Assert.assertEquals(vent.update(100, 1), VentStatus.VentChangeState.BOUNDED);
+        vent.update(0, 1);
+        Assert.assertEquals(vent.update(0, 1), VentStatus.VentChangeState.BOUNDED);
+        //Increase of 1
+        Assert.assertEquals(vent.update(1, 1), VentStatus.VentChangeState.ONE_CHANGE);
+        //Decrease of 1
+        Assert.assertEquals(vent.update(0, 1), VentStatus.VentChangeState.ONE_CHANGE);
+        //Increase of 2
+        Assert.assertEquals(vent.update(2, 1), VentStatus.VentChangeState.TWO_CHANGE);
+        //Decrease of 2
+        Assert.assertEquals(vent.update(0, 1), VentStatus.VentChangeState.TWO_CHANGE);
+        //No change
+        vent.update(50, 1);
+        Assert.assertEquals(vent.update(50, 1), VentStatus.VentChangeState.NO_CHANGE);
+        //Vent became unidentified
+        Assert.assertEquals(vent.update(VentStatus.STARTING_VENT_VALUE, 1), VentStatus.VentChangeState.UNIDENTIFIED);
+    }
+
     public void updateMovementInvalidTest() {
         VentStatus vent = new VentStatus('A');
         //Nothing should change if the vent is identified
