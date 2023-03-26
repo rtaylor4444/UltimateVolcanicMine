@@ -6,6 +6,7 @@ import lombok.extern.slf4j.Slf4j;
 
 import net.runelite.api.ChatMessageType;
 import net.runelite.api.Client;
+import net.runelite.api.NPC;
 import net.runelite.api.events.*;
 import net.runelite.api.coords.WorldPoint;
 import net.runelite.api.widgets.WidgetID;
@@ -85,7 +86,6 @@ public class UltimateVolcanicMinePlugin extends Plugin
 	private int timeRemainingFromServer, estimatedTimeRemaining;
 	private int ticksPassed, movementUpdateTick;
 	private int eruptionTime, ventWarningTime;
-	private int currentStability;
 
 
 	@Provides
@@ -99,6 +99,9 @@ public class UltimateVolcanicMinePlugin extends Plugin
 	{
 		eruptionTime = (int) (config.eruptionWarningTime() * SECONDS_TO_TICKS);
 		ventWarningTime = (int) (config.ventWarningTime() * SECONDS_TO_TICKS);
+
+		stabilityTracker.setDisplayCount(config.stabilityUpdateHistoryCount());
+		futureStabilityTracker.setDisplayCount(config.predictedStabilityChangeHistoryCount());
 
 		infoBoxManager.removeInfoBox(capInfoBox);
 		if(config.capCounter() && capCounter.getTimesCapped() >= 1) infoBoxManager.addInfoBox(capInfoBox);
@@ -133,7 +136,6 @@ public class UltimateVolcanicMinePlugin extends Plugin
 			stabilityTracker.initialize();
 			ventStatusPredicter.initialize();
 			futureStabilityTracker.initialize();
-			currentStability = StabilityTracker.STARTING_STABILITY;
 			resetGameVariables();
 		}
 	}
@@ -175,13 +177,15 @@ public class UltimateVolcanicMinePlugin extends Plugin
 		}
 
 		if(updateStability(client.getVarbitValue(VARBIT_STABILITY))) {
-			Widget widget = client.getWidget(WidgetID.VOLCANIC_MINE_GROUP_ID, HUD_VENT_A_PERCENTAGE);
-			client.addChatMessage(ChatMessageType.GAMEMESSAGE, "CyanWarrior4: ", ventStatusPredicter.getVentStatusText(0, widget.getText()), null);
-			widget = client.getWidget(WidgetID.VOLCANIC_MINE_GROUP_ID, HUD_VENT_B_PERCENTAGE);
-			client.addChatMessage(ChatMessageType.GAMEMESSAGE, "CyanWarrior4: ", ventStatusPredicter.getVentStatusText(1, widget.getText()), null);
-			widget = client.getWidget(WidgetID.VOLCANIC_MINE_GROUP_ID, HUD_VENT_C_PERCENTAGE);
-			client.addChatMessage(ChatMessageType.GAMEMESSAGE, "CyanWarrior4: ", ventStatusPredicter.getVentStatusText(2, widget.getText()), null);
-			client.addChatMessage(ChatMessageType.GAMEMESSAGE, "CyanWarrior4: ", "Stability Update: " + stabilityTracker.getCurrentChange(), null);
+			if(config.ventStatusUpdateHistory()) {
+				Widget widget = client.getWidget(WidgetID.VOLCANIC_MINE_GROUP_ID, HUD_VENT_A_PERCENTAGE);
+				client.addChatMessage(ChatMessageType.GAMEMESSAGE, "CyanWarrior4: ", ventStatusPredicter.getVentStatusText(0, widget.getText()), null);
+				widget = client.getWidget(WidgetID.VOLCANIC_MINE_GROUP_ID, HUD_VENT_B_PERCENTAGE);
+				client.addChatMessage(ChatMessageType.GAMEMESSAGE, "CyanWarrior4: ", ventStatusPredicter.getVentStatusText(1, widget.getText()), null);
+				widget = client.getWidget(WidgetID.VOLCANIC_MINE_GROUP_ID, HUD_VENT_C_PERCENTAGE);
+				client.addChatMessage(ChatMessageType.GAMEMESSAGE, "CyanWarrior4: ", ventStatusPredicter.getVentStatusText(2, widget.getText()), null);
+				client.addChatMessage(ChatMessageType.GAMEMESSAGE, "CyanWarrior4: ", "Stability Update: " + stabilityTracker.getCurrentChange(), null);
+			}
 
 			//Check if we have to fix vents now
 			if(stabilityTracker.getCurrentChange() < 0 && estimatedTimeRemaining > 595)
@@ -258,20 +262,36 @@ public class UltimateVolcanicMinePlugin extends Plugin
 
 		//Stability Trackers
 		Widget widget = client.getWidget(WidgetID.VOLCANIC_MINE_GROUP_ID, HUD_STABILITY_COMPONENT);
-		if (widget != null) {
+		if(config.stabilityUpdateHistoryCount() > 0 && widget != null)
 			widget.setText(widget.getText() + stabilityTracker.getStabilityText());
-		}
+
 		widget = client.getWidget(WidgetID.VOLCANIC_MINE_GROUP_ID, HUD_STABILITY_COMPONENT-1);
-		widget.setText("Stab." + futureStabilityTracker.getStabilityText());
+		if(widget != null) {
+			if (config.predictedStabilityChangeHistoryCount() > 0)
+				widget.setText("Stab." + futureStabilityTracker.getStabilityText());
+			else
+				widget.setText("Stability");
+		}
 
 
 		//Vent Status
-		widget = client.getWidget(WidgetID.VOLCANIC_MINE_GROUP_ID, HUD_VENT_A_PERCENTAGE);
-		widget.setText(ventStatusPredicter.getVentStatusText(0, widget.getText()));
-		widget = client.getWidget(WidgetID.VOLCANIC_MINE_GROUP_ID, HUD_VENT_B_PERCENTAGE);
-		widget.setText(ventStatusPredicter.getVentStatusText(1, widget.getText()));
-		widget = client.getWidget(WidgetID.VOLCANIC_MINE_GROUP_ID, HUD_VENT_C_PERCENTAGE);
-		widget.setText(ventStatusPredicter.getVentStatusText(2, widget.getText()));
+		if(config.ventStatusPrediction()) {
+			widget = client.getWidget(WidgetID.VOLCANIC_MINE_GROUP_ID, HUD_VENT_A_PERCENTAGE);
+			if (widget != null) widget.setText(ventStatusPredicter.getVentStatusText(0, widget.getText()));
+			widget = client.getWidget(WidgetID.VOLCANIC_MINE_GROUP_ID, HUD_VENT_B_PERCENTAGE);
+			if (widget != null) widget.setText(ventStatusPredicter.getVentStatusText(1, widget.getText()));
+			widget = client.getWidget(WidgetID.VOLCANIC_MINE_GROUP_ID, HUD_VENT_C_PERCENTAGE);
+			if (widget != null) widget.setText(ventStatusPredicter.getVentStatusText(2, widget.getText()));
+		}
+	}
+
+	@Subscribe
+	void onGameObjectDespawned(GameObjectDespawned event) {
+		int gameObjectId = event.getGameObject().getId();
+		if(gameObjectId == GAME_OBJ_ROCK) {
+			rockTracker.addRock(event.getGameObject().getWorldLocation());
+		}
+
 	}
 
 	private void resetGameVariables() {
@@ -283,10 +303,17 @@ public class UltimateVolcanicMinePlugin extends Plugin
 		movementUpdateTick = -1;
 	}
 
+
 	//Function(s) taken from Hipipis Plugin hub VMPlugin
 	private static final String PLATFORM_WARNING_MESSAGE = "The platform beneath you will disappear soon!";
+	private static final String BOULDER_WARNING_MESSAGE = "The current boulder stage is complete.";
 	// Constants
 	private static final int PLATFORM_STAGE_3_ID = 31000;
+	private static final int BOULDER_BREAK_STAGE_1_ID = 7807;
+	private static final int BOULDER_BREAK_STAGE_2_ID = 7809;
+	private static final int BOULDER_BREAK_STAGE_3_ID = 7811;
+	private static final int BOULDER_BREAK_STAGE_4_ID = 7813;
+	private static final int BOULDER_BREAK_STAGE_5_ID = 7815;
 	@Subscribe
 	public void onGameObjectSpawned(GameObjectSpawned event) {
 		if (!isInVM()) return;
@@ -315,13 +342,34 @@ public class UltimateVolcanicMinePlugin extends Plugin
 			}
 		}
 	}
+
 	@Subscribe
-	void onGameObjectDespawned(GameObjectDespawned event) {
-		int gameObjectId = event.getGameObject().getId();
-		if(gameObjectId == GAME_OBJ_ROCK) {
-			rockTracker.addRock(event.getGameObject().getWorldLocation());
+	public void onNpcSpawned(NpcSpawned npcSpawned)
+	{
+		// Return if not in VM
+		if (!isInVM())
+		{
+			return;
 		}
 
+		// If warning is enabled and npc spawned is a boulder that is breaking
+		if (config.showBoulderWarning())
+		{
+			NPC npc = npcSpawned.getNpc();
+
+			switch(npc.getId())
+			{
+				case BOULDER_BREAK_STAGE_1_ID:
+				case BOULDER_BREAK_STAGE_2_ID:
+				case BOULDER_BREAK_STAGE_3_ID:
+				case BOULDER_BREAK_STAGE_4_ID:
+				case BOULDER_BREAK_STAGE_5_ID:
+					notifier.notify(BOULDER_WARNING_MESSAGE);
+					break;
+				default:
+					break;
+			}
+		}
 	}
 	private boolean isInVM()
 	{

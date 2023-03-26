@@ -14,6 +14,7 @@ public class StabilityTracker {
 
     private boolean hasResetHistory = false;
     private int currentStability;
+    private int numDisplay;
     private LinkedList<Integer> stabilityHistory = new LinkedList<>();
 
     public StabilityTracker() {
@@ -24,6 +25,7 @@ public class StabilityTracker {
         currentStability = STARTING_STABILITY;
         stabilityHistory.clear();
         hasResetHistory = false;
+        numDisplay = 3;
     }
 
     public void resetStabilityHistory() {
@@ -70,6 +72,9 @@ public class StabilityTracker {
         Iterator<Integer> it = stabilityHistory.iterator();
         int numIterations = 0;
         while(it.hasNext()) {
+            if(numIterations == numDisplay)
+                return " (" + builder.toString() + ")";
+
             if(++numIterations > 1) builder.append(",");
 
             int change = (Integer)it.next();
@@ -90,4 +95,5 @@ public class StabilityTracker {
         stabilityHistory.addFirst(change);
         while(stabilityHistory.size() > MAX_STABILITY_UPDATES) stabilityHistory.removeLast();
     }
+    public void setDisplayCount(int count) { numDisplay = count;}
 }
