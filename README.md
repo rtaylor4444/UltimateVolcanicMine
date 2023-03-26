@@ -22,9 +22,11 @@ If enabled, sends a warning notification prior to the vents resetting, using the
 
 6) Platform Despawn Notification:
    If enabled, sends a notification when the platform the player is standing on is in its final state before disappearing
+   
+7) Boulder Movement Notification: If enabled, sends a notification when the current boulder stage is complete
 
-7) Vent Fix Notification: Sends a notification when the Mine Stability drops below 100%
-8) Stability Update Tracker: Tracks changes to the mine stability
+8) Vent Fix Notification: Sends a notification when the Mine Stability drops below 100%
+9) Stability Update Tracker: Tracks changes to the mine stability
 
 - This will now keep track of three changes rather than just two.
 
