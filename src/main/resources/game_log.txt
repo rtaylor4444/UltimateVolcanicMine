@@ -1,0 +1,102 @@
+-------------------------------------------------------------------------------
+Previous 
+A Bounds: 25, 75
+Directional Move: 0
+A Movement: 0, 0 | 0, 0
+A: 127%
+B Bounds: 25, 75
+Directional Move: 0
+B Movement: 0, 0 | 0, 0
+B: 127%
+C Bounds: 25, 75
+Directional Move: 0
+C Movement: 0, 0 | 0, 0
+C: 127%
+Stability Change: 15
+
+Current 
+A Bounds: 25, 75
+Directional Move: 0
+A Movement: 0, 0 | 0, 0
+A: 127%
+B Bounds: 25, 75
+Directional Move: 0
+B Movement: 0, 0 | 0, 0
+B: 127%
+C Bounds: 25, 75
+Directional Move: 0
+C Movement: 0, 0 | 0, 0
+C: 127%
+Stability Change: 15
+
+Display 
+A Bounds: 25, 75
+Directional Move: 0
+A Movement: 0, 0 | 0, 0
+A: 127%
+B Bounds: 25, 75
+Directional Move: 0
+B Movement: 0, 0 | 0, 0
+B: 127%
+C Bounds: 25, 75
+Directional Move: 0
+C Movement: 0, 0 | 0, 0
+C: 127%
+Stability Change: 0
+
+-------------------------------------------------------------------------------
+Previous 
+A: 43%
+B: 29%
+C Bounds: 23, 73
+Directional Move: 0
+C Movement: 0, 0 | 0, 0
+C: 40-42 58-60
+Stability Change: 13
+
+Current 
+A: 44%
+B: 30%
+C Bounds: 23, 73
+Directional Move: 0
+C Movement: 0, 0 | 0, 0
+C: 38-40 60-62
+Stability Change: 13
+
+Display 
+A: 44%
+B: 30%
+C Bounds: 23, 73
+Directional Move: 0
+C Movement: 0, 0 | 0, 0
+C: 38-40 60-62
+Stability Change: 0
+
+-------------------------------------------------------------------------------
+Previous 
+A: 45%
+B: 31%
+C Bounds: 21, 71
+Directional Move: -2
+C Movement: -2, -2 | -1, -2
+C: 39-41 59-61
+Stability Change: 14
+
+Current 
+A: 46%
+B: 32%
+C Bounds: 21, 71
+Directional Move: -2
+C Movement: -2, -2 | -1, -2
+C: 37-39 61-63
+Stability Change: 14
+
+Display 
+A: 46%
+B: 32%
+C Bounds: 21, 71
+Directional Move: -2
+C Movement: -2, -2 | -1, -2
+C: 37-39 61-63
+Stability Change: 0
+

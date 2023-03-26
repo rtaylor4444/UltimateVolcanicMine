@@ -9,6 +9,8 @@ public class StabilityTracker {
     public static final int STARTING_STABILITY = 50;
     private static final int MAX_STABILITY = 100;
     private static final int MAX_STABILITY_UPDATES = 3;
+    private static final int MIN_STABILITY_CHANGE = -25;
+    private static final int MAX_STABILITY_CHANGE = 25;
 
     private boolean hasResetHistory = false;
     private int currentStability;
@@ -33,6 +35,8 @@ public class StabilityTracker {
     public boolean updateStability(int newStability) {
         if(currentStability == newStability) return false;
         int change = newStability - currentStability;
+        if(change > MAX_STABILITY_CHANGE || change < MIN_STABILITY_CHANGE) return false;
+
         currentStability = newStability;
 
         addChange(change);
