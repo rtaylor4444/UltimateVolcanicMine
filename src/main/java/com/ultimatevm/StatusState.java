@@ -11,6 +11,7 @@ public class StatusState {
     private VentStatus[] vents = new VentStatus[NUM_VENTS];
     private int numIdentifiedVents;
     private int stabilityChange;
+    private int tickTimeStamp;
     private boolean hasReset;
 
     public static int getTotalVentUpdate(int change) { return (STABILITY_CHANGE_CONSTANT - change) * NUM_VENTS; }
@@ -63,6 +64,27 @@ public class StatusState {
     public void clearVentMovement() {
         for(int i = 0; i < vents.length; ++i) {
             vents[i].clearMovement();
+        }
+    }
+    public void mergePredictedRangesWith(StatusState state) {
+        for(int i = 0; i < NUM_VENTS; ++i) {
+            if(vents[i].isIdentified()) continue;
+            if(!state.vents[i].isRangeDefined()) continue;
+            if(vents[i].isRangeDefined()) {
+                vents[i].mergeLowerBoundRanges(vents[i].getLowerBoundStart(),
+                        state.vents[i].getLowerBoundStart());
+                vents[i].mergeUpperBoundRanges(vents[i].getUpperBoundStart(),
+                        state.vents[i].getUpperBoundStart());
+            } else {
+                vents[i].setLowerBoundRange(state.vents[i].getLowerBoundStart(), state.vents[i].getLowerBoundEnd());
+                vents[i].setUpperBoundRange(state.vents[i].getUpperBoundStart(), state.vents[i].getUpperBoundEnd());
+            }
+        }
+    }
+    public void doBoundsClipping() {
+        for(int i = 0; i < NUM_VENTS; ++i) {
+            if(vents[i].isIdentified()) continue;
+            vents[i].doBoundsClipping();
         }
     }
     public void doVMReset() {

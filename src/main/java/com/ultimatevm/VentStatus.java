@@ -138,13 +138,21 @@ public class VentStatus {
         lowerBoundStart = lowerBoundEnd = STARTING_VENT_VALUE;
         upperBoundStart = upperBoundEnd = STARTING_VENT_VALUE;
     }
+    public void mergeLowerBoundRanges(int start, int end) {
+        lowerBoundStart = Math.min(lowerBoundStart, capVentValue(start));
+        lowerBoundEnd = Math.max(lowerBoundEnd, capVentValue(end));
+    }
+    public void mergeUpperBoundRanges(int start, int end) {
+        upperBoundStart = Math.min(upperBoundStart, capVentValue(start));
+        upperBoundEnd = Math.max(upperBoundEnd, capVentValue(end));
+    }
     public void setLowerBoundRange(int start, int end) {
         lowerBoundStart = capVentValue(start);
         lowerBoundEnd = capVentValue(end);
         //Merge ranges if they are both within bounds
         if(isUpperBoundWithinRange(lowerBoundStart, lowerBoundEnd)) {
-            lowerBoundStart = upperBoundStart = Math.min(lowerBoundStart, upperBoundStart);
-            lowerBoundEnd = upperBoundEnd = Math.max(lowerBoundEnd, upperBoundEnd);
+            mergeUpperBoundRanges(lowerBoundStart, lowerBoundEnd);
+            mergeLowerBoundRanges(upperBoundStart, upperBoundEnd);
         }
     }
     public void setUpperBoundRange(int start, int end) {
@@ -152,9 +160,29 @@ public class VentStatus {
         upperBoundEnd = capVentValue(end);
         //Merge ranges if they are both within bounds
         if(isLowerBoundWithinRange(upperBoundStart, upperBoundEnd)) {
-            lowerBoundStart = upperBoundStart = Math.min(lowerBoundStart, upperBoundStart);
-            lowerBoundEnd = upperBoundEnd = Math.max(lowerBoundEnd, upperBoundEnd);
+            mergeUpperBoundRanges(lowerBoundStart, lowerBoundEnd);
+            mergeLowerBoundRanges(upperBoundStart, upperBoundEnd);
         }
+    }
+    public void doBoundsClipping() {
+        if(!isRangeDefined()) return;
+        boolean isLowerBoundClipped = getTotalBoundStart() > getLowerBoundEnd();
+        boolean isUpperBoundClipped = getTotalBoundEnd() < getUpperBoundStart();
+        if(isLowerBoundClipped && isUpperBoundClipped) {
+            //Both ranges are outside possible bounds (shouldn't happen)
+            clearRanges();
+            setLowerBoundRange(getTotalBoundStart(), getTotalBoundEnd());
+            setUpperBoundRange(getTotalBoundStart(), getTotalBoundEnd());
+        }
+        else if(isLowerBoundClipped) {
+            //Lower bound doesnt fit in total bounds use upper bound instead
+            setLowerBoundRange(getUpperBoundStart(), getUpperBoundEnd());
+        }
+        else if(isUpperBoundClipped) {
+            //Upper bound doesnt fit in total bounds use lower bound instead
+            setUpperBoundRange(getLowerBoundStart(), getLowerBoundEnd());
+        }
+        //Do nothing if neither range is outside total bounds
     }
 
     public boolean isIdentified() { return actualValue != STARTING_VENT_VALUE; }

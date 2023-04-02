@@ -732,4 +732,41 @@ public class VentStatusTest {
         Assert.assertTrue(vent.isWithinRange(45, 55));
         Assert.assertTrue(vent.isWithinRange(VentStatus.MIN_VENT_VALUE - 1, VentStatus.MAX_VENT_VALUE + 1));
     }
+
+    public void doBoundsClippingTest() {
+        //Bounds starts at 25-75%
+
+        //Both ranges outside of bounds
+        VentStatus vent = new VentStatus('A');
+        vent.setLowerBoundRange(15,24);
+        vent.setUpperBoundRange(76,85);
+        vent.doBoundsClipping();
+        //Range should be set to bounds
+        Assert.assertEquals(vent.getLowerBoundStart(), vent.getTotalBoundStart());
+        Assert.assertEquals(vent.getUpperBoundStart(), vent.getTotalBoundStart());
+        Assert.assertEquals(vent.getLowerBoundEnd(), vent.getTotalBoundEnd());
+        Assert.assertEquals(vent.getUpperBoundEnd(), vent.getTotalBoundEnd());
+
+        //Upper range outside of bounds should be set to lower range
+        vent = new VentStatus('A');
+        vent.setLowerBoundRange(15,25);
+        vent.setUpperBoundRange(76,85);
+        vent.doBoundsClipping();
+        //Range should be set to bounds
+        Assert.assertEquals(vent.getLowerBoundStart(), 15);
+        Assert.assertEquals(vent.getUpperBoundStart(), 15);
+        Assert.assertEquals(vent.getLowerBoundEnd(), 25);
+        Assert.assertEquals(vent.getUpperBoundEnd(), 25);
+
+        //lower range outside of bounds should be set to upper range
+        vent = new VentStatus('A');
+        vent.setLowerBoundRange(15,24);
+        vent.setUpperBoundRange(75,85);
+        vent.doBoundsClipping();
+        //Range should be set to bounds
+        Assert.assertEquals(vent.getLowerBoundStart(), 75);
+        Assert.assertEquals(vent.getUpperBoundStart(), 75);
+        Assert.assertEquals(vent.getLowerBoundEnd(), 85);
+        Assert.assertEquals(vent.getUpperBoundEnd(), 85);
+    }
 }

@@ -8,11 +8,15 @@ import java.io.IOException;
 import java.util.ArrayList;
 
 public class VentStatusPredicter {
+    public static final int VENT_MOVE_TICK_TIME = 10;
+    public static final int STABILITY_UPDATE_TICK_TIME = 25;
+    private static final int SLOWEST_VENT_UPDATE_TICK = VENT_MOVE_TICK_TIME-1;
     private static final String FILE_PATH =
             "C:\\Users\\cyanw\\IdeaProjects\\UltimateVolcanicMine\\src\\main\\resources\\game_log.txt";
 
-    private StatusState displayState, currentState, previousState;
-
+    private StatusState[] ventMovementHistory = new StatusState[(STABILITY_UPDATE_TICK_TIME / VENT_MOVE_TICK_TIME) + 1];
+    private StatusState displayState, mergedState;
+    private int currentTick;
     FileWriter logWriter;
     public VentStatusPredicter() {
         try {
@@ -23,9 +27,12 @@ public class VentStatusPredicter {
         initialize();
     }
     public void initialize() {
+        currentTick = 0;
         displayState = new StatusState();
-        currentState = new StatusState();
-        previousState = new StatusState();
+        mergedState = new StatusState();
+        for(int i = 0; i < ventMovementHistory.length; ++i)
+            ventMovementHistory[i] = new StatusState();
+
         try {
             logWriter.close();
             logWriter = new FileWriter(FILE_PATH, false);
@@ -35,30 +42,36 @@ public class VentStatusPredicter {
     }
     public void reset() {
         displayState.doVMReset();
-        currentState.doVMReset();
-        previousState.doVMReset();
     }
     public void updateVentStatus(int[] ventStatus, int chambers) {
         processVentChangeState(displayState.updateVentStatus(ventStatus, chambers));
+        if(isMovementUpdateTick()) {
+            updateVentMovement();
+        }
     }
     public void updateVentMovement() {
         displayState.updateVentMovement();
-        currentState.updateVentMovement();
-        previousState.updateVentMovement();
+        for(int i = ventMovementHistory.length-1; i >= 1; --i) {
+            ventMovementHistory[i].setEqualTo(ventMovementHistory[i-1]);
+        }
+        ventMovementHistory[0].setEqualTo(displayState);
     }
     public void clearVentMovement() {
         displayState.clearVentMovement();
-        currentState.clearVentMovement();
-        previousState.clearVentMovement();
     }
     public void makeStatusState(int change) {
-        previousState.calcPredictedVentValues(change);
-        currentState.calcPredictedVentValues(change);
+        mergedState.setEqualTo(displayState);
+        mergedState.calcPredictedVentValues(change);
+        for(int i = 0; i < ventMovementHistory.length; ++i) {
+            ventMovementHistory[i].calcPredictedVentValues(change);
+            mergedState.mergePredictedRangesWith(ventMovementHistory[i]);
+        }
+        mergedState.doBoundsClipping();
 
-        int[] unknownVentIndices = displayState.getUnidentifiedVentIndices();
-        if(currentState.getNumIdentifiedVents() == 2) {
+        int[] unknownVentIndices = mergedState.getUnidentifiedVentIndices();
+        if(mergedState.getNumIdentifiedVents() == 2) {
             if (!fixRangesSingle(unknownVentIndices[0])) {
-                displayState.getVents()[unknownVentIndices[0]].setEqualTo(currentState.getVents()[unknownVentIndices[0]]);
+                displayState.getVents()[unknownVentIndices[0]].setEqualTo(mergedState.getVents()[unknownVentIndices[0]]);
             }
         }
 //        } else if(currentState.getNumIdentifiedVents() == 1) {
@@ -72,32 +85,8 @@ public class VentStatusPredicter {
         clearVentMovement();
     }
     public boolean fixRangesSingle(int idVentIndex) {
-        VentStatus currentVent = currentState.getVents()[idVentIndex];
+        VentStatus currentVent = mergedState.getVents()[idVentIndex];
         VentStatus displayVent = displayState.getVents()[idVentIndex];
-        //Check if calculated answers are outside our possible bounds
-        //TODO: Keep track of the previous bounds for more accurate clipping
-        //Add extra move rate to account
-//        int totalBoundStart = displayVent.getTotalBoundStart() - BASE_MOVE_RATE;
-//        if(totalBoundStart > currentVent.getLowerBoundEnd()) {
-//            //Calculated lower bound is out of possible range
-//            displayVent.clearRanges();
-//            displayVent.setLowerBoundRange(currentVent.getUpperBoundStart(),
-//                    currentVent.getUpperBoundEnd());
-//            displayVent.setUpperBoundRange(currentVent.getUpperBoundStart(),
-//                    currentVent.getUpperBoundEnd());
-//            return true;
-//        }
-//        int totalBoundEnd = displayVent.getTotalBoundEnd() + BASE_MOVE_RATE;
-//        if(totalBoundEnd < currentVent.getUpperBoundStart()) {
-//            //Calculated upper bound is out of possible range
-//            displayVent.clearRanges();
-//            displayVent.setLowerBoundRange(currentVent.getLowerBoundStart(),
-//                    currentVent.getLowerBoundEnd());
-//            displayVent.setUpperBoundRange(currentVent.getLowerBoundStart(),
-//                    currentVent.getLowerBoundEnd());
-//            return true;
-//        }
-
         int totalDirMove = currentVent.getTotalDirectionalMovement();
         //Fix our ranges to account for movement inaccuracies
         //EX: Update movement tick is off (pes move varies by -1 or +1)
@@ -179,7 +168,7 @@ public class VentStatusPredicter {
         return true;
     }
     public boolean fixRangesDouble(int idVentIndex) {
-        VentStatus currentVent = currentState.getVents()[idVentIndex];
+        VentStatus currentVent = mergedState.getVents()[idVentIndex];
         VentStatus displayVent = displayState.getVents()[idVentIndex];
 
         int[] lowerOverlap = displayVent.getOverlappedLowerBoundRange(
@@ -225,28 +214,6 @@ public class VentStatusPredicter {
         StringBuilder builder = new StringBuilder();
         builder.append(startingText, 0, 3);
         builder.append("<col=00ffff>");
-//        if(vents[index].isTwoSeperateValues()) {
-//            if(vents[index].isLowerBoundSingleValue())
-//                builder.append(vents[index].getLowerBoundStart()).append("%");
-//            else {
-//                builder.append(vents[index].getLowerBoundStart()).append("-");
-//                builder.append(vents[index].getLowerBoundEnd());
-//            }
-//            builder.append(" ");
-//            if(vents[index].isUpperBoundSingleValue())
-//                builder.append(vents[index].getUpperBoundStart()).append("%");
-//            else {
-//                builder.append(vents[index].getUpperBoundStart()).append("-");
-//                builder.append(vents[index].getUpperBoundEnd());
-//            }
-//        } else {
-//            if(vents[index].isLowerBoundSingleValue())
-//                builder.append(vents[index].getLowerBoundStart()).append("%");
-//            else {
-//                builder.append(vents[index].getLowerBoundStart()).append("-");
-//                builder.append(vents[index].getLowerBoundEnd()).append("%");
-//            }
-//        }
         builder.append(getVentPercentText(vents[index]));
         return builder.append("</col>").toString();
     }
@@ -277,30 +244,26 @@ public class VentStatusPredicter {
         return builder.toString();
     }
     private void processVentChangeState(VentChangeState[] changeStates) {
-        int numUnchanged = 0;
+        int bitState = 0;
         for(int i = 0; i < changeStates.length; ++i) {
             switch(changeStates[i]) {
                 case IDENTIFIED:
-                    //Update both current and previous state to match
-                    currentState.setVentsEqualTo(displayState);
-                    previousState.setVentsEqualTo(displayState);
-                    return;
+                    //TODO: Fix vent status update history
+                    bitState |= 1;
+                    break;
                 case NO_CHANGE:
                     //TODO: Record how many ticks a specific vent has no change
-                case BOUNDED:
-                case UNIDENTIFIED:
-                    ++numUnchanged;
-                    break;
+                    bitState |= 2;
                 case ONE_CHANGE:
                 case TWO_CHANGE:
+                    bitState |= 4;
                     //TODO: Narrow down display states ranges accordingly
+                    break;
+                case BOUNDED:
+                case UNIDENTIFIED:
                     break;
             }
         }
-        //Do nothing if the vents have not changed yet
-        if(numUnchanged == 3) return;
-        previousState.setVentsEqualTo(currentState);
-        currentState.setVentsEqualTo(displayState);
     }
 
     public int getFutureStabilityChange(UltimateVolcanicMineConfig.PredictionScenario scenario) {
@@ -344,17 +307,23 @@ public class VentStatusPredicter {
             totalVentValue += estimatedVentValue;
         return calcStabilityChange(totalVentValue);
     }
-    public final StatusState getCurrentState() { return currentState; }
-    public final StatusState getPreviousState() { return previousState; }
+    public final StatusState[] getVentMovementHistory() { return ventMovementHistory; }
     public final StatusState getDisplayState() { return displayState; }
-    public boolean areAnyVentIdentified() { return displayState.getNumIdentifiedVents() > 0; }
+    public final StatusState getMergedState() { return mergedState; }
+    public final int getCurrentTick() { return currentTick; }
+    public boolean isMovementUpdateTick() { return getCurrentTick() % VENT_MOVE_TICK_TIME == SLOWEST_VENT_UPDATE_TICK;}
+    public void updateTick() { ++currentTick; }
+
     public void log() {
         try {
             logWriter.write("-------------------------------------------------------------------------------" + "\n");
-            logWriter.write("Previous " + "\n");
-            logState(previousState);
-            logWriter.write("Current " + "\n");
-            logState(currentState);
+            logWriter.write("On Tick: " + currentTick + "\n");
+            for(int i = ventMovementHistory.length - 1; i >= 0; --i) {
+                logWriter.write("Vent History " + i + "\n");
+                logState(ventMovementHistory[i]);
+            }
+            logWriter.write("Merged History " + "\n");
+            logState(mergedState);
             logWriter.write("Display " + "\n");
             logState(displayState);
         } catch (IOException ignored) {

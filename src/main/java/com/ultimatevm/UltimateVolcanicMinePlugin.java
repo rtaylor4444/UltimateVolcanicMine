@@ -7,6 +7,8 @@ import lombok.extern.slf4j.Slf4j;
 import net.runelite.api.ChatMessageType;
 import net.runelite.api.Client;
 import net.runelite.api.NPC;
+import net.runelite.api.Player;
+import net.runelite.api.coords.LocalPoint;
 import net.runelite.api.events.*;
 import net.runelite.api.coords.WorldPoint;
 import net.runelite.api.widgets.WidgetID;
@@ -71,7 +73,7 @@ public class UltimateVolcanicMinePlugin extends Plugin
 	private static final int VM_GAME_FULL_TIME = 1000;
 	private static final int VM_GAME_RESET_TIME = 500;
 	private static final float SECONDS_TO_TICKS = 1.666f;
-	private static final int VENT_MOVE_TICK_TIME = 10;
+
 
 	private VentStatusPredicter ventStatusPredicter = new VentStatusPredicter();
 	private StabilityTracker stabilityTracker = new StabilityTracker();
@@ -82,9 +84,7 @@ public class UltimateVolcanicMinePlugin extends Plugin
 	private CapCounterInfoBox capInfoBox;
 	private int vmGameState = VM_GAME_STATE_NONE;
 	private int ventStatus[] = new int[3];
-	private int varbitsUpdated = 0;
 	private int timeRemainingFromServer, estimatedTimeRemaining;
-	private int ticksPassed, movementUpdateTick;
 	private int eruptionTime, ventWarningTime;
 
 
@@ -163,16 +163,14 @@ public class UltimateVolcanicMinePlugin extends Plugin
 				client.getVarbitValue(VARBIT_VENT_STATUS_B),
 				client.getVarbitValue(VARBIT_VENT_STATUS_C),
 				client.getVarbitValue(VARBIT_CHAMBER_STATUS));
-		//Update our movement on the same exact tick the vent status changes
-		if(ticksPassed % VENT_MOVE_TICK_TIME == movementUpdateTick) {
-			updateVentMovement();
-
+		//Update our predicted stability change on the same exact tick the vent status changes
+		if(ventStatusPredicter.isMovementUpdateTick()) {
 			//Check if we have to fix vents in the future
 			int futureChange = ventStatusPredicter.getFutureStabilityChange(config.predictedVentFixScenario());
 			if(futureChange != VentStatus.STARTING_VENT_VALUE) {
 				futureStabilityTracker.addChange(futureChange);
 				if (futureStabilityTracker.isFutureStabilityBad(config.predictedStabilityChange()) && estimatedTimeRemaining > 595)
-					VM_notifier.notify(notifier, VMNotifier.NotificationEvents.VM_PREDICTED_VENT_FIX, ticksPassed);
+					VM_notifier.notify(notifier, VMNotifier.NotificationEvents.VM_PREDICTED_VENT_FIX, ventStatusPredicter.getCurrentTick());
 			}
 		}
 
@@ -189,12 +187,12 @@ public class UltimateVolcanicMinePlugin extends Plugin
 
 			//Check if we have to fix vents now
 			if(stabilityTracker.getCurrentChange() < 0 && estimatedTimeRemaining > 595)
-				VM_notifier.notify(notifier, VMNotifier.NotificationEvents.VM_PRE_RESET_VENT_FIX, ticksPassed);
+				VM_notifier.notify(notifier, VMNotifier.NotificationEvents.VM_PRE_RESET_VENT_FIX, ventStatusPredicter.getCurrentTick());
 		}
 
 		//Ensure reset will not happen at start before the server sends the new game time
 		//Reset around 5:00 when the server sends new unidentified vent
-		if(ticksPassed > VMNotifier.NOTIFICATION_START_COOLDOWN_TICKS &&
+		if(ventStatusPredicter.getCurrentTick() > VMNotifier.NOTIFICATION_START_COOLDOWN_TICKS &&
 				estimatedTimeRemaining <= VM_GAME_RESET_TIME) {
 			stabilityTracker.resetStabilityHistory();
 			futureStabilityTracker.resetStabilityHistory();
@@ -202,12 +200,12 @@ public class UltimateVolcanicMinePlugin extends Plugin
 		}
 
 		if (estimatedTimeRemaining <= (VM_GAME_RESET_TIME + ventWarningTime))
-			VM_notifier.notify(notifier, VMNotifier.NotificationEvents.VM_RESET, ticksPassed);
+			VM_notifier.notify(notifier, VMNotifier.NotificationEvents.VM_RESET, ventStatusPredicter.getCurrentTick());
 
 		if (estimatedTimeRemaining <= eruptionTime)
-			VM_notifier.notify(notifier, VMNotifier.NotificationEvents.VM_ERUPTION, ticksPassed);
+			VM_notifier.notify(notifier, VMNotifier.NotificationEvents.VM_ERUPTION, ventStatusPredicter.getCurrentTick());
 
-		++ticksPassed;
+		ventStatusPredicter.updateTick();
 	}
 
 	//Helper functions for testing
@@ -220,10 +218,6 @@ public class UltimateVolcanicMinePlugin extends Plugin
 	}
 	public void updateVentStatus(int ventA, int ventB, int ventC, int chamberStatus) {
 		ventStatusPredicter.updateVentStatus(new int[]{ventA, ventB, ventC}, chamberStatus);
-	}
-	public void updateVentMovement() {
-		ventStatusPredicter.updateVentMovement();
-		varbitsUpdated = 0;
 	}
 	public final VentStatusPredicter getVentStatusPredicter() { return ventStatusPredicter; }
 
@@ -241,17 +235,6 @@ public class UltimateVolcanicMinePlugin extends Plugin
 				if (capCounter.getTimesCapped() == 1) infoBoxManager.addInfoBox(capInfoBox);
 			}
 		}
-
-		//Do not get the movement update tick until at least 1 vent
-		//is identified
-		if(!ventStatusPredicter.areAnyVentIdentified()) return;
-
-		if(event.getVarbitId() == VARBIT_VENT_STATUS_A) varbitsUpdated |= 1;
-		if(event.getVarbitId() == VARBIT_VENT_STATUS_B) varbitsUpdated |= 2;
-		if(event.getVarbitId() == VARBIT_VENT_STATUS_C) varbitsUpdated |= 4;
-
-		if(varbitsUpdated != 0 && movementUpdateTick == -1)
-			movementUpdateTick = ticksPassed % VENT_MOVE_TICK_TIME;
 	}
 
 	@Subscribe
@@ -291,16 +274,13 @@ public class UltimateVolcanicMinePlugin extends Plugin
 		if(gameObjectId == GAME_OBJ_ROCK) {
 			rockTracker.addRock(event.getGameObject().getWorldLocation());
 		}
-
 	}
 
 	private void resetGameVariables() {
 		estimatedTimeRemaining = VM_GAME_FULL_TIME;
 		VM_notifier.reset();
 		capCounter.initialize();
-		varbitsUpdated = timeRemainingFromServer = 0;
-		ticksPassed = 0;
-		movementUpdateTick = -1;
+		timeRemainingFromServer = 0;
 	}
 
 
@@ -373,7 +353,13 @@ public class UltimateVolcanicMinePlugin extends Plugin
 	}
 	private boolean isInVM()
 	{
-		return WorldPoint.fromLocalInstance(client, client.getLocalPlayer().getLocalLocation()).getRegionID() == VM_REGION_NORTH ||
-				WorldPoint.fromLocalInstance(client, client.getLocalPlayer().getLocalLocation()).getRegionID() == VM_REGION_SOUTH;
+		Player player = client.getLocalPlayer();
+		if(player == null) return false;
+		LocalPoint localPoint = player.getLocalLocation();
+		if(localPoint == null) return false;
+		WorldPoint worldPoint = WorldPoint.fromLocalInstance(client, localPoint);
+		if(worldPoint == null) return false;
+		int currentRegionID = worldPoint.getRegionID();
+		return  currentRegionID == VM_REGION_NORTH || currentRegionID == VM_REGION_SOUTH;
 	}
 }
