@@ -44,14 +44,13 @@ public class StatusState {
         setVentsEqualTo(state);
     }
 
-    public VentChangeState[] updateVentStatus(int[] ventStatus, int chambers) {
+    public int[] updateVentStatus(int[] ventStatus, int chambers) {
         numIdentifiedVents = 0;
-        VentChangeState[] changeStates = new VentChangeState[NUM_VENTS];
+        int[] changeStates = new int[NUM_VENTS];
         for(int i = 0; i < ventStatus.length; ++i) {
             changeStates[i] = vents[i].update(ventStatus[i], getDirectionFromChambers(i, chambers));
             if(vents[i].isIdentified()) ++numIdentifiedVents;
         }
-        //TODO: Narrow range bounds based on movement
         return changeStates;
     }
     public void updateVentMovement() {
@@ -59,6 +58,21 @@ public class StatusState {
         for(int i = 0; i < vents.length; ++i) {
             vents[i].updateMovement(currentVentInfluence);
             currentVentInfluence += vents[i].getEstimatedInfluence();
+        }
+    }
+    public void doActualVentMovement() {
+        int currentVentInfluence = 0;
+        for(int i = 0; i < vents.length; ++i) {
+            currentVentInfluence += vents[i].getEstimatedInfluence();
+            vents[i].doForwardMovement(currentVentInfluence);
+        }
+        updateVentMovement();
+    }
+    public void doActualBackwardMovement() {
+        int currentVentInfluence = 0;
+        for(int i = 0; i < vents.length; ++i) {
+            currentVentInfluence += vents[i].getReversedInfluence();
+            vents[i].doBackwardMovement(currentVentInfluence);
         }
     }
     public void clearVentMovement() {
@@ -75,6 +89,39 @@ public class StatusState {
                         state.vents[i].getLowerBoundStart());
                 vents[i].mergeUpperBoundRanges(vents[i].getUpperBoundStart(),
                         state.vents[i].getUpperBoundStart());
+            } else {
+                vents[i].setLowerBoundRange(state.vents[i].getLowerBoundStart(), state.vents[i].getLowerBoundEnd());
+                vents[i].setUpperBoundRange(state.vents[i].getUpperBoundStart(), state.vents[i].getUpperBoundEnd());
+            }
+        }
+    }
+    public void setOverlappingRangesWith(StatusState state) {
+        for(int i = 0; i < NUM_VENTS; ++i) {
+            if(vents[i].isIdentified()) continue;
+            if(!state.vents[i].isRangeDefined()) continue;
+            if(vents[i].isRangeDefined()) {
+                int[] lower = vents[i].getOverlappedLowerBoundRange(state.vents[i].getLowerBoundStart(),
+                        state.vents[i].getLowerBoundEnd());
+                int[] upper = vents[i].getOverlappedUpperBoundRange(state.vents[i].getUpperBoundStart(),
+                        state.vents[i].getUpperBoundEnd());
+                boolean isLowerValid = !(lower[0] == 0 && lower[1] == 0);
+                boolean isUpperValid = !(upper[0] == 0 && upper[1] == 0);
+                vents[i].clearRanges();
+                if(!isLowerValid && !isUpperValid) {
+                    //Do nothing our ranges do not overlap
+                }
+                else if(!isLowerValid) {
+                    vents[i].setLowerBoundRange(upper[0], upper[1]);
+                    vents[i].setUpperBoundRange(upper[0], upper[1]);
+                }
+                else if(!isUpperValid) {
+                    vents[i].setLowerBoundRange(lower[0], lower[1]);
+                    vents[i].setUpperBoundRange(lower[0], lower[1]);
+                }
+                else {
+                    vents[i].setLowerBoundRange(lower[0], lower[1]);
+                    vents[i].setUpperBoundRange(upper[0], upper[1]);
+                }
             } else {
                 vents[i].setLowerBoundRange(state.vents[i].getLowerBoundStart(), state.vents[i].getLowerBoundEnd());
                 vents[i].setUpperBoundRange(state.vents[i].getUpperBoundStart(), state.vents[i].getUpperBoundEnd());
@@ -111,6 +158,14 @@ public class StatusState {
         int[] indices = getUnidentifiedVentIndices();
         calcSingleVentValue(vents[indices[0]], change);
     }
+    public void clearPredictedVentValues() {
+        for(int i = 0; i < NUM_VENTS; ++i) {
+            if(vents[i].isIdentified()) continue;
+            vents[i].clearRanges();
+            vents[i].clearMovement();
+        }
+    }
+
     private void calcSingleVentValue(VentStatus vent, int change) {
         int partialVentUpdate = getIdentifiedVentTotalValue();
         int missingVentUpdate = getTotalVentUpdate(change) - partialVentUpdate;

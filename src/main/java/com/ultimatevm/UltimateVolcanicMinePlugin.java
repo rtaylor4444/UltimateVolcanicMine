@@ -70,8 +70,6 @@ public class UltimateVolcanicMinePlugin extends Plugin
 	private static final int GAME_OBJ_TAKEN_ROCK = 31046;
 	private static final int GAME_OBJ_ROCK = 31045;
 
-	private static final int VM_GAME_FULL_TIME = 1000;
-	private static final int VM_GAME_RESET_TIME = 500;
 	private static final float SECONDS_TO_TICKS = 1.666f;
 
 
@@ -193,13 +191,13 @@ public class UltimateVolcanicMinePlugin extends Plugin
 		//Ensure reset will not happen at start before the server sends the new game time
 		//Reset around 5:00 when the server sends new unidentified vent
 		if(ventStatusPredicter.getCurrentTick() > VMNotifier.NOTIFICATION_START_COOLDOWN_TICKS &&
-				estimatedTimeRemaining <= VM_GAME_RESET_TIME) {
+				estimatedTimeRemaining <= VentStatusTimeline.VM_GAME_RESET_TIME) {
 			stabilityTracker.resetStabilityHistory();
 			futureStabilityTracker.resetStabilityHistory();
 			ventStatusPredicter.reset();
 		}
 
-		if (estimatedTimeRemaining <= (VM_GAME_RESET_TIME + ventWarningTime))
+		if (estimatedTimeRemaining <= (VentStatusTimeline.VM_GAME_RESET_TIME + ventWarningTime))
 			VM_notifier.notify(notifier, VMNotifier.NotificationEvents.VM_RESET, ventStatusPredicter.getCurrentTick());
 
 		if (estimatedTimeRemaining <= eruptionTime)
@@ -277,7 +275,7 @@ public class UltimateVolcanicMinePlugin extends Plugin
 	}
 
 	private void resetGameVariables() {
-		estimatedTimeRemaining = VM_GAME_FULL_TIME;
+		estimatedTimeRemaining = VentStatusTimeline.VM_GAME_FULL_TIME;
 		VM_notifier.reset();
 		capCounter.initialize();
 		timeRemainingFromServer = 0;

@@ -66,17 +66,18 @@ public class StatusStateTest {
         StatusState state = new StatusState();
         final VentStatus[] vents = state.getVents();
         //Ensure our vents are set properly
-        VentStatus.VentChangeState[] changeStates = state.updateVentStatus(new int[]{50,50,50}, 7);
+        int[] changeStates = state.updateVentStatus(new int[]{50,50,50}, 7);
         for(int i = 0; i < StatusState.NUM_VENTS; ++i) {
             Assert.assertEquals(vents[i].getActualValue(), 50);
             Assert.assertEquals(vents[i].getDirection(), 1);
-            Assert.assertEquals(changeStates[i], VentStatus.VentChangeState.IDENTIFIED);
+            Assert.assertEquals(changeStates[i], VentStatus.VentChangeStateFlag.IDENTIFIED.bitFlag());
         }
         changeStates = state.updateVentStatus(new int[]{49,49,49}, 0);
         for(int i = 0; i < StatusState.NUM_VENTS; ++i) {
             Assert.assertEquals(vents[i].getActualValue(), 49);
             Assert.assertEquals(vents[i].getDirection(), -1);
-            Assert.assertEquals(changeStates[i], VentStatus.VentChangeState.ONE_CHANGE);
+            Assert.assertEquals(changeStates[i],
+                    VentStatus.VentChangeStateFlag.ONE_CHANGE.bitFlag() + VentStatus.VentChangeStateFlag.DIRECTION_CHANGE.bitFlag());
         }
     }
 

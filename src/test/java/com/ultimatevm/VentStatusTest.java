@@ -215,27 +215,50 @@ public class VentStatusTest {
 
     public void updateDifferenceTest() {
         VentStatus vent = new VentStatus('A');
-        //Vent still remains unidentified
-        Assert.assertEquals(vent.update(VentStatus.STARTING_VENT_VALUE, 1), VentStatus.VentChangeState.UNIDENTIFIED);
+        //Unidentified Tests
+        //No change state returned for the very first update
+        Assert.assertEquals(vent.update(VentStatus.STARTING_VENT_VALUE, 1), 0);
+        //Nothing changed from the previous update
+        Assert.assertEquals(vent.update(VentStatus.STARTING_VENT_VALUE, 1), 0);
+        //Direction was changed here
+        Assert.assertEquals(vent.update(VentStatus.STARTING_VENT_VALUE, -1), VentStatus.VentChangeStateFlag.DIRECTION_CHANGE.bitFlag());
+
+        //Identified tests
         //Vent was just identified
-        Assert.assertEquals(vent.update(100, 1), VentStatus.VentChangeState.IDENTIFIED);
-        //Vent must be bounded
-        Assert.assertEquals(vent.update(100, 1), VentStatus.VentChangeState.BOUNDED);
+        Assert.assertEquals(vent.update(100, -1), VentStatus.VentChangeStateFlag.IDENTIFIED.bitFlag());
+        vent.update(VentStatus.STARTING_VENT_VALUE, -1);
+        //Vent was just identified and direction changed
+        Assert.assertEquals(vent.update(100, 1),
+                VentStatus.VentChangeStateFlag.IDENTIFIED.bitFlag() + VentStatus.VentChangeStateFlag.DIRECTION_CHANGE.bitFlag());
+
+        //Bounded tests
+        //Vent must be bounded so no change state
+        Assert.assertEquals(vent.update(100, 1), 0);
+        //Direction has changed and vent cannot be bounded
+        Assert.assertEquals(vent.update(100, -1),
+                VentStatus.VentChangeStateFlag.NO_CHANGE.bitFlag() + VentStatus.VentChangeStateFlag.DIRECTION_CHANGE.bitFlag());
+        vent.update(0, -1);
+        //Vent must be bounded so no change state
+        Assert.assertEquals(vent.update(0, -1), 0);
+        //Direction has changed and vent cannot be bounded
+        Assert.assertEquals(vent.update(0, 1),
+                VentStatus.VentChangeStateFlag.NO_CHANGE.bitFlag() + VentStatus.VentChangeStateFlag.DIRECTION_CHANGE.bitFlag());
         vent.update(0, 1);
-        Assert.assertEquals(vent.update(0, 1), VentStatus.VentChangeState.BOUNDED);
+
         //Increase of 1
-        Assert.assertEquals(vent.update(1, 1), VentStatus.VentChangeState.ONE_CHANGE);
+        Assert.assertEquals(vent.update(1, 1), VentStatus.VentChangeStateFlag.ONE_CHANGE.bitFlag());
         //Decrease of 1
-        Assert.assertEquals(vent.update(0, 1), VentStatus.VentChangeState.ONE_CHANGE);
+        Assert.assertEquals(vent.update(0, 1), VentStatus.VentChangeStateFlag.ONE_CHANGE.bitFlag());
         //Increase of 2
-        Assert.assertEquals(vent.update(2, 1), VentStatus.VentChangeState.TWO_CHANGE);
+        Assert.assertEquals(vent.update(2, 1), VentStatus.VentChangeStateFlag.TWO_CHANGE.bitFlag());
         //Decrease of 2
-        Assert.assertEquals(vent.update(0, 1), VentStatus.VentChangeState.TWO_CHANGE);
+        Assert.assertEquals(vent.update(0, 1), VentStatus.VentChangeStateFlag.TWO_CHANGE.bitFlag());
+
         //No change
         vent.update(50, 1);
-        Assert.assertEquals(vent.update(50, 1), VentStatus.VentChangeState.NO_CHANGE);
+        Assert.assertEquals(vent.update(50, 1), VentStatus.VentChangeStateFlag.NO_CHANGE.bitFlag());
         //Vent became unidentified
-        Assert.assertEquals(vent.update(VentStatus.STARTING_VENT_VALUE, 1), VentStatus.VentChangeState.UNIDENTIFIED);
+        Assert.assertEquals(vent.update(VentStatus.STARTING_VENT_VALUE, 1), 0);
     }
 
     public void updateMovementInvalidTest() {

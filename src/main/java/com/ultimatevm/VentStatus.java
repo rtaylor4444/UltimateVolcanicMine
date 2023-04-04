@@ -9,13 +9,18 @@ public class VentStatus {
     public static final int MAX_VENT_VALUE = 100;
     public static int BASE_MOVE_RATE = 2;
 
-    public enum VentChangeState {
-        UNIDENTIFIED,
-        IDENTIFIED,
-        BOUNDED,
-        NO_CHANGE,
-        ONE_CHANGE,
-        TWO_CHANGE
+    public enum VentChangeStateFlag {
+        IDENTIFIED (1),
+        NO_CHANGE (2),
+        ONE_CHANGE (4),
+        TWO_CHANGE (8),
+        DIRECTION_CHANGE (16);
+        private final int bitFlag;
+
+        VentChangeStateFlag(int bitFlag) {
+            this.bitFlag = bitFlag;
+        }
+        int bitFlag() {return bitFlag;}
     }
     private char ventName;
     private int actualValue;
@@ -32,6 +37,13 @@ public class VentStatus {
     private int totalDirectionalMovement;
 
     public static int getVentStabilityInfluence(int ventValue) { return Math.abs(PERFECT_VENT_VALUE - ventValue); }
+    public static int getInfluenceOfValue(int value) {
+        if(value > 40 && value < 60) return -1;
+        return 0;
+    }
+    public static int getReversedInfluenceOfValue(int value, int dir) {
+        return getInfluenceOfValue(value - dir);
+    }
 
     public VentStatus(char name) {
         ventName = name;
@@ -70,23 +82,41 @@ public class VentStatus {
         this.upperBoundEndMove = vent.upperBoundEndMove;
         this.totalDirectionalMovement = vent.totalDirectionalMovement;
     }
-    public VentChangeState update(int actualValue, int direction) {
+    public int update(int actualValue, int direction) {
+        int bitState = 0;
         int prevValue = this.actualValue;
         this.actualValue = actualValue;
+        if(this.movementDirection != 0 && this.movementDirection != direction)
+            bitState |= VentChangeStateFlag.DIRECTION_CHANGE.bitFlag;
         this.movementDirection = direction;
+
         if(isIdentified()) {
             lowerBoundStart = lowerBoundEnd = actualValue;
             upperBoundStart = upperBoundEnd = actualValue;
-        } else return VentChangeState.UNIDENTIFIED;
+        } else return bitState;
 
         int diff = Math.abs(this.actualValue - prevValue);
-        if(diff == 1) return VentChangeState.ONE_CHANGE;
-        else if(diff == 2) return VentChangeState.TWO_CHANGE;
-        else if(diff > 2) return VentChangeState.IDENTIFIED;
+        if(diff == 1) return bitState | VentChangeStateFlag.ONE_CHANGE.bitFlag;
+        else if(diff == 2) return bitState |  VentChangeStateFlag.TWO_CHANGE.bitFlag;
+        else if(diff > 2) return bitState | VentChangeStateFlag.IDENTIFIED.bitFlag;
 
-        if(this.actualValue == MIN_VENT_VALUE || this.actualValue == MAX_VENT_VALUE)
-            return VentChangeState.BOUNDED;
-        return VentChangeState.NO_CHANGE;
+        if(this.actualValue == MIN_VENT_VALUE && this.movementDirection == -1)
+            return bitState;
+
+        if(this.actualValue == MAX_VENT_VALUE && this.movementDirection == 1)
+            return bitState;
+
+        return bitState | VentChangeStateFlag.NO_CHANGE.bitFlag;
+    }
+    public void doForwardMovement(int outsideVentInfluence) {
+        if(!isIdentified()) return;
+        int move = Math.max(0, BASE_MOVE_RATE + outsideVentInfluence) * movementDirection;
+        update(this.actualValue + move, movementDirection);
+    }
+    public void doBackwardMovement(int outsideVentInfluence) {
+        if(!isIdentified()) return;
+        int move = Math.max(0, BASE_MOVE_RATE + outsideVentInfluence) * movementDirection;
+        update(this.actualValue - move, movementDirection);
     }
     public void updateMovement(int outsideVentInfluence) {
         if(isIdentified()) return;
@@ -184,6 +214,9 @@ public class VentStatus {
         }
         //Do nothing if neither range is outside total bounds
     }
+    public void flipDirection() {
+        movementDirection *= -1;
+    }
 
     public boolean isIdentified() { return actualValue != STARTING_VENT_VALUE; }
     public boolean isRangeDefined() {
@@ -224,16 +257,19 @@ public class VentStatus {
         if(isWithinRange(41,59)) return -1;
         return 0;
     }
+    public int getReversedInfluence() {
+        //BUG - for now reversed movement only works for identified values
+        if(!isRangeDefined()) return -1;
+        return getReversedInfluenceOfValue(actualValue, movementDirection);
+    }
+
     public int getStabilityInfluence() {
         if(!isIdentified()) return 0;
         return getVentStabilityInfluence(actualValue);
     }
 
     private int capVentValue(int value) { return Math.min(MAX_VENT_VALUE, Math.max(MIN_VENT_VALUE, value));}
-    private int getInfluenceOfValue(int value) {
-        if(value > 40 && value < 60) return -1;
-        return 0;
-    }
+
 
     //Getters
     public char getName() { return ventName; }
