@@ -12,6 +12,7 @@ public class VentStatusTimeline {
     public static final int VM_GAME_RESET_TIME = 500;
 
     //Flags
+    public static final int EARTHQUAKE_EVENT_FLAG = 11;
     public static final int STABILITY_UPDATE_FLAG = 10;
     public static final int MOVEMENT_UPDATE_FLAG = 9;
     public static final int IDENTIFIED_VENT_FLAG = 8;
@@ -29,7 +30,7 @@ public class VentStatusTimeline {
     private short[] timeline;
     private int[] identifiedVentTick;
     private StatusState[] identifiedVentStates;
-    private int numIdentifiedVents;
+    private int numIdentifiedVents, playerCount;
     HashMap<Integer, StatusState> tickToMovementVentState;
     HashMap<Integer, StatusState> tickToStabilityUpdateState;
 
@@ -40,6 +41,7 @@ public class VentStatusTimeline {
     public void initialize() {
         startLog();
         currentTick = 0;
+        playerCount = 1;
         timeline = new short[VM_GAME_FULL_TIME];
         tickToMovementVentState = new HashMap<>();
         tickToStabilityUpdateState = new HashMap<>();
@@ -107,7 +109,7 @@ public class VentStatusTimeline {
             }
             if((timeline[i] & (1 << MOVEMENT_UPDATE_FLAG)) != 0) {
                 //Update our movement backwards
-                fixedState.doActualBackwardMovement();
+//                fixedState.doActualBackwardMovement();
             }
             if((timeline[i] & (1 << DIRECTION_CHANGED_FLAG)) != 0) {
                 //Change our direction if it occured this tick
@@ -120,6 +122,9 @@ public class VentStatusTimeline {
     public void addDirectionChangeTick(int bitState) {
         timeline[currentTick] |= (bitState & DIRECTION_CHANGED_BIT_MASK);
         timeline[currentTick] |= (1 << DIRECTION_CHANGED_FLAG);
+    }
+    public void addEarthquakeEventTick() {
+        timeline[currentTick] |= (1 << EARTHQUAKE_EVENT_FLAG);
     }
     public void addMovementTick(StatusState currentState) {
         addNewMovementTickState(currentTick, currentState);
@@ -142,20 +147,31 @@ public class VentStatusTimeline {
     public StatusState getTimelinePredictionState() {
         StatusState predictedState = new StatusState(tickToStabilityUpdateState.get(startingTick));
         for(int i = startingTick+1; i <= currentTick; ++i) {
+            if((timeline[i] & (1 << IDENTIFIED_VENT_FLAG)) != 0) {
+                int idFlags = timeline[i] & IDENTIFIED_BIT_MASK;
+                if((idFlags & 1) != 0) {
+                    predictedState.getVents()[0].setEqualTo(identifiedVentStates[0].getVents()[0]);
+                }
+                if((idFlags & 2) != 0) {
+                    predictedState.getVents()[1].setEqualTo(identifiedVentStates[1].getVents()[1]);
+                }
+                if((idFlags & 4) != 0) {
+                    predictedState.getVents()[2].setEqualTo(identifiedVentStates[2].getVents()[2]);
+                }
+            }
             if((timeline[i] & (1 << DIRECTION_CHANGED_FLAG)) != 0) {
                 //Change our direction if it occured this tick
                 changeStateDirection(predictedState, i);
             }
             if((timeline[i] & (1 << MOVEMENT_UPDATE_FLAG)) != 0) {
-                //Update our vent values
-                predictedState.doActualVentMovement();
+                //Update our estimated vent values
+                syncWithMovementState(predictedState, i);
+                predictedState.updateVentMovement();
             }
             if((timeline[i] & (1 << STABILITY_UPDATE_FLAG)) != 0) {
                 //Use stability updates to set/narrow our possible values
-                StatusState tempState = new StatusState(predictedState);
-                tempState.calcPredictedVentValues(tickToStabilityUpdateState.get(i).getStabilityChange());
-                tempState.doBoundsClipping();
-                predictedState.setOverlappingRangesWith(tempState);
+                predictedState.setOverlappingRangesWith(tickToStabilityUpdateState.get(i));
+//                predictedState.doBoundsClipping();
             }
         }
         return predictedState;
@@ -179,6 +195,13 @@ public class VentStatusTimeline {
         if((directionFlags & 2) != 0) state.getVents()[1].flipDirection();
         if((directionFlags & 4) != 0) state.getVents()[2].flipDirection();
     }
+    private void syncWithMovementState(StatusState state, int tick) {
+        final VentStatus[] vents = tickToMovementVentState.get(tick).getVents();
+        for(int i = 0; i < StatusState.NUM_VENTS; ++i) {
+            if(!vents[i].isIdentified()) continue;
+            state.getVents()[i].setEqualTo(vents[i]);
+        }
+    }
 
     //Accessors
     public int getCurrentTick() { return currentTick; }
@@ -192,6 +215,7 @@ public class VentStatusTimeline {
 
     //Modifiers
     public void updateTick() { ++currentTick; }
+    public void setPlayerCount(int count) { playerCount = Math.max(playerCount, count); }
 
     //Logging
     private void createLog() {
@@ -238,41 +262,75 @@ public class VentStatusTimeline {
     private void logState(StatusState state) {
         VentStatus[] vents = state.getVents();
         try {
-            if(!vents[0].isIdentified()) {
-                VentStatus AVent = vents[0];
-                logWriter.write("A Bounds: " + AVent.getTotalBoundStart() + ", " + AVent.getTotalBoundEnd() + "\n");
-                logWriter.write("Directional Move: " + AVent.getTotalDirectionalMovement() + "\n");
-                logWriter.write("A Movement: " + AVent.getLowerBoundStartMove() + ", ");
-                logWriter.write(AVent.getLowerBoundEndMove() + " | " + AVent.getUpperBoundStartMove());
-                logWriter.write(", " + AVent.getUpperBoundEndMove() + "\n");
-            }
             logWriter.write("A: " + getVentPercentText(vents[0]) + "\n");
-
-            if(!vents[1].isIdentified()) {
-                VentStatus BVent = vents[1];
-                logWriter.write("B Bounds: " + BVent.getTotalBoundStart() + ", " + BVent.getTotalBoundEnd() + "\n");
-                logWriter.write("Directional Move: " + BVent.getTotalDirectionalMovement() + "\n");
-                logWriter.write("B Movement: " + BVent.getLowerBoundStartMove() + ", ");
-                logWriter.write(BVent.getLowerBoundEndMove() + " | " + BVent.getUpperBoundStartMove());
-                logWriter.write(", " + BVent.getUpperBoundEndMove() + "\n");
-            }
+            logWriter.write("Direction " + vents[0].getDirection() + "\n");
             logWriter.write("B: " + getVentPercentText(vents[1]) + "\n");
-
-            if(!vents[2].isIdentified()) {
-                VentStatus CVent = vents[2];
-                logWriter.write("C Bounds: " + CVent.getTotalBoundStart() + ", " + CVent.getTotalBoundEnd() + "\n");
-                logWriter.write("Directional Move: " + CVent.getTotalDirectionalMovement() + "\n");
-                logWriter.write("C Movement: " + CVent.getLowerBoundStartMove() + ", ");
-                logWriter.write(CVent.getLowerBoundEndMove() + " | " + CVent.getUpperBoundStartMove());
-                logWriter.write(", " + CVent.getUpperBoundEndMove() + "\n");
-            }
+            logWriter.write("Direction " + vents[1].getDirection() + "\n");
             logWriter.write("C: " + getVentPercentText(vents[2]) + "\n");
-
-            logWriter.write("Stability Change: " + state.getStabilityChange() + "\n");
+            logWriter.write("Direction " + vents[2].getDirection() + "\n");
             logWriter.write("\n");
             logWriter.flush();
         } catch (IOException ignored) {
 
+        }
+    }
+    private void logText(String text) {
+        try {
+            logWriter.write(text + "\n");
+            logWriter.flush();
+        } catch (IOException ignored) {
+
+        }
+    }
+    public void log() {
+        StatusState predictedState = new StatusState(tickToStabilityUpdateState.get(startingTick));
+        logText("Starting player count was: " + playerCount);
+        for(int i = startingTick+1; i <= currentTick; ++i) {
+            if((timeline[i] & (1 << IDENTIFIED_VENT_FLAG)) != 0) {
+                int idFlags = timeline[i] & IDENTIFIED_BIT_MASK;
+                if((idFlags & 1) != 0) {
+                    logText("On tick: " + i + " A Vent was identified to be "
+                            + identifiedVentStates[0].getVents()[0].getActualValue());
+                    predictedState.getVents()[0].setEqualTo(identifiedVentStates[0].getVents()[0]);
+                }
+                if((idFlags & 2) != 0) {
+                    logText("On tick: " + i + " B Vent was identified to be "
+                                    + identifiedVentStates[1].getVents()[1].getActualValue());
+                    predictedState.getVents()[1].setEqualTo(identifiedVentStates[1].getVents()[1]);
+                }
+                if((idFlags & 4) != 0) {
+                    logText("On tick: " + i + " C Vent was identified to be "
+                            + identifiedVentStates[2].getVents()[2].getActualValue());
+                    predictedState.getVents()[2].setEqualTo(identifiedVentStates[2].getVents()[2]);
+                }
+            }
+            if((timeline[i] & (1 << DIRECTION_CHANGED_FLAG)) != 0) {
+                int directionFlags = timeline[i] & DIRECTION_CHANGED_BIT_MASK;
+                directionFlags >>= 3;
+                if((directionFlags & 1) != 0) logText("On tick: " + i + " A Vent direction has changed");
+                if((directionFlags & 2) != 0) logText("On tick: " + i + " B Vent direction has changed");
+                if((directionFlags & 4) != 0) logText("On tick: " + i + " C Vent direction has changed");
+                changeStateDirection(predictedState, i);
+            }
+            if((timeline[i] & (1 << EARTHQUAKE_EVENT_FLAG)) != 0) {
+                logText("On tick: " + i + " there was an earthquake event");
+            }
+            if((timeline[i] & (1 << MOVEMENT_UPDATE_FLAG)) != 0) {
+                logText("On tick: " + i + " there was a movement update");
+                StatusState moveState = tickToMovementVentState.get(i);
+                logState(moveState);
+                if(moveState.isAllVentsIdentified()) {
+                    logText("Calculated Stability: " + StatusState.calcStabilityChange(moveState));
+                }
+                syncWithMovementState(predictedState, i);
+                predictedState.updateVentMovement();
+            }
+            if((timeline[i] & (1 << STABILITY_UPDATE_FLAG)) != 0) {
+                StatusState stabilityState = tickToStabilityUpdateState.get(i);
+                logText("On tick: " + i + " there was a stability update of " + stabilityState.getStabilityChange());
+                predictedState.setOverlappingRangesWith(stabilityState);
+//                predictedState.doBoundsClipping();
+            }
         }
     }
 }

@@ -776,8 +776,8 @@ public class VentStatusTest {
         vent.setUpperBoundRange(76,85);
         vent.doBoundsClipping();
         //Range should be set to bounds
-        Assert.assertEquals(vent.getLowerBoundStart(), 15);
-        Assert.assertEquals(vent.getUpperBoundStart(), 15);
+        Assert.assertEquals(vent.getLowerBoundStart(), 25);
+        Assert.assertEquals(vent.getUpperBoundStart(), 25);
         Assert.assertEquals(vent.getLowerBoundEnd(), 25);
         Assert.assertEquals(vent.getUpperBoundEnd(), 25);
 
@@ -789,7 +789,7 @@ public class VentStatusTest {
         //Range should be set to bounds
         Assert.assertEquals(vent.getLowerBoundStart(), 75);
         Assert.assertEquals(vent.getUpperBoundStart(), 75);
-        Assert.assertEquals(vent.getLowerBoundEnd(), 85);
-        Assert.assertEquals(vent.getUpperBoundEnd(), 85);
+        Assert.assertEquals(vent.getLowerBoundEnd(), 75);
+        Assert.assertEquals(vent.getUpperBoundEnd(), 75);
     }
 }

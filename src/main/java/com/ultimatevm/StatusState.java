@@ -5,8 +5,9 @@ import static com.ultimatevm.VentStatus.*;
 public class StatusState {
     private static final char[] VENT_TAGS = {'A', 'B', 'C'};
     public static final int NUM_VENTS = 3;
-    public static final int STABILITY_CHANGE_CONSTANT = 25;
-    public static final int TRUNCATION_POSSIBILITIES = NUM_VENTS - 1;
+    public static final int STABILITY_CHANGE_CONSTANT = -25;
+
+    public static final int TRUNCATION_POSSIBILITIES = NUM_VENTS;
 
     private VentStatus[] vents = new VentStatus[NUM_VENTS];
     private int numIdentifiedVents;
@@ -14,9 +15,14 @@ public class StatusState {
     private int tickTimeStamp;
     private boolean hasReset;
 
-    public static int getTotalVentUpdate(int change) { return (STABILITY_CHANGE_CONSTANT - change) * NUM_VENTS; }
-    public static int calcStabilityChange(int totalVentValue) {
-        return STABILITY_CHANGE_CONSTANT - (totalVentValue / NUM_VENTS);
+    public static int getTotalVentUpdate(int change) {
+        return (change - STABILITY_CHANGE_CONSTANT);
+    }
+    public static int calcStabilityChange(StatusState state) {
+        return calcStabilityChange(state.getIdentifiedVentTotalValue());
+    }
+    public static int calcStabilityChange(int totalVentInfluence) {
+        return STABILITY_CHANGE_CONSTANT + totalVentInfluence;
     }
 
     public StatusState() {
@@ -58,21 +64,6 @@ public class StatusState {
         for(int i = 0; i < vents.length; ++i) {
             vents[i].updateMovement(currentVentInfluence);
             currentVentInfluence += vents[i].getEstimatedInfluence();
-        }
-    }
-    public void doActualVentMovement() {
-        int currentVentInfluence = 0;
-        for(int i = 0; i < vents.length; ++i) {
-            currentVentInfluence += vents[i].getEstimatedInfluence();
-            vents[i].doForwardMovement(currentVentInfluence);
-        }
-        updateVentMovement();
-    }
-    public void doActualBackwardMovement() {
-        int currentVentInfluence = 0;
-        for(int i = 0; i < vents.length; ++i) {
-            currentVentInfluence += vents[i].getReversedInfluence();
-            vents[i].doBackwardMovement(currentVentInfluence);
         }
     }
     public void clearVentMovement() {
@@ -136,6 +127,7 @@ public class StatusState {
     }
     public void doVMReset() {
         if(hasReset) return;
+        numIdentifiedVents = 0;
         for(int i = 0; i < vents.length; ++i) {
             vents[i].doVMReset();
         }
@@ -168,14 +160,16 @@ public class StatusState {
 
     private void calcSingleVentValue(VentStatus vent, int change) {
         int partialVentUpdate = getIdentifiedVentTotalValue();
-        int missingVentUpdate = getTotalVentUpdate(change) - partialVentUpdate;
+        float missingInversePercent = 1.0f - (getTotalVentUpdate(change) - partialVentUpdate) / VENT_STABILITY_WEIGHT;
+        int missingVentUpdate = (int)Math.ceil(PERFECT_VENT_VALUE * missingInversePercent);
+
         int lowerBoundStart = (PERFECT_VENT_VALUE - TRUNCATION_POSSIBILITIES) - missingVentUpdate;
         int lowerBoundEnd = (PERFECT_VENT_VALUE + TRUNCATION_POSSIBILITIES) - missingVentUpdate;
         int upperBoundStart = (PERFECT_VENT_VALUE - TRUNCATION_POSSIBILITIES) + missingVentUpdate;
         int upperBoundEnd = (PERFECT_VENT_VALUE + TRUNCATION_POSSIBILITIES) + missingVentUpdate;
         while(lowerBoundStart < lowerBoundEnd) {
-            int newChange1 = calcStabilityChange(partialVentUpdate + getVentStabilityInfluence(lowerBoundStart));
-            int newChange2 = calcStabilityChange(partialVentUpdate + getVentStabilityInfluence(lowerBoundEnd));
+            int newChange1 = calcStabilityChange(partialVentUpdate + getStabilityInfluence(lowerBoundStart));
+            int newChange2 = calcStabilityChange(partialVentUpdate + getStabilityInfluence(lowerBoundEnd));
             if(newChange1 == change && newChange2 == change) break;
 
             if(newChange1 != change) {

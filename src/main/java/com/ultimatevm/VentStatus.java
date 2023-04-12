@@ -7,6 +7,7 @@ public class VentStatus {
     public static final int PERFECT_VENT_VALUE = 50;
     public static final int MAX_VENT_START_VALUE = 75;
     public static final int MAX_VENT_VALUE = 100;
+    public static final float VENT_STABILITY_WEIGHT = 16.0f;
     public static int BASE_MOVE_RATE = 2;
 
     public enum VentChangeStateFlag {
@@ -36,13 +37,14 @@ public class VentStatus {
     private int upperBoundStartMove, upperBoundEndMove;
     private int totalDirectionalMovement;
 
-    public static int getVentStabilityInfluence(int ventValue) { return Math.abs(PERFECT_VENT_VALUE - ventValue); }
+    public static int getStabilityInfluence(int ventValue) {
+        float percentValue = PERFECT_VENT_VALUE - Math.abs(PERFECT_VENT_VALUE - ventValue);
+        percentValue = (percentValue / 50.0f) * VENT_STABILITY_WEIGHT;
+        return (int) Math.ceil(percentValue);
+    }
     public static int getInfluenceOfValue(int value) {
         if(value > 40 && value < 60) return -1;
         return 0;
-    }
-    public static int getReversedInfluenceOfValue(int value, int dir) {
-        return getInfluenceOfValue(value - dir);
     }
 
     public VentStatus(char name) {
@@ -107,16 +109,6 @@ public class VentStatus {
             return bitState;
 
         return bitState | VentChangeStateFlag.NO_CHANGE.bitFlag;
-    }
-    public void doForwardMovement(int outsideVentInfluence) {
-        if(!isIdentified()) return;
-        int move = Math.max(0, BASE_MOVE_RATE + outsideVentInfluence) * movementDirection;
-        update(this.actualValue + move, movementDirection);
-    }
-    public void doBackwardMovement(int outsideVentInfluence) {
-        if(!isIdentified()) return;
-        int move = Math.max(0, BASE_MOVE_RATE + outsideVentInfluence) * movementDirection;
-        update(this.actualValue - move, movementDirection);
     }
     public void updateMovement(int outsideVentInfluence) {
         if(isIdentified()) return;
@@ -196,23 +188,29 @@ public class VentStatus {
     }
     public void doBoundsClipping() {
         if(!isRangeDefined()) return;
-        boolean isLowerBoundClipped = getTotalBoundStart() > getLowerBoundEnd();
-        boolean isUpperBoundClipped = getTotalBoundEnd() < getUpperBoundStart();
+        int[] lower = getOverlappedLowerBoundRange(getTotalBoundStart(), getTotalBoundEnd());
+        int[] upper = getOverlappedUpperBoundRange(getTotalBoundStart(), getTotalBoundEnd());
+        boolean isLowerBoundClipped = (lower[0] == 0 && lower[1] == 0);
+        boolean isUpperBoundClipped = (upper[0] == 0 && upper[1] == 0);
+        clearRanges();
         if(isLowerBoundClipped && isUpperBoundClipped) {
             //Both ranges are outside possible bounds (shouldn't happen)
-            clearRanges();
             setLowerBoundRange(getTotalBoundStart(), getTotalBoundEnd());
             setUpperBoundRange(getTotalBoundStart(), getTotalBoundEnd());
         }
         else if(isLowerBoundClipped) {
             //Lower bound doesnt fit in total bounds use upper bound instead
-            setLowerBoundRange(getUpperBoundStart(), getUpperBoundEnd());
+            setUpperBoundRange(upper[0], upper[1]);
+            setLowerBoundRange(upper[0], upper[1]);
         }
         else if(isUpperBoundClipped) {
             //Upper bound doesnt fit in total bounds use lower bound instead
-            setUpperBoundRange(getLowerBoundStart(), getLowerBoundEnd());
+            setUpperBoundRange(lower[0], lower[1]);
+            setLowerBoundRange(lower[0], lower[1]);
+        } else {
+            setUpperBoundRange(upper[0], upper[1]);
+            setLowerBoundRange(lower[0], lower[1]);
         }
-        //Do nothing if neither range is outside total bounds
     }
     public void flipDirection() {
         movementDirection *= -1;
@@ -257,15 +255,10 @@ public class VentStatus {
         if(isWithinRange(41,59)) return -1;
         return 0;
     }
-    public int getReversedInfluence() {
-        //BUG - for now reversed movement only works for identified values
-        if(!isRangeDefined()) return -1;
-        return getReversedInfluenceOfValue(actualValue, movementDirection);
-    }
 
     public int getStabilityInfluence() {
         if(!isIdentified()) return 0;
-        return getVentStabilityInfluence(actualValue);
+        return getStabilityInfluence(actualValue);
     }
 
     private int capVentValue(int value) { return Math.min(MAX_VENT_VALUE, Math.max(MIN_VENT_VALUE, value));}

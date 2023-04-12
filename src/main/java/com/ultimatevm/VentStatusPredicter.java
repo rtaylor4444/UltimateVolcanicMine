@@ -10,6 +10,7 @@ public class VentStatusPredicter {
 
     private VentStatusTimeline timeline;
     private StatusState displayState;
+    private boolean hasDoneFinalLog;
 
 
     public VentStatusPredicter() {
@@ -18,10 +19,13 @@ public class VentStatusPredicter {
     public void initialize() {
         timeline = new VentStatusTimeline();
         displayState = new StatusState();
+        hasDoneFinalLog = false;
     }
     public void reset() {
+        if(!displayState.hasDoneVMReset()) {
+            timeline.reset();
+        }
         displayState.doVMReset();
-        timeline.reset();
     }
     public void updateVentStatus(int[] ventStatus, int chambers) {
         processVentChangeState(displayState.updateVentStatus(ventStatus, chambers));
@@ -53,6 +57,9 @@ public class VentStatusPredicter {
         builder.append("<col=00ffff>");
         builder.append(getVentPercentText(vents[index]));
         return builder.append("</col>").toString();
+    }
+    public void markEarthquakeEvent() {
+        timeline.addEarthquakeEventTick();
     }
     private String getVentPercentText(VentStatus vent) {
         StringBuilder builder = new StringBuilder();
@@ -134,14 +141,14 @@ public class VentStatusPredicter {
 
             switch(scenario) {
                 case WORST_CASE:
-                    ventUpdate = Math.max(getVentStabilityInfluence(avgLower), getVentStabilityInfluence(avgUpper));
+                    ventUpdate = Math.max(getStabilityInfluence(avgLower), getStabilityInfluence(avgUpper));
                     break;
                 case BEST_CASE:
-                    ventUpdate = Math.min(getVentStabilityInfluence(avgLower), getVentStabilityInfluence(avgUpper));
+                    ventUpdate = Math.min(getStabilityInfluence(avgLower), getStabilityInfluence(avgUpper));
                     break;
                 default:
                     //Average-case (crap)
-                    ventUpdate = (getVentStabilityInfluence(avgLower) + getVentStabilityInfluence(avgUpper)) / 2;
+                    ventUpdate = (getStabilityInfluence(avgLower) + getStabilityInfluence(avgUpper)) / 2;
                     break;
             }
 
@@ -154,7 +161,12 @@ public class VentStatusPredicter {
         return calcStabilityChange(totalVentValue);
     }
     public final StatusState getDisplayState() { return displayState; }
+    public final VentStatusTimeline getTimeline() { return timeline; }
     public final int getCurrentTick() { return timeline.getCurrentTick(); }
     public boolean isMovementUpdateTick() { return getCurrentTick() % VentStatusTimeline.VENT_MOVE_TICK_TIME == SLOWEST_VENT_UPDATE_TICK;}
-    public void updateTick() { timeline.updateTick(); }
+    public void log() {
+        if(hasDoneFinalLog) return;
+        timeline.log();
+        if(displayState.hasDoneVMReset()) hasDoneFinalLog = true;
+    }
 }

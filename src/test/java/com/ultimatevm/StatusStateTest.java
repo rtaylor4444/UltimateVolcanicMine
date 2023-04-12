@@ -434,29 +434,72 @@ public class StatusStateTest {
     }
 
     public void calcSingleVentValueTest() {
-        //Normal calc test
+        //Max calc test
         StatusState state = new StatusState();
-        state.updateVentStatus(new int[]{VentStatus.STARTING_VENT_VALUE, 51, 51}, 7);
-        state.calcPredictedVentValues(25);
-        Assert.assertEquals(state.getStabilityChange(), 25);
+        state.updateVentStatus(new int[]{VentStatus.STARTING_VENT_VALUE, 50, 50}, 7);
+        state.calcPredictedVentValues(23);
+        Assert.assertEquals(state.getStabilityChange(), 23);
         final VentStatus[] vents = state.getVents();
         Assert.assertTrue(vents[0].isRangeDefined());
-        Assert.assertEquals(vents[0].getLowerBoundStart(), 50);
-        Assert.assertEquals(vents[0].getLowerBoundEnd(), 50);
-        Assert.assertEquals(vents[0].getUpperBoundStart(), 50);
-        Assert.assertEquals(vents[0].getUpperBoundEnd(), 50);
+        Assert.assertEquals(vents[0].getLowerBoundStart(), 47);
+        Assert.assertEquals(vents[0].getLowerBoundEnd(), 53);
+        Assert.assertEquals(vents[0].getUpperBoundStart(), 47);
+        Assert.assertEquals(vents[0].getUpperBoundEnd(), 53);
 
-        //Truncation possibilities test
-        state = new StatusState();
-        state.updateVentStatus(new int[]{VentStatus.STARTING_VENT_VALUE, 50, 50}, 7);
-        state.calcPredictedVentValues(24);
-        Assert.assertEquals(state.getStabilityChange(), 24);
-        final VentStatus[] vents2 = state.getVents();
-        Assert.assertTrue(vents2[0].isRangeDefined());
-        Assert.assertEquals(vents2[0].getLowerBoundStart(), 45);
-        Assert.assertEquals(vents2[0].getLowerBoundEnd(), 47);
-        Assert.assertEquals(vents2[0].getUpperBoundStart(), 53);
-        Assert.assertEquals(vents2[0].getUpperBoundEnd(), 55);
+        //Normal calc test
+        state.calcPredictedVentValues(22);
+        Assert.assertEquals(state.getStabilityChange(), 22);
+        Assert.assertEquals(vents[0].getLowerBoundStart(), 44);
+        Assert.assertEquals(vents[0].getLowerBoundEnd(), 46);
+        Assert.assertEquals(vents[0].getUpperBoundStart(), 54);
+        Assert.assertEquals(vents[0].getUpperBoundEnd(), 56);
+
+        //Min calc test
+        state.calcPredictedVentValues(7);
+        Assert.assertEquals(state.getStabilityChange(), 7);
+        Assert.assertEquals(vents[0].getLowerBoundStart(), 0);
+        Assert.assertEquals(vents[0].getLowerBoundEnd(), 0);
+        Assert.assertEquals(vents[0].getUpperBoundStart(), 100);
+        Assert.assertEquals(vents[0].getUpperBoundEnd(), 100);
+    }
+
+    public float getPercent(int value) {
+        float percentValue = 50 - Math.abs(50 - value);
+        return percentValue / 50.0f;
+    }
+    public int calcStabReverse(int A, int B, int C) {
+        float weight = 16;
+        float valA = (getPercent(A) * weight);
+        float valB = (getPercent(B) * weight);
+        float valC = (getPercent(C) * weight);
+        int infA = (int)Math.ceil(valA);
+        int infB = (int)Math.ceil(valB);
+        int infC = (int)Math.ceil(valC);
+        int total = infA + infB + infC;
+        return -25 + total;
+    }
+    public int calcStabReverseRound(int A, int B, int C) {
+        float weight = 49 / 3f;
+        float valA = (getPercent(A) * weight);
+        float valB = (getPercent(B) * weight);
+        float valC = (getPercent(C) * weight);
+        int infA = (int)Math.round(valA);
+        int infB = (int)Math.round(valB);
+        int infC = (int)Math.round(valC);
+        int total = infA + infB + infC;
+        return -25 + total;
+    }
+    public void sandbox() {
+        int u = VentStatus.STARTING_VENT_VALUE;
+        StatusState testState = new StatusState();
+        testState.updateVentStatus(new int[]{23, 42, u}, 4);
+        testState.calcPredictedVentValues(11);
+        //50-53 all gave the same value
+        //Vents all have equal weight
+
+        int A = 36, B = 75, C = 44;
+        int stab = calcStabReverse(A, B, C);
+        int stab2 = calcStabReverseRound(A, B, C);
     }
 /*
     public void calcDoubleVentValueTest() {

@@ -7,6 +7,10 @@ import java.util.HashMap;
 
 @Test()
 public class VentStatusTimelineTest {
+
+    private void advanceTicks(VentStatusTimeline timeline, int numTicks) {
+        for(int i = 0; i < numTicks; ++i) timeline.updateTick();
+    }
     public void constructorTest() {
         VentStatusTimeline timeline = new VentStatusTimeline();
         Assert.assertEquals(timeline.getCurrentTick(), 0);
@@ -209,5 +213,121 @@ public class VentStatusTimelineTest {
         //The added state should have a calculated estimated value
         StatusState addedState = tickToStabilityUpdateState.get(0);
         Assert.assertTrue(addedState.getVents()[0].isRangeDefined());
+    }
+
+    public void getTimelinePredictionStateIdentifyTest() {
+        VentStatusTimeline timeline = new VentStatusTimeline();
+        StatusState state = new StatusState();
+        int u = VentStatus.STARTING_VENT_VALUE;
+        state.updateVentStatus(new int[]{u,u,u}, 0);
+        timeline.addInitialState(state);
+
+        //Vent B is identified
+        advanceTicks(timeline, 10);
+        state.updateVentStatus(new int[]{u,50,u}, 0);
+        timeline.addIdentifiedVentTick(state, 2);
+
+        StatusState resultState = timeline.getTimelinePredictionState();
+        Assert.assertEquals(resultState.getVents()[0].getActualValue(), u);
+        Assert.assertEquals(resultState.getVents()[1].getActualValue(), 50);
+        Assert.assertEquals(resultState.getVents()[2].getActualValue(), u);
+
+        //Vent A is identified
+        advanceTicks(timeline, 10);
+        state.updateVentStatus(new int[]{50,50,u}, 0);
+        timeline.addIdentifiedVentTick(state, 1);
+
+        resultState = timeline.getTimelinePredictionState();
+        Assert.assertEquals(resultState.getVents()[0].getActualValue(), 50);
+        Assert.assertEquals(resultState.getVents()[1].getActualValue(), 50);
+        Assert.assertEquals(resultState.getVents()[2].getActualValue(), u);
+
+        //Vent C is identified
+        advanceTicks(timeline, 10);
+        state.updateVentStatus(new int[]{50,50,50}, 0);
+        timeline.addIdentifiedVentTick(state, 4);
+
+        resultState = timeline.getTimelinePredictionState();
+        Assert.assertEquals(resultState.getVents()[0].getActualValue(), 50);
+        Assert.assertEquals(resultState.getVents()[1].getActualValue(), 50);
+        Assert.assertEquals(resultState.getVents()[2].getActualValue(), 50);
+    }
+
+    public void getTimelinePredictionStateDirectionTest() {
+        VentStatusTimeline timeline = new VentStatusTimeline();
+        StatusState state = new StatusState();
+        int u = VentStatus.STARTING_VENT_VALUE;
+        state.updateVentStatus(new int[]{u,u,u}, 0);
+        timeline.addInitialState(state);
+
+        advanceTicks(timeline, 5);
+        timeline.addDirectionChangeTick(1 << 3);
+
+        StatusState resultState = timeline.getTimelinePredictionState();
+        Assert.assertEquals(resultState.getVents()[0].getDirection(), 1);
+        Assert.assertEquals(resultState.getVents()[1].getDirection(), -1);
+        Assert.assertEquals(resultState.getVents()[2].getDirection(), -1);
+
+        advanceTicks(timeline, 5);
+        timeline.addDirectionChangeTick(2 << 3);
+
+        resultState = timeline.getTimelinePredictionState();
+        Assert.assertEquals(resultState.getVents()[0].getDirection(), 1);
+        Assert.assertEquals(resultState.getVents()[1].getDirection(), 1);
+        Assert.assertEquals(resultState.getVents()[2].getDirection(), -1);
+
+        advanceTicks(timeline, 5);
+        timeline.addDirectionChangeTick(4 << 3);
+
+        resultState = timeline.getTimelinePredictionState();
+        Assert.assertEquals(resultState.getVents()[0].getDirection(), 1);
+        Assert.assertEquals(resultState.getVents()[1].getDirection(), 1);
+        Assert.assertEquals(resultState.getVents()[2].getDirection(), 1);
+
+        advanceTicks(timeline, 5);
+        timeline.addDirectionChangeTick(7 << 3);
+
+        resultState = timeline.getTimelinePredictionState();
+        Assert.assertEquals(resultState.getVents()[0].getDirection(), -1);
+        Assert.assertEquals(resultState.getVents()[1].getDirection(), -1);
+        Assert.assertEquals(resultState.getVents()[2].getDirection(), -1);
+    }
+
+    public void getTimelinePredictionStateMovementTest() {
+        VentStatusTimeline timeline = new VentStatusTimeline();
+        StatusState state = new StatusState();
+        int u = VentStatus.STARTING_VENT_VALUE;
+        state.updateVentStatus(new int[]{50,u,u}, 0);
+        timeline.addInitialState(state);
+
+        for(int i = 0; i < 5; ++i) {
+            advanceTicks(timeline, 10);
+            state.updateVentStatus(new int[]{50-(i+1),u,u}, 0);
+            timeline.addMovementTick(state);
+
+            StatusState result = timeline.getTimelinePredictionState();
+            Assert.assertEquals(result.getVents()[0].getActualValue(), 50-(i+1));
+            Assert.assertEquals(result.getVents()[1].getActualValue(), u);
+            Assert.assertEquals(result.getVents()[2].getActualValue(), u);
+        }
+    }
+
+    public void getTimelinePredictionStateStabilityTest() {
+        VentStatusTimeline timeline = new VentStatusTimeline();
+        StatusState state = new StatusState();
+        int u = VentStatus.STARTING_VENT_VALUE;
+        state.updateVentStatus(new int[]{u,75,75}, 0);
+        timeline.addInitialState(state);
+
+        advanceTicks(timeline, 25);
+        timeline.addStabilityUpdateTick(state, 0);
+
+        //Ensure we get a calculated value
+        StatusState result = timeline.getTimelinePredictionState();
+        VentStatus predictedVent = result.getVents()[0];
+        Assert.assertEquals(predictedVent.getLowerBoundStart(), 26);
+        Assert.assertEquals(predictedVent.getLowerBoundEnd(), 28);
+        Assert.assertEquals(predictedVent.getUpperBoundStart(), 72);
+        Assert.assertEquals(predictedVent.getUpperBoundEnd(), 74);
     }
 }
