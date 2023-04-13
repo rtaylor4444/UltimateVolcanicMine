@@ -74,6 +74,7 @@ public class UltimateVolcanicMinePlugin extends Plugin
 	private static final int VM_GAME_FULL_TIME = 1000;
 	private static final int VM_GAME_RESET_TIME = 500;
 	private static final int VM_EXIT_TIME = 50;
+	private static final int VM_LOBBY_TIME = 50;
 	private static final float SECONDS_TO_TICKS = 1.666f;
 	private static final int VENT_MOVE_TICK_TIME = 10;
 
@@ -157,13 +158,12 @@ public class UltimateVolcanicMinePlugin extends Plugin
 		if(maxPlayerCount > config.expectedTeamSize())
 			VM_notifier.notify(notifier, VMNotifier.NotificationEvents.VM_EXTRA_PLAYER, ticksPassed);
 
-		//Exit if the game has not started yet
-		if(vmGameState < VM_GAME_STATE_IN_GAME) return;
-
 		int newTimeRemaining = client.getVarbitValue(VARBIT_TIME_REMAINING);
 		if(newTimeRemaining != timeRemainingFromServer) {
 			estimatedTimeRemaining = timeRemainingFromServer = newTimeRemaining;
 		} else --estimatedTimeRemaining;
+
+		if(!hasGameStarted()) return;
 
 		rockTracker.updateRockTimers();
 
@@ -244,8 +244,7 @@ public class UltimateVolcanicMinePlugin extends Plugin
 			maxPlayerCount = Math.max(maxPlayerCount, client.getVarbitValue(VARBIT_PLAYER_COUNT));
 		}
 
-		//Exit if the game has not started yet
-		if(vmGameState < VM_GAME_STATE_IN_GAME) return;
+		if(!hasGameStarted()) return;
 
 		//Check if a player leaves/dies - player count can only move down in game
 		if(event.getVarbitId() == VARBIT_PLAYER_COUNT) {
@@ -317,14 +316,18 @@ public class UltimateVolcanicMinePlugin extends Plugin
 	}
 
 	private void resetGameVariables() {
-		estimatedTimeRemaining = VM_GAME_FULL_TIME;
 		VM_notifier.reset();
 		capCounter.initialize();
 		rockTracker.clearRocks();
 		varbitsUpdated = timeRemainingFromServer = 0;
-		ticksPassed = 0;
+		estimatedTimeRemaining = ticksPassed = 0;
 		movementUpdateTick = -1;
 		maxPlayerCount = 0;
+	}
+	private boolean hasGameStarted() {
+		if(vmGameState >= VM_GAME_STATE_IN_GAME) return true;
+		//Both Lobby and exit time are 30 seconds
+		return estimatedTimeRemaining > VM_LOBBY_TIME;
 	}
 
 
