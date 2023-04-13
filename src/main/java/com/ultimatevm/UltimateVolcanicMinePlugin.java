@@ -7,6 +7,8 @@ import lombok.extern.slf4j.Slf4j;
 import net.runelite.api.ChatMessageType;
 import net.runelite.api.Client;
 import net.runelite.api.NPC;
+import net.runelite.api.Player;
+import net.runelite.api.coords.LocalPoint;
 import net.runelite.api.events.*;
 import net.runelite.api.coords.WorldPoint;
 import net.runelite.api.widgets.WidgetID;
@@ -54,6 +56,7 @@ public class UltimateVolcanicMinePlugin extends Plugin
 	private static final int VARBIT_VENT_STATUS_C = 5942;
 	private static final int VARBIT_CHAMBER_STATUS = 5936;
 	private static final int VARBIT_POINTS = 5934;
+	private static final int VARBIT_PLAYER_COUNT = 5937;
 	private static final int HUD_STABILITY_COMPONENT = 11;
 	private static final int HUD_VENT_A_PERCENTAGE = 17;
 	private static final int HUD_VENT_B_PERCENTAGE = 18;
@@ -70,6 +73,8 @@ public class UltimateVolcanicMinePlugin extends Plugin
 
 	private static final int VM_GAME_FULL_TIME = 1000;
 	private static final int VM_GAME_RESET_TIME = 500;
+	private static final int VM_EXIT_TIME = 50;
+	private static final int VM_LOBBY_TIME = 50;
 	private static final float SECONDS_TO_TICKS = 1.666f;
 	private static final int VENT_MOVE_TICK_TIME = 10;
 
@@ -86,6 +91,7 @@ public class UltimateVolcanicMinePlugin extends Plugin
 	private int timeRemainingFromServer, estimatedTimeRemaining;
 	private int ticksPassed, movementUpdateTick;
 	private int eruptionTime, ventWarningTime;
+	private int maxPlayerCount;
 
 
 	@Provides
@@ -149,13 +155,15 @@ public class UltimateVolcanicMinePlugin extends Plugin
 			return;
 		}
 
-		//Exit if the game has not started yet
-		if(vmGameState < VM_GAME_STATE_IN_GAME) return;
+		if(maxPlayerCount > config.expectedTeamSize())
+			VM_notifier.notify(notifier, VMNotifier.NotificationEvents.VM_EXTRA_PLAYER, ticksPassed);
 
 		int newTimeRemaining = client.getVarbitValue(VARBIT_TIME_REMAINING);
 		if(newTimeRemaining != timeRemainingFromServer) {
 			estimatedTimeRemaining = timeRemainingFromServer = newTimeRemaining;
 		} else --estimatedTimeRemaining;
+
+		if(!hasGameStarted()) return;
 
 		rockTracker.updateRockTimers();
 
@@ -229,8 +237,21 @@ public class UltimateVolcanicMinePlugin extends Plugin
 
 	@Subscribe
 	public void onVarbitChanged(VarbitChanged event) {
-		//Exit if the game has not started yet
-		if(!isInVM() || vmGameState < VM_GAME_STATE_IN_GAME) return;
+		if(!isInVM()) return;
+
+		//Set our starting player count
+		if(event.getVarbitId() == VARBIT_PLAYER_COUNT) {
+			maxPlayerCount = Math.max(maxPlayerCount, client.getVarbitValue(VARBIT_PLAYER_COUNT));
+		}
+
+		if(!hasGameStarted()) return;
+
+		//Check if a player leaves/dies - player count can only move down in game
+		if(event.getVarbitId() == VARBIT_PLAYER_COUNT) {
+			//Skip this check if its time to exit the mine
+			if (estimatedTimeRemaining <= VM_EXIT_TIME) return;
+			VM_notifier.notify(notifier, VMNotifier.NotificationEvents.VM_PLAYER_LEAVE, ticksPassed);
+		}
 
 		//Keep track of points for our cap counter
 		if(event.getVarbitId() == VARBIT_POINTS) {
@@ -295,12 +316,18 @@ public class UltimateVolcanicMinePlugin extends Plugin
 	}
 
 	private void resetGameVariables() {
-		estimatedTimeRemaining = VM_GAME_FULL_TIME;
 		VM_notifier.reset();
 		capCounter.initialize();
+		rockTracker.clearRocks();
 		varbitsUpdated = timeRemainingFromServer = 0;
-		ticksPassed = 0;
+		estimatedTimeRemaining = ticksPassed = 0;
 		movementUpdateTick = -1;
+		maxPlayerCount = 0;
+	}
+	private boolean hasGameStarted() {
+		if(vmGameState >= VM_GAME_STATE_IN_GAME) return true;
+		//Both Lobby and exit time are 30 seconds
+		return estimatedTimeRemaining > VM_LOBBY_TIME;
 	}
 
 
@@ -353,27 +380,31 @@ public class UltimateVolcanicMinePlugin extends Plugin
 		}
 
 		// If warning is enabled and npc spawned is a boulder that is breaking
-		if (config.showBoulderWarning())
+		NPC npc = npcSpawned.getNpc();
+		switch(npc.getId())
 		{
-			NPC npc = npcSpawned.getNpc();
-
-			switch(npc.getId())
-			{
-				case BOULDER_BREAK_STAGE_1_ID:
-				case BOULDER_BREAK_STAGE_2_ID:
-				case BOULDER_BREAK_STAGE_3_ID:
-				case BOULDER_BREAK_STAGE_4_ID:
-				case BOULDER_BREAK_STAGE_5_ID:
-					notifier.notify(BOULDER_WARNING_MESSAGE);
-					break;
-				default:
-					break;
-			}
+			//If we finish the game early dont trigger player leave event
+			case BOULDER_BREAK_STAGE_5_ID:
+				VM_notifier.removeEvent(VMNotifier.NotificationEvents.VM_PLAYER_LEAVE);
+			case BOULDER_BREAK_STAGE_1_ID:
+			case BOULDER_BREAK_STAGE_2_ID:
+			case BOULDER_BREAK_STAGE_3_ID:
+			case BOULDER_BREAK_STAGE_4_ID:
+				if (config.showBoulderWarning()) notifier.notify(BOULDER_WARNING_MESSAGE);
+				break;
+			default:
+				break;
 		}
 	}
 	private boolean isInVM()
 	{
-		return WorldPoint.fromLocalInstance(client, client.getLocalPlayer().getLocalLocation()).getRegionID() == VM_REGION_NORTH ||
-				WorldPoint.fromLocalInstance(client, client.getLocalPlayer().getLocalLocation()).getRegionID() == VM_REGION_SOUTH;
+		Player player = client.getLocalPlayer();
+		if(player == null) return false;
+		LocalPoint localPoint = player.getLocalLocation();
+		if(localPoint == null) return false;
+		WorldPoint worldPoint = WorldPoint.fromLocalInstance(client, localPoint);
+		if(worldPoint == null) return false;
+		int currentRegionID = worldPoint.getRegionID();
+		return  currentRegionID == VM_REGION_NORTH || currentRegionID == VM_REGION_SOUTH;
 	}
 }

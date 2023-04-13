@@ -224,4 +224,49 @@ public interface UltimateVolcanicMineConfig extends Config
 	{
 		return 1;
 	}
+
+	@ConfigSection(
+			name = "Team Size Manager",
+			description = "Notifications for any unexpected team size changes",
+			position = 3,
+			closedByDefault = false
+	)
+	String teamSize = "team size";
+	@ConfigItem(
+			keyName = "playerLeaveNotifier",
+			name = "Player Leave Notifier",
+			description = "Notifies when a player dies or exits the mine",
+			position = 0,
+			section = teamSize
+	)
+	default boolean playerLeaveNotifier()
+	{
+		return true;
+	}
+	@ConfigItem(
+			keyName = "extraPlayerNotifier",
+			name = "Extra Player Notifier",
+			description = "Notifies when an unexpected player enters the mine",
+			position = 1,
+			section = teamSize
+	)
+	default boolean extraPlayerNotifier()
+	{
+		return false;
+	}
+	@ConfigItem(
+			keyName = "expectedTeamSize",
+			name = "Expected Team Size",
+			description = "Set to the number of players in your current team",
+			position = 2,
+			section = teamSize
+	)
+	@Range(
+			max = 50,
+			min = 1
+	)
+	default int expectedTeamSize()
+	{
+		return 1;
+	}
 }

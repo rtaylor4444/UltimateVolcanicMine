@@ -8,6 +8,8 @@ import javax.inject.Inject;
 
 public class VMNotifier {
     public enum NotificationEvents {
+        VM_PLAYER_LEAVE,
+        VM_EXTRA_PLAYER,
         VM_RESET,
         VM_ERUPTION,
         VM_PRE_RESET_VENT_FIX,
@@ -23,6 +25,8 @@ public class VMNotifier {
         reset();
     }
     private void setOneTimeEvents() {
+        oneTimeEvents.add(NotificationEvents.VM_PLAYER_LEAVE);
+        oneTimeEvents.add(NotificationEvents.VM_EXTRA_PLAYER);
         oneTimeEvents.add(NotificationEvents.VM_RESET);
         oneTimeEvents.add(NotificationEvents.VM_ERUPTION);
         oneTimeEvents.add(NotificationEvents.VM_PRE_RESET_VENT_FIX);
@@ -31,12 +35,27 @@ public class VMNotifier {
     public void reset() {
         setOneTimeEvents();
     }
+    public void removeEvent(NotificationEvents event) {
+        oneTimeEvents.remove(event);
+    }
     public void notify(Notifier notifier, NotificationEvents event, int ticksPassed) {
-        if(ticksPassed <= NOTIFICATION_START_COOLDOWN_TICKS) return;
         if(!oneTimeEvents.contains(event)) return;
+        //Special case for extra player since we want notif to go off asap
+        if(event == NotificationEvents.VM_EXTRA_PLAYER) {
+            if(!config.extraPlayerNotifier()) return;
+            notifier.notify("An extra player has joined your team!");
+            oneTimeEvents.remove(event);
+        }
+
+        if(ticksPassed <= NOTIFICATION_START_COOLDOWN_TICKS) return;
         oneTimeEvents.remove(event);
 
         switch (event) {
+            case VM_PLAYER_LEAVE:
+                if(!config.playerLeaveNotifier()) return;
+                notifier.notify("A player has left the mine!");
+                break;
+
             case VM_RESET:
                 if(!config.showVentWarning()) return;
                 notifier.notify("The vents will shift in " + config.ventWarningTime() + " seconds!");
@@ -55,6 +74,9 @@ public class VMNotifier {
             case VM_PREDICTED_VENT_FIX:
                 if(!config.predictedVentFixNotifier()) return;
                 notifier.notify("Fix your vent! (Prediction)");
+                break;
+
+            default:
                 break;
         }
     }
