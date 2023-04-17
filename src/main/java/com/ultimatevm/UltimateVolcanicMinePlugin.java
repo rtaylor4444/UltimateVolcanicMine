@@ -72,6 +72,7 @@ public class UltimateVolcanicMinePlugin extends Plugin
 	private static final int GAME_OBJ_TAKEN_ROCK = 31046;
 	private static final int GAME_OBJ_ROCK = 31045;
 	private static final int VM_EXIT_TIME = 50;
+	private static final int VM_LOBBY_TIME = 50;
 
 	private static final float SECONDS_TO_TICKS = 1.666f;
 
@@ -154,14 +155,14 @@ public class UltimateVolcanicMinePlugin extends Plugin
 		if(maxPlayerCount > config.expectedTeamSize())
 			VM_notifier.notify(notifier, VMNotifier.NotificationEvents.VM_EXTRA_PLAYER, ventStatusPredicter.getCurrentTick());
 
-		//Exit if the game has not started yet
-		if(vmGameState < VM_GAME_STATE_IN_GAME) return;
-
 		int newTimeRemaining = client.getVarbitValue(VARBIT_TIME_REMAINING);
 		if(newTimeRemaining != timeRemainingFromServer) {
 			estimatedTimeRemaining = timeRemainingFromServer = newTimeRemaining;
 		} else --estimatedTimeRemaining;
 
+		if(!hasGameStarted()) return;
+
+		ventStatusPredicter.getTimeline().setPlayerCount(client.getVarbitValue(VARBIT_PLAYER_COUNT));
 		rockTracker.updateRockTimers();
 
 		updateVentStatus(client.getVarbitValue(VARBIT_VENT_STATUS_A),
@@ -252,11 +253,9 @@ public class UltimateVolcanicMinePlugin extends Plugin
 		//Set our starting player count
 		if(event.getVarbitId() == VARBIT_PLAYER_COUNT) {
 			maxPlayerCount = Math.max(maxPlayerCount, client.getVarbitValue(VARBIT_PLAYER_COUNT));
-			ventStatusPredicter.getTimeline().setPlayerCount(maxPlayerCount);
 		}
 
-		//Exit if the game has not started yet
-		if(vmGameState < VM_GAME_STATE_IN_GAME) return;
+		if(!hasGameStarted()) return;
 
 		//Check if a player leaves/dies - player count can only move down in game
 		if(event.getVarbitId() == VARBIT_PLAYER_COUNT) {
@@ -316,12 +315,16 @@ public class UltimateVolcanicMinePlugin extends Plugin
 	}
 
 	private void resetGameVariables() {
-		estimatedTimeRemaining = VentStatusTimeline.VM_GAME_FULL_TIME;
 		VM_notifier.reset();
 		capCounter.initialize();
 		rockTracker.clearRocks();
-		timeRemainingFromServer = 0;
+		estimatedTimeRemaining = timeRemainingFromServer = 0;
 		maxPlayerCount = 0;
+	}
+	private boolean hasGameStarted() {
+		if(vmGameState >= VM_GAME_STATE_IN_GAME) return true;
+		//Both Lobby and exit time are 30 seconds
+		return estimatedTimeRemaining > VM_LOBBY_TIME;
 	}
 
 
@@ -363,7 +366,6 @@ public class UltimateVolcanicMinePlugin extends Plugin
 			}
 		}
 	}
-
 	@Subscribe
 	public void onNpcSpawned(NpcSpawned npcSpawned)
 	{

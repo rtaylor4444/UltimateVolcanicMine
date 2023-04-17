@@ -49,6 +49,9 @@ public class StatusState {
         this.stabilityChange = state.stabilityChange;
         setVentsEqualTo(state);
     }
+    public void setVentValueEqualTo(int index, int value) {
+        vents[index].update(value, vents[index].getDirection());
+    }
 
     public int[] updateVentStatus(int[] ventStatus, int chambers) {
         numIdentifiedVents = 0;

@@ -73,10 +73,26 @@ public class VentStatusTimeline {
                 ++numIdentifiedVents;
                 identifiedVentStates[i] = new StatusState(currentState);
                 identifiedVentTick[i] = currentTick;
+                doIdentifiedPreviousTickUpdate(i, currentState.getVents()[i].getActualValue());
             }
         }
 //        processIdentifiedVent();
     }
+    private void doIdentifiedPreviousTickUpdate(int index, int value) {
+        //Go back 9 ticks and fill out all states with new data
+        int minTick = Math.max(currentTick - (VENT_MOVE_TICK_TIME - 1), startingTick);
+        for(int i = currentTick; i >= minTick; --i) {
+            if((timeline[i] & (1 << MOVEMENT_UPDATE_FLAG)) != 0) {
+                tickToMovementVentState.get(i).setVentValueEqualTo(index, value);
+            }
+            if((timeline[i] & (1 << STABILITY_UPDATE_FLAG)) != 0) {
+                StatusState stabilityState = tickToStabilityUpdateState.get(i);
+                stabilityState.setVentValueEqualTo(index, value);
+                stabilityState.calcPredictedVentValues(stabilityState.getStabilityChange());
+            }
+        }
+    }
+
 //    private void processIdentifiedVent() {
 //        //Exit if our movement tick has not been defined yet
 //        if(currentMovementUpdateTick == 0) return;

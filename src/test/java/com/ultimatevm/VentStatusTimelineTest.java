@@ -330,4 +330,56 @@ public class VentStatusTimelineTest {
         Assert.assertEquals(predictedVent.getUpperBoundStart(), 72);
         Assert.assertEquals(predictedVent.getUpperBoundEnd(), 74);
     }
+
+    public void doIdentifiedPreviousTickUpdateTest() {
+        VentStatusTimeline timeline = new VentStatusTimeline();
+        HashMap<Integer, StatusState> tickToStabilityUpdateState = timeline.getStabilityUpdateStates();
+        HashMap<Integer, StatusState> tickToMovementVentState = timeline.getMovementVentStates();
+        StatusState state = new StatusState();
+        int u = VentStatus.STARTING_VENT_VALUE;
+        state.updateVentStatus(new int[]{u,u,u}, 0);
+        timeline.addInitialState(state);
+
+        //First stability update was missed but within tick range
+        advanceTicks(timeline, 15);
+        timeline.addStabilityUpdateTick(new StatusState(), 0);
+        //Fake movement update to test functionality
+        advanceTicks(timeline, 5);
+        timeline.addMovementTick(new StatusState());
+        //Vent B is identified
+        advanceTicks(timeline, 1);
+        state.updateVentStatus(new int[]{u,50,u}, 0);
+        timeline.addIdentifiedVentTick(state, 2);
+
+        //Ensure both stability and movement update values are set
+        Assert.assertEquals(tickToStabilityUpdateState.get(15).getVents()[1].getActualValue(), 50);
+        Assert.assertEquals(tickToMovementVentState.get(20).getVents()[1].getActualValue(), 50);
+    }
+
+    public void doIdentifiedPreviousTickUpdateTickRangeTest() {
+        VentStatusTimeline timeline = new VentStatusTimeline();
+        HashMap<Integer, StatusState> tickToStabilityUpdateState = timeline.getStabilityUpdateStates();
+        HashMap<Integer, StatusState> tickToMovementVentState = timeline.getMovementVentStates();
+        StatusState state = new StatusState();
+        int u = VentStatus.STARTING_VENT_VALUE;
+        state.updateVentStatus(new int[]{u,u,u}, 0);
+        timeline.addInitialState(state);
+
+        //First stability update was missed outside tick range
+        advanceTicks(timeline, 20);
+        timeline.addStabilityUpdateTick(new StatusState(), 0);
+        //Fake movement update to test functionality
+        timeline.addMovementTick(new StatusState());
+        advanceTicks(timeline, 10);
+        timeline.addMovementTick(new StatusState());
+        //Vent B is identified
+        state.updateVentStatus(new int[]{u,50,u}, 0);
+        timeline.addIdentifiedVentTick(state, 2);
+
+        //Stability and movement updates on tick 20 shouldn't be updated
+        Assert.assertEquals(tickToStabilityUpdateState.get(20).getVents()[1].getActualValue(), u);
+        Assert.assertEquals(tickToMovementVentState.get(20).getVents()[1].getActualValue(), u);
+        //Movement update on tick 30 should get updated
+        Assert.assertEquals(tickToMovementVentState.get(30).getVents()[1].getActualValue(), 50);
+    }
 }
