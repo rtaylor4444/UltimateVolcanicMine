@@ -255,6 +255,18 @@ public class VentStatus {
         if(isWithinRange(41,59)) return -1;
         return 0;
     }
+    public int getReversedInfluence() {
+        //TODO: Fix this code later to work with estimated ranges and bounded values
+        //in the future exit when ranges give two possible values
+        if(!isIdentified()) return STARTING_VENT_VALUE;
+        return getInfluenceOfValue(capVentValue(actualValue - movementDirection));
+    }
+    public void doReversedMovement(int outsideVentInfluence) {
+        //TODO: Fix this code later to work with estimated ranges and bounded values
+        if(!isIdentified()) return;
+        int currentMoveRate = Math.max(0, BASE_MOVE_RATE + outsideVentInfluence);
+        actualValue = capVentValue(actualValue - (currentMoveRate * movementDirection));
+    }
 
     public int getStabilityInfluence() {
         if(!isIdentified()) return 0;

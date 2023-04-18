@@ -331,55 +331,46 @@ public class VentStatusTimelineTest {
         Assert.assertEquals(predictedVent.getUpperBoundEnd(), 74);
     }
 
-    public void doIdentifiedPreviousTickUpdateTest() {
+    public void backtrackIdentifiedVentTest() {
         VentStatusTimeline timeline = new VentStatusTimeline();
-        HashMap<Integer, StatusState> tickToStabilityUpdateState = timeline.getStabilityUpdateStates();
-        HashMap<Integer, StatusState> tickToMovementVentState = timeline.getMovementVentStates();
         StatusState state = new StatusState();
         int u = VentStatus.STARTING_VENT_VALUE;
         state.updateVentStatus(new int[]{u,u,u}, 0);
         timeline.addInitialState(state);
 
-        //First stability update was missed but within tick range
-        advanceTicks(timeline, 15);
-        timeline.addStabilityUpdateTick(new StatusState(), 0);
-        //Fake movement update to test functionality
-        advanceTicks(timeline, 5);
-        timeline.addMovementTick(new StatusState());
-        //Vent B is identified
-        advanceTicks(timeline, 1);
-        state.updateVentStatus(new int[]{u,50,u}, 0);
-        timeline.addIdentifiedVentTick(state, 2);
-
-        //Ensure both stability and movement update values are set
-        Assert.assertEquals(tickToStabilityUpdateState.get(15).getVents()[1].getActualValue(), 50);
-        Assert.assertEquals(tickToMovementVentState.get(20).getVents()[1].getActualValue(), 50);
-    }
-
-    public void doIdentifiedPreviousTickUpdateTickRangeTest() {
-        VentStatusTimeline timeline = new VentStatusTimeline();
-        HashMap<Integer, StatusState> tickToStabilityUpdateState = timeline.getStabilityUpdateStates();
-        HashMap<Integer, StatusState> tickToMovementVentState = timeline.getMovementVentStates();
-        StatusState state = new StatusState();
-        int u = VentStatus.STARTING_VENT_VALUE;
-        state.updateVentStatus(new int[]{u,u,u}, 0);
-        timeline.addInitialState(state);
-
-        //First stability update was missed outside tick range
+        //Early Stability update
         advanceTicks(timeline, 20);
-        timeline.addStabilityUpdateTick(new StatusState(), 0);
-        //Fake movement update to test functionality
-        timeline.addMovementTick(new StatusState());
-        advanceTicks(timeline, 10);
-        timeline.addMovementTick(new StatusState());
+        timeline.addStabilityUpdateTick(state, 16);
         //Vent B is identified
-        state.updateVentStatus(new int[]{u,50,u}, 0);
+        advanceTicks(timeline, 20);
+        state.updateVentStatus(new int[]{u,75,u}, 0);
         timeline.addIdentifiedVentTick(state, 2);
+        //Do movement ticks
+        advanceTicks(timeline, 1);
+        for(int i = 0; i < 2; ++i) {
+            state.updateVentStatus(new int[]{u,74-i,u}, 0);
+            timeline.addMovementTick(state);
+            //Do same tick stability update
+            if(i == 0) timeline.addStabilityUpdateTick(state, 16);
+            advanceTicks(timeline, 10);
+        }
+        //Set earthquake and movement skip
+        timeline.addEarthquakeEventTick();
+        advanceTicks(timeline, 10);
+        //Vent A is identified
+        advanceTicks(timeline, 2);
+        state.updateVentStatus(new int[]{50,73,u}, 0);
+        timeline.addIdentifiedVentTick(state, 1);
 
-        //Stability and movement updates on tick 20 shouldn't be updated
-        Assert.assertEquals(tickToStabilityUpdateState.get(20).getVents()[1].getActualValue(), u);
-        Assert.assertEquals(tickToMovementVentState.get(20).getVents()[1].getActualValue(), u);
-        //Movement update on tick 30 should get updated
-        Assert.assertEquals(tickToMovementVentState.get(30).getVents()[1].getActualValue(), 50);
+        //Verify results
+        HashMap<Integer, StatusState> tickToStabilityUpdateState = timeline.getStabilityUpdateStates();
+        HashMap<Integer, StatusState> tickToMovementVentState = timeline.getMovementVentStates();
+        //Early Stability update should remain unchanged
+        Assert.assertEquals(tickToStabilityUpdateState.get(20).getVents()[0].getActualValue(), u);
+        //Movement ticks should have the correct values
+        Assert.assertEquals(tickToMovementVentState.get(41).getVents()[0].getActualValue(), 51);
+        Assert.assertEquals(tickToMovementVentState.get(51).getVents()[0].getActualValue(), 50);
+        //Second stability update will have a value
+        Assert.assertEquals(tickToStabilityUpdateState.get(41).getVents()[0].getActualValue(), 51);
     }
 }

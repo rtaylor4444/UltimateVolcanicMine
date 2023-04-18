@@ -69,6 +69,15 @@ public class StatusState {
             currentVentInfluence += vents[i].getEstimatedInfluence();
         }
     }
+    public void reverseMovement() {
+        int currentVentInfluence = 0;
+        for(int i = 0; i < vents.length; ++i) {
+            int inf = vents[i].getReversedInfluence();
+            if(inf == STARTING_VENT_VALUE) break;
+            currentVentInfluence += inf;
+            vents[i].doReversedMovement(currentVentInfluence);
+        }
+    }
     public void clearVentMovement() {
         for(int i = 0; i < vents.length; ++i) {
             vents[i].clearMovement();

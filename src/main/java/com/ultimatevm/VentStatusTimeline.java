@@ -2,7 +2,9 @@ package com.ultimatevm;
 
 import java.io.FileWriter;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedList;
 
 public class VentStatusTimeline {
     //Constants
@@ -27,6 +29,7 @@ public class VentStatusTimeline {
     FileWriter logWriter;
 
     private int currentTick, startingTick;
+    private int currentMovementTick;
     private short[] timeline;
     private int[] identifiedVentTick;
     private StatusState[] identifiedVentStates;
@@ -49,7 +52,7 @@ public class VentStatusTimeline {
     }
     public void reset() {
         startingTick = currentTick;
-        numIdentifiedVents = 0;
+        currentMovementTick = numIdentifiedVents = 0;
         identifiedVentTick = new int[StatusState.NUM_VENTS];
         identifiedVentStates = new StatusState[StatusState.NUM_VENTS];
         for(int i = 0; i < StatusState.NUM_VENTS; ++i) {
@@ -65,6 +68,7 @@ public class VentStatusTimeline {
         return true;
     }
     public void addIdentifiedVentTick(StatusState currentState, int bitState) {
+        int ventIndex = -1;
         for(int i = 0; i < StatusState.NUM_VENTS; ++i) {
             if(identifiedVentTick[i] != -1) continue;
             if ((bitState & (1 << i)) != 0) {
@@ -73,68 +77,67 @@ public class VentStatusTimeline {
                 ++numIdentifiedVents;
                 identifiedVentStates[i] = new StatusState(currentState);
                 identifiedVentTick[i] = currentTick;
-                doIdentifiedPreviousTickUpdate(i, currentState.getVents()[i].getActualValue());
+                ventIndex = i;
             }
         }
-//        processIdentifiedVent();
+        //Backtrack and fill out missing movement updates on the
+        //second identified vent
+
+        //Will exit in the rare event two vents are identified on the same tick
+        //(no movement ticks would be defined)
+        if(numIdentifiedVents == 2) backtrackIdentifiedVent(ventIndex);
     }
-    private void doIdentifiedPreviousTickUpdate(int index, int value) {
-        //Go back 9 ticks and fill out all states with new data
-        int minTick = Math.max(currentTick - (VENT_MOVE_TICK_TIME - 1), startingTick);
-        for(int i = currentTick; i >= minTick; --i) {
-            if((timeline[i] & (1 << MOVEMENT_UPDATE_FLAG)) != 0) {
-                tickToMovementVentState.get(i).setVentValueEqualTo(index, value);
+    private void backtrackIdentifiedVent(int ventIndex) {
+        if(ventIndex == -1) return;
+        //Exit if A is not identified for now
+        if(identifiedVentTick[0] == -1) return;
+        //Simply cannot be done accurately if known vents are A C
+        if(ventIndex == 2) return;
+
+        StatusState identifyState =  new StatusState(identifiedVentStates[ventIndex]);
+        LinkedList<Integer> stabilityUpdateTicks = new LinkedList<>();
+        int numTicksNoMovement = 0;
+        for(int i = currentTick; i >= startingTick; --i) {
+            //Exit when there is a chain of missing movement updates
+            if(numTicksNoMovement > (VENT_MOVE_TICK_TIME * 2)) break;
+
+            //Check if a movement tick was skipped due to earthquake
+            if((timeline[i] & (1 << EARTHQUAKE_EVENT_FLAG)) != 0) {
+                //Check if next 10 ticks was a movement update
+                if(i + VENT_MOVE_TICK_TIME <= VM_GAME_FULL_TIME) {
+                    if ((timeline[i + VENT_MOVE_TICK_TIME] & (1 << MOVEMENT_UPDATE_FLAG)) != 0) {
+                        numTicksNoMovement = 0;
+                    }
+                }
+                //Check if previous 10 ticks was a movement update
+                if(i - VENT_MOVE_TICK_TIME >= startingTick) {
+                    if ((timeline[i - VENT_MOVE_TICK_TIME] & (1 << MOVEMENT_UPDATE_FLAG)) != 0) {
+                        numTicksNoMovement = 0;
+                    }
+                }
             }
+
             if((timeline[i] & (1 << STABILITY_UPDATE_FLAG)) != 0) {
-                StatusState stabilityState = tickToStabilityUpdateState.get(i);
-                stabilityState.setVentValueEqualTo(index, value);
-                stabilityState.calcPredictedVentValues(stabilityState.getStabilityChange());
+                stabilityUpdateTicks.addLast(i);
             }
+
+            if((timeline[i] & (1 << MOVEMENT_UPDATE_FLAG)) != 0) {
+                numTicksNoMovement = 0;
+                //update the previous stability state
+                if(!stabilityUpdateTicks.isEmpty()) {
+                    StatusState stabilityState = tickToStabilityUpdateState.get(stabilityUpdateTicks.getFirst());
+                    stabilityState.setVentValueEqualTo(ventIndex, identifyState.getVents()[ventIndex].getActualValue());
+                    stabilityState.calcPredictedVentValues(stabilityState.getStabilityChange());
+                    stabilityUpdateTicks.removeFirst();
+                }
+                //update the movement state
+                StatusState movementState = tickToMovementVentState.get(i);
+                movementState.setVentValueEqualTo(ventIndex, identifyState.getVents()[ventIndex].getActualValue());
+                identifyState.reverseMovement();
+            } else ++numTicksNoMovement;
         }
     }
 
-//    private void processIdentifiedVent() {
-//        //Exit if our movement tick has not been defined yet
-//        if(currentMovementUpdateTick == 0) return;
-//        //Exit if all three vents are identified (defeats purpose of prediction)
-//        if(numIdentifiedVents == StatusState.NUM_VENTS) return;
-//        //Go back in time and determine what the vent values would have been
-//        for(int i = 0; i < StatusState.NUM_VENTS; ++i) {
-//            //Skip unidentified vents
-//            if(identifiedVentTick[i] == -1) continue;
-//            //Skip processed vents
-//            if((identifiedVentTick[i] & (1 << (IDENTIFIED_VENT_FLAG * 2))) == 0)
-//                continue;
-//
-//            //Mark that this identified vent has been processed
-//            identifiedVentTick[i] &= ~(1 << (IDENTIFIED_VENT_FLAG * 2));
-//            fixPreviousUnidentifiedVents(i);
-//        }
-//    }
-    private void fixPreviousUnidentifiedVents(int ventIndex) {
-        StatusState fixedState = new StatusState(identifiedVentStates[ventIndex]);
-        fixedState.clearPredictedVentValues();
-        int i = identifiedVentTick[ventIndex];
-        for(; i > startingTick; --i) {
-            //Process all events in reverse order since we are going backwards
-            if((timeline[i] & (1 << STABILITY_UPDATE_FLAG)) != 0) {
-                //Update this stability state with our new identified vent
-                StatusState stabilityState = tickToStabilityUpdateState.get(i);
-                stabilityState.setVentsEqualTo(fixedState);
-                stabilityState.calcPredictedVentValues(stabilityState.getStabilityChange());
-            }
-            if((timeline[i] & (1 << MOVEMENT_UPDATE_FLAG)) != 0) {
-                //Update our movement backwards
-//                fixedState.doActualBackwardMovement();
-            }
-            if((timeline[i] & (1 << DIRECTION_CHANGED_FLAG)) != 0) {
-                //Change our direction if it occured this tick
-                changeStateDirection(fixedState, i);
-            }
-        }
-        //Finally fix our initial starting state
-        tickToStabilityUpdateState.get(i).setVentsEqualTo(fixedState);
-    }
     public void addDirectionChangeTick(int bitState) {
         timeline[currentTick] |= (bitState & DIRECTION_CHANGED_BIT_MASK);
         timeline[currentTick] |= (1 << DIRECTION_CHANGED_FLAG);
@@ -144,18 +147,9 @@ public class VentStatusTimeline {
     }
     public void addMovementTick(StatusState currentState) {
         addNewMovementTickState(currentTick, currentState);
-//        addPreviousPossibleMovementTicks(currentState);
-//        processIdentifiedVent();
+        currentMovementTick = currentTick;
     }
-//    private void addPreviousPossibleMovementTicks(StatusState currentState) {
-//        //We will assume that there are no skipped movement updates
-//        //Account for the fact is possible for the movement tick to shift
-//        int movementTick = currentMovementUpdateTick - VENT_MOVE_TICK_TIME;
-//        while(movementTick > prevMovementUpdateTick) {
-//            addNewMovementTickState(movementTick, currentState);
-//            movementTick -= VENT_MOVE_TICK_TIME;
-//        }
-//    }
+
     public void addStabilityUpdateTick(StatusState currentState, int change) {
         currentState.calcPredictedVentValues(change);
         addNewStabilityUpdateTickState(currentTick, currentState);
