@@ -69,7 +69,7 @@ public interface UltimateVolcanicMineConfig extends Config
 	)
 	default int predictedStabilityChangeHistoryCount()
 	{
-		return 3;
+		return 1;
 	}
 	@ConfigItem(
 			position = 5,
@@ -175,7 +175,7 @@ public interface UltimateVolcanicMineConfig extends Config
 	)
 	default boolean showBoulderWarning()
 	{
-		return false;
+		return true;
 	}
 	@ConfigItem(
 			position = 6,
@@ -197,7 +197,7 @@ public interface UltimateVolcanicMineConfig extends Config
 	)
 	default boolean predictedVentFixNotifier()
 	{
-		return true;
+		return false;
 	}
 	@ConfigItem(
 			keyName = "predictedVentFixScenario",
@@ -207,7 +207,7 @@ public interface UltimateVolcanicMineConfig extends Config
 			section = notifications
 	)
 	default PredictionScenario predictedVentFixScenario() {
-		return PredictionScenario.WORST_CASE;
+		return PredictionScenario.BEST_CASE;
 	}
 	@ConfigItem(
 			keyName = "predictedStabilityChange",
@@ -222,7 +222,7 @@ public interface UltimateVolcanicMineConfig extends Config
 	)
 	default int predictedStabilityChange()
 	{
-		return 1;
+		return 2;
 	}
 
 	@ConfigSection(
