@@ -12,7 +12,6 @@ public class StatusState {
     private VentStatus[] vents = new VentStatus[NUM_VENTS];
     private int numIdentifiedVents;
     private int stabilityChange;
-    private int tickTimeStamp;
     private boolean hasReset;
 
     public static int getTotalVentUpdate(int change) {
@@ -49,9 +48,6 @@ public class StatusState {
         this.stabilityChange = state.stabilityChange;
         setVentsEqualTo(state);
     }
-    public void setVentValueEqualTo(int index, int value) {
-        vents[index].update(value, vents[index].getDirection());
-    }
 
     public int[] updateVentStatus(int[] ventStatus, int chambers) {
         numIdentifiedVents = 0;
@@ -69,29 +65,25 @@ public class StatusState {
             currentVentInfluence += vents[i].getEstimatedInfluence();
         }
     }
-    public void reverseMovement() {
+    public boolean reverseMovement() {
         int currentVentInfluence = 0;
         for(int i = 0; i < vents.length; ++i) {
             int inf = vents[i].getReversedInfluence();
-            if(inf == STARTING_VENT_VALUE) break;
+            if(inf == STARTING_VENT_VALUE) return false;
             currentVentInfluence += inf;
             vents[i].doReversedMovement(currentVentInfluence);
         }
-    }
-    public void clearVentMovement() {
-        for(int i = 0; i < vents.length; ++i) {
-            vents[i].clearMovement();
-        }
+        return true;
     }
     public void mergePredictedRangesWith(StatusState state) {
         for(int i = 0; i < NUM_VENTS; ++i) {
             if(vents[i].isIdentified()) continue;
             if(!state.vents[i].isRangeDefined()) continue;
             if(vents[i].isRangeDefined()) {
-                vents[i].mergeLowerBoundRanges(vents[i].getLowerBoundStart(),
-                        state.vents[i].getLowerBoundStart());
-                vents[i].mergeUpperBoundRanges(vents[i].getUpperBoundStart(),
-                        state.vents[i].getUpperBoundStart());
+                vents[i].mergeLowerBoundRanges(state.vents[i].getLowerBoundStart(),
+                        state.vents[i].getLowerBoundEnd());
+                vents[i].mergeUpperBoundRanges(state.vents[i].getUpperBoundStart(),
+                        state.vents[i].getUpperBoundEnd());
             } else {
                 vents[i].setLowerBoundRange(state.vents[i].getLowerBoundStart(), state.vents[i].getLowerBoundEnd());
                 vents[i].setUpperBoundRange(state.vents[i].getUpperBoundStart(), state.vents[i].getUpperBoundEnd());
@@ -154,7 +146,6 @@ public class StatusState {
         }
         return indices;
     }
-
     public void calcPredictedVentValues(int change) {
         stabilityChange = change;
         if(isAllVentsIdentified()) return;
@@ -162,17 +153,15 @@ public class StatusState {
         int[] indices = getUnidentifiedVentIndices();
         calcSingleVentValue(vents[indices[0]], change);
     }
-    public void clearPredictedVentValues() {
-        for(int i = 0; i < NUM_VENTS; ++i) {
-            if(vents[i].isIdentified()) continue;
-            vents[i].clearRanges();
-            vents[i].clearMovement();
-        }
-    }
 
+    //Helpers
     private void calcSingleVentValue(VentStatus vent, int change) {
         int partialVentUpdate = getIdentifiedVentTotalValue();
-        float missingInversePercent = 1.0f - (getTotalVentUpdate(change) - partialVentUpdate) / VENT_STABILITY_WEIGHT;
+        int pointsNeeded = getTotalVentUpdate(change) - partialVentUpdate;
+        //Exit if the value we need is out of range - stability change is invalid
+        if(pointsNeeded < 0 || pointsNeeded > (int)VENT_STABILITY_WEIGHT) return;
+
+        float missingInversePercent = 1.0f - (pointsNeeded / VENT_STABILITY_WEIGHT);
         int missingVentUpdate = (int)Math.ceil(PERFECT_VENT_VALUE * missingInversePercent);
 
         int lowerBoundStart = (PERFECT_VENT_VALUE - TRUNCATION_POSSIBILITIES) - missingVentUpdate;
@@ -222,6 +211,7 @@ public class StatusState {
         return totalVentUpdate;
     }
 
+    //Accessors
     public boolean hasDoneVMReset() { return hasReset; }
     public boolean isEnoughVentsIdentified() { return numIdentifiedVents > 1; }
     public boolean isAllVentsIdentified() { return numIdentifiedVents == NUM_VENTS; }

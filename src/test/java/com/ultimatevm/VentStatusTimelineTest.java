@@ -208,7 +208,7 @@ public class VentStatusTimelineTest {
         HashMap<Integer, StatusState> tickToStabilityUpdateState = timeline.getStabilityUpdateStates();
         StatusState state1 = new StatusState();
         state1.updateVentStatus(new int[]{VentStatus.STARTING_VENT_VALUE,50, 50}, 0);
-        timeline.addStabilityUpdateTick(state1, 0);
+        timeline.addStabilityUpdateTick(state1, 10);
 
         //The added state should have a calculated estimated value
         StatusState addedState = tickToStabilityUpdateState.get(0);
@@ -331,7 +331,7 @@ public class VentStatusTimelineTest {
         Assert.assertEquals(predictedVent.getUpperBoundEnd(), 74);
     }
 
-    public void backtrackIdentifiedVentTest() {
+    public void updatePreviousVentValuesTest() {
         VentStatusTimeline timeline = new VentStatusTimeline();
         StatusState state = new StatusState();
         int u = VentStatus.STARTING_VENT_VALUE;
@@ -345,10 +345,12 @@ public class VentStatusTimelineTest {
         advanceTicks(timeline, 20);
         state.updateVentStatus(new int[]{u,75,u}, 0);
         timeline.addIdentifiedVentTick(state, 2);
-        //Do movement ticks
+        //A's direction was changed
         advanceTicks(timeline, 1);
+        timeline.addDirectionChangeTick(1 << 3);
+        //Do movement ticks
         for(int i = 0; i < 2; ++i) {
-            state.updateVentStatus(new int[]{u,74-i,u}, 0);
+            state.updateVentStatus(new int[]{u,74-i,u}, 1);
             timeline.addMovementTick(state);
             //Do same tick stability update
             if(i == 0) timeline.addStabilityUpdateTick(state, 16);
@@ -357,6 +359,9 @@ public class VentStatusTimelineTest {
         //Set earthquake and movement skip
         timeline.addEarthquakeEventTick();
         advanceTicks(timeline, 10);
+        //A's direction was changed
+        advanceTicks(timeline, 1);
+        timeline.addDirectionChangeTick(1 << 3);
         //Vent A is identified
         advanceTicks(timeline, 2);
         state.updateVentStatus(new int[]{50,73,u}, 0);
@@ -368,9 +373,92 @@ public class VentStatusTimelineTest {
         //Early Stability update should remain unchanged
         Assert.assertEquals(tickToStabilityUpdateState.get(20).getVents()[0].getActualValue(), u);
         //Movement ticks should have the correct values
-        Assert.assertEquals(tickToMovementVentState.get(41).getVents()[0].getActualValue(), 51);
+        Assert.assertEquals(tickToMovementVentState.get(41).getVents()[0].getActualValue(), 49);
         Assert.assertEquals(tickToMovementVentState.get(51).getVents()[0].getActualValue(), 50);
         //Second stability update will have a value
-        Assert.assertEquals(tickToStabilityUpdateState.get(41).getVents()[0].getActualValue(), 51);
+        Assert.assertEquals(tickToStabilityUpdateState.get(41).getVents()[0].getActualValue(), 49);
+        //it should also have a new estimated value
+        Assert.assertTrue(tickToStabilityUpdateState.get(41).getVents()[2].isRangeDefined());
+    }
+
+    public void updatePreviousVentValuesOnMovementTickTest() {
+        VentStatusTimeline timeline = new VentStatusTimeline();
+        StatusState state = new StatusState();
+        int u = VentStatus.STARTING_VENT_VALUE;
+        state.updateVentStatus(new int[]{u,u,u}, 0);
+        timeline.addInitialState(state);
+
+        //Stability update
+        advanceTicks(timeline, 20);
+        timeline.addStabilityUpdateTick(state, 23);
+        //Vents A B is identified
+        advanceTicks(timeline, 1);
+        state.updateVentStatus(new int[]{50,50,u}, 0);
+        timeline.addIdentifiedVentTick(state, 3);
+
+        //Stability update will not update since there are no movement ticks
+        HashMap<Integer, StatusState> tickToStabilityUpdateState = timeline.getStabilityUpdateStates();
+        Assert.assertEquals(tickToStabilityUpdateState.get(20).getVents()[0].getActualValue(), u);
+        Assert.assertEquals(tickToStabilityUpdateState.get(20).getVents()[1].getActualValue(), u);
+        Assert.assertFalse(tickToStabilityUpdateState.get(20).getVents()[2].isRangeDefined());
+
+        //Do movement tick
+        advanceTicks(timeline, 1);
+        state.updateVentStatus(new int[]{49,50,u}, 0);
+        timeline.addMovementTick(state);
+
+        //Stability update will be updated with new values
+        Assert.assertEquals(tickToStabilityUpdateState.get(20).getVents()[0].getActualValue(), 50);
+        Assert.assertEquals(tickToStabilityUpdateState.get(20).getVents()[1].getActualValue(), 50);
+        Assert.assertTrue(tickToStabilityUpdateState.get(20).getVents()[2].isRangeDefined());
+    }
+
+    public void updatePreviousVentValuesMissingMovementTest() {
+        VentStatusTimeline timeline = new VentStatusTimeline();
+        StatusState state = new StatusState();
+        int u = VentStatus.STARTING_VENT_VALUE;
+        state.updateVentStatus(new int[]{u,u,u}, 0);
+        timeline.addInitialState(state);
+
+        //1st Stability update
+        advanceTicks(timeline, 20);
+        timeline.addStabilityUpdateTick(state, 19);
+        //Vents B is identified
+        advanceTicks(timeline, 5);
+        state.updateVentStatus(new int[]{u,60,u}, 0);
+        timeline.addIdentifiedVentTick(state, 2);
+        //Do movement tick
+        advanceTicks(timeline, 4);
+        state.updateVentStatus(new int[]{u,59,u}, 0);
+        timeline.addMovementTick(state);
+
+        //1st Stability update should be changed
+        //TODO: Fix code so it will be changed
+        HashMap<Integer, StatusState> tickToStabilityUpdateState = timeline.getStabilityUpdateStates();
+        Assert.assertEquals(tickToStabilityUpdateState.get(20).getVents()[0].getActualValue(), u);
+        Assert.assertEquals(tickToStabilityUpdateState.get(20).getVents()[1].getActualValue(), u);
+        Assert.assertEquals(tickToStabilityUpdateState.get(20).getVents()[2].getActualValue(), u);
+
+        //Skipped movement updates due to a freeze
+        advanceTicks(timeline, 30);
+        state.updateVentStatus(new int[]{u,58,u}, 0);
+        timeline.addMovementTick(state);
+        //Reachable Stability update
+        advanceTicks(timeline, 10);
+        timeline.addStabilityUpdateTick(state, 18);
+        //Vent A is identified
+        advanceTicks(timeline, 2);
+        state.updateVentStatus(new int[]{55,58,u}, 0);
+        timeline.addIdentifiedVentTick(state, 1);
+
+        //1st Stability update should be the same as before - skipped movement updates
+        Assert.assertEquals(tickToStabilityUpdateState.get(20).getVents()[0].getActualValue(), u);
+        Assert.assertEquals(tickToStabilityUpdateState.get(20).getVents()[1].getActualValue(), u);
+        Assert.assertEquals(tickToStabilityUpdateState.get(20).getVents()[2].getActualValue(), u);
+        //2nd Stability update should be changed
+        Assert.assertEquals(tickToStabilityUpdateState.get(69).getVents()[0].getActualValue(), 55);
+        Assert.assertEquals(tickToStabilityUpdateState.get(69).getVents()[1].getActualValue(), 58);
+        Assert.assertEquals(tickToStabilityUpdateState.get(69).getVents()[2].getActualValue(), u);
+        Assert.assertTrue(tickToStabilityUpdateState.get(69).getVents()[2].isRangeDefined());
     }
 }

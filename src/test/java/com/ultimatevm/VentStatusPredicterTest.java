@@ -50,25 +50,13 @@ public class VentStatusPredicterTest {
     public void updateVentStatusTest() {
         int u = VentStatus.STARTING_VENT_VALUE;
         VentStatusPredicter predicter = new VentStatusPredicter();
-        //All vents should match since a value was just identified
+        //Make sure values are set
         int[] values = {u, 96, u};
         predicter.updateVentStatus(values, 7);
         for(int i = 0; i < StatusState.NUM_VENTS; ++i) {
             Assert.assertEquals(predicter.getDisplayState().getVents()[i].getActualValue(), values[i]);
             Assert.assertEquals(predicter.getDisplayState().getVents()[i].getDirection(), 1);
         }
-
-        //Value has changed by one; previous state should not be updated
-        predicter.updateVentStatus(new int[]{u, 97, u}, 7);
-        Assert.assertEquals(predicter.getDisplayState().getVents()[1].getActualValue(), 97);
-
-        //Value has changed by two; previous state match the previous value above
-        predicter.updateVentStatus(new int[]{u, 99, u}, 7);
-        Assert.assertEquals(predicter.getDisplayState().getVents()[1].getActualValue(), 99);
-
-        //No change; same answer as above
-        predicter.updateVentStatus(new int[]{u, 99, u}, 7);
-        Assert.assertEquals(predicter.getDisplayState().getVents()[1].getActualValue(), 99);
     }
 
     public void makeStatusStateRangeTest() {
@@ -97,24 +85,31 @@ public class VentStatusPredicterTest {
         }
     }
 
-    public void updateVentMovementTest() {
+    public void updateVentStatusMovementTest() {
         VentStatusPredicter predicter = new VentStatusPredicter();
-        //Movement should be only updated for vents with predicted ranges
-        predicter.updateVentStatus(new int[]{VentStatus.STARTING_VENT_VALUE, 0, 0}, 7);
-        predicter.updateVentMovement();
-        for(int i = 0; i < StatusState.NUM_VENTS; ++i) {
-            Assert.assertEquals(predicter.getDisplayState().getVents()[i].getTotalDirectionalMovement(), 0);
-        }
+        int u = VentStatus.STARTING_VENT_VALUE;
+        for(int i = 0; i < VentStatusPredicter.SLOWEST_VENT_UPDATE_TICK; ++i)
+            predicter.getTimeline().updateTick();
 
         //Movement should be only updated for vents with predicted ranges
+        predicter.updateVentStatus(new int[]{u, 0, 0}, 7);
+        Assert.assertEquals(predicter.getDisplayState().getVents()[0].getLowerBoundStart(), u);
+        Assert.assertEquals(predicter.getDisplayState().getVents()[0].getLowerBoundEnd(), u);
+        Assert.assertEquals(predicter.getDisplayState().getVents()[0].getUpperBoundStart(), u);
+        Assert.assertEquals(predicter.getDisplayState().getVents()[0].getUpperBoundStart(), u);
+
+        //Movement should be updated here
         predicter = new VentStatusPredicter();
-        predicter.updateVentStatus(new int[]{VentStatus.STARTING_VENT_VALUE, 80, 20}, 7);
-        predicter.makeStatusState(5);
-        predicter.updateVentMovement();
-        int[] ans = new int[]{1, 0, 0};
-        for(int i = 0; i < StatusState.NUM_VENTS; ++i) {
-            Assert.assertEquals(predicter.getDisplayState().getVents()[i].getTotalDirectionalMovement(), ans[i]);
-        }
+        for(int i = 0; i < VentStatusPredicter.SLOWEST_VENT_UPDATE_TICK; ++i)
+            predicter.getTimeline().updateTick();
+        predicter.updateVentStatus(new int[]{VentStatus.STARTING_VENT_VALUE, 50, 50}, 7);
+        predicter.makeStatusState(23);
+        predicter.updateVentStatus(new int[]{VentStatus.STARTING_VENT_VALUE, 50, 50}, 7);
+        Assert.assertEquals(predicter.getDisplayState().getVents()[0].getLowerBoundStart(), 48);
+        Assert.assertEquals(predicter.getDisplayState().getVents()[0].getLowerBoundEnd(), 54);
+        Assert.assertEquals(predicter.getDisplayState().getVents()[0].getUpperBoundStart(), 48);
+        Assert.assertEquals(predicter.getDisplayState().getVents()[0].getUpperBoundEnd(), 54);
+
     }
 
     public void processVentChangeStateInitialTest() {
@@ -167,22 +162,6 @@ public class VentStatusPredicterTest {
         predicter.getTimeline().updateTick();
         predicter.updateVentStatus(new int[]{53, u, u}, 7);
         Assert.assertNotEquals(timeline.getTimeline()[2] & (1 << VentStatusTimeline.MOVEMENT_UPDATE_FLAG), 0);
-    }
-
-    public void clearMovementTest() {
-        VentStatusPredicter predicter = new VentStatusPredicter();
-        predicter.updateVentStatus(new int[]{VentStatus.STARTING_VENT_VALUE, 80, 20}, 7);
-        predicter.makeStatusState(5);
-        predicter.updateVentMovement();
-        int[] ans = new int[]{1, 0, 0};
-        for(int i = 0; i < StatusState.NUM_VENTS; ++i) {
-            Assert.assertEquals(predicter.getDisplayState().getVents()[i].getTotalDirectionalMovement(), ans[i]);
-        }
-
-        predicter.clearVentMovement();
-        for(int i = 0; i < StatusState.NUM_VENTS; ++i) {
-            Assert.assertEquals(predicter.getDisplayState().getVents()[i].getTotalDirectionalMovement(), 0);
-        }
     }
 
     public void getVentStatusTextTest() {

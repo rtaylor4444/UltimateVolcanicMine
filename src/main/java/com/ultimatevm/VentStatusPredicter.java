@@ -6,7 +6,7 @@ import static com.ultimatevm.VentStatus.*;
 import java.util.ArrayList;
 
 public class VentStatusPredicter {
-    private static final int SLOWEST_VENT_UPDATE_TICK = VentStatusTimeline.VENT_MOVE_TICK_TIME-1;
+    public static final int SLOWEST_VENT_UPDATE_TICK = VentStatusTimeline.VENT_MOVE_TICK_TIME-1;
 
     private VentStatusTimeline timeline;
     private StatusState displayState;
@@ -30,24 +30,12 @@ public class VentStatusPredicter {
     public void updateVentStatus(int[] ventStatus, int chambers) {
         processVentChangeState(displayState.updateVentStatus(ventStatus, chambers));
         if(isMovementUpdateTick()) {
-            updateVentMovement();
+            displayState.updateVentMovement();
         }
-    }
-    public void updateVentMovement() {
-        displayState.updateVentMovement();
-    }
-    public void clearVentMovement() {
-        displayState.clearVentMovement();
     }
     public void makeStatusState(int change) {
         timeline.addStabilityUpdateTick(displayState, change);
-        StatusState predictedState = timeline.getTimelinePredictionState();
-        for(int i = 0; i < NUM_VENTS; ++i) {
-            VentStatus vent = displayState.getVents()[i];
-            if(vent.isIdentified()) continue;
-            vent.setEqualTo(predictedState.getVents()[i]);
-        }
-        clearVentMovement();
+        updateDisplayState();
     }
     public String getVentStatusText(int index, String startingText) {
         VentStatus[] vents = displayState.getVents();
@@ -61,6 +49,8 @@ public class VentStatusPredicter {
     public void markEarthquakeEvent() {
         timeline.addEarthquakeEventTick();
     }
+
+    //Helpers
     private String getVentPercentText(VentStatus vent) {
         StringBuilder builder = new StringBuilder();
         if(vent.isTwoSeperateValues()) {
@@ -115,8 +105,20 @@ public class VentStatusPredicter {
 
         timeline.addInitialState(displayState);
         if((bitState & VentStatusTimeline.DIRECTION_CHANGED_BIT_MASK) != 0) timeline.addDirectionChangeTick(bitState);
-        if((bitState & VentStatusTimeline.IDENTIFIED_BIT_MASK) != 0) timeline.addIdentifiedVentTick(displayState, bitState);
         if((bitState & 128) != 0) timeline.addMovementTick(displayState);
+        if((bitState & VentStatusTimeline.IDENTIFIED_BIT_MASK) != 0) {
+            timeline.addIdentifiedVentTick(displayState, bitState);
+            updateDisplayState();
+        }
+    }
+    private void updateDisplayState() {
+        if(displayState.isAllVentsIdentified()) return;
+        StatusState predictedState = timeline.getTimelinePredictionState();
+        for(int i = 0; i < NUM_VENTS; ++i) {
+            VentStatus vent = displayState.getVents()[i];
+            if(vent.isIdentified()) continue;
+            vent.setEqualTo(predictedState.getVents()[i]);
+        }
     }
 
     public int getFutureStabilityChange(UltimateVolcanicMineConfig.PredictionScenario scenario) {

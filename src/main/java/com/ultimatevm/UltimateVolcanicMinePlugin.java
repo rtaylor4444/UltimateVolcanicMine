@@ -116,6 +116,8 @@ public class UltimateVolcanicMinePlugin extends Plugin
 	@Override
 	protected void startUp() throws Exception {
 		VM_notifier = new VMNotifier(config);
+		stabilityTracker.setDisplayCount(config.stabilityUpdateHistoryCount());
+		futureStabilityTracker.setDisplayCount(config.predictedStabilityChangeHistoryCount());
 		capInfoBox = new CapCounterInfoBox(capCounter, this);
 		cappingRockOverlay.setRockTracker(rockTracker);
 		overlayManager.add(cappingRockOverlay);
@@ -196,10 +198,10 @@ public class UltimateVolcanicMinePlugin extends Plugin
 				VM_notifier.notify(notifier, VMNotifier.NotificationEvents.VM_PRE_RESET_VENT_FIX, ventStatusPredicter.getCurrentTick());
 		}
 
-		//Ensure reset will not happen at start before the server sends the new game time
+		//Ensure reset will not happen at the very start before the server sends the new game time
 		//Reset around 5:00 when the server sends new unidentified vent
 		if(ventStatusPredicter.getCurrentTick() > VMNotifier.NOTIFICATION_START_COOLDOWN_TICKS &&
-				estimatedTimeRemaining <= VentStatusTimeline.VM_GAME_RESET_TIME) {
+				timeRemainingFromServer <= VentStatusTimeline.VM_GAME_RESET_TIME) {
 			stabilityTracker.resetStabilityHistory();
 			futureStabilityTracker.resetStabilityHistory();
 

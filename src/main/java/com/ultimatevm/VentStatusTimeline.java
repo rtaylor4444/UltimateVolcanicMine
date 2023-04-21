@@ -51,8 +51,8 @@ public class VentStatusTimeline {
         reset();
     }
     public void reset() {
-        startingTick = currentTick;
-        currentMovementTick = numIdentifiedVents = 0;
+        currentMovementTick = startingTick = currentTick;
+        numIdentifiedVents = 0;
         identifiedVentTick = new int[StatusState.NUM_VENTS];
         identifiedVentStates = new StatusState[StatusState.NUM_VENTS];
         for(int i = 0; i < StatusState.NUM_VENTS; ++i) {
@@ -80,61 +80,55 @@ public class VentStatusTimeline {
                 ventIndex = i;
             }
         }
-        //Backtrack and fill out missing movement updates on the
+        //Backtrack and fill out missing vent values on the
         //second identified vent
-
-        //Will exit in the rare event two vents are identified on the same tick
-        //(no movement ticks would be defined)
-        if(numIdentifiedVents == 2) backtrackIdentifiedVent(ventIndex);
+        if(numIdentifiedVents == 2) {
+            //Skip if vents arent AB for now
+            if(identifiedVentTick[0] == -1 || identifiedVentTick[1] == -1) return;
+            updatePreviousVentValues(identifiedVentStates[ventIndex], currentTick);
+        }
     }
-    private void backtrackIdentifiedVent(int ventIndex) {
-        if(ventIndex == -1) return;
-        //Exit if A is not identified for now
-        if(identifiedVentTick[0] == -1) return;
-        //Simply cannot be done accurately if known vents are A C
-        if(ventIndex == 2) return;
-
-        StatusState identifyState =  new StatusState(identifiedVentStates[ventIndex]);
+    private void updatePreviousVentValues(StatusState startingState, int tick) {
+        StatusState curState = new StatusState(startingState);
         LinkedList<Integer> stabilityUpdateTicks = new LinkedList<>();
-        int numTicksNoMovement = 0;
-        for(int i = currentTick; i >= startingTick; --i) {
+        int numTicksNoMovement = 0, futureMovementTick = Integer.MAX_VALUE;
+        for(int i = tick; i >= startingTick; --i) {
             //Exit when there is a chain of missing movement updates
             if(numTicksNoMovement > (VENT_MOVE_TICK_TIME * 2)) break;
 
-            //Check if a movement tick was skipped due to earthquake
-            if((timeline[i] & (1 << EARTHQUAKE_EVENT_FLAG)) != 0) {
-                //Check if next 10 ticks was a movement update
-                if(i + VENT_MOVE_TICK_TIME <= VM_GAME_FULL_TIME) {
-                    if ((timeline[i + VENT_MOVE_TICK_TIME] & (1 << MOVEMENT_UPDATE_FLAG)) != 0) {
-                        numTicksNoMovement = 0;
-                    }
-                }
-                //Check if previous 10 ticks was a movement update
-                if(i - VENT_MOVE_TICK_TIME >= startingTick) {
-                    if ((timeline[i - VENT_MOVE_TICK_TIME] & (1 << MOVEMENT_UPDATE_FLAG)) != 0) {
-                        numTicksNoMovement = 0;
-                    }
-                }
-            }
-
             if((timeline[i] & (1 << STABILITY_UPDATE_FLAG)) != 0) {
-                stabilityUpdateTicks.addLast(i);
+                //If future movement occured within 10 ticks we can process this now
+                if(futureMovementTick - i <= VENT_MOVE_TICK_TIME) {
+                    StatusState stabilityState = tickToStabilityUpdateState.get(i);
+                    stabilityState.setVentsEqualTo(curState);
+                    stabilityState.calcPredictedVentValues(stabilityState.getStabilityChange());
+                }
+                //otherwise we have to process this during the previous movement update
+                else stabilityUpdateTicks.addLast(i);
             }
 
             if((timeline[i] & (1 << MOVEMENT_UPDATE_FLAG)) != 0) {
                 numTicksNoMovement = 0;
-                //update the previous stability state
+                futureMovementTick = i;
+                //update the future stability state
                 if(!stabilityUpdateTicks.isEmpty()) {
                     StatusState stabilityState = tickToStabilityUpdateState.get(stabilityUpdateTicks.getFirst());
-                    stabilityState.setVentValueEqualTo(ventIndex, identifyState.getVents()[ventIndex].getActualValue());
+                    stabilityState.setVentsEqualTo(curState);
                     stabilityState.calcPredictedVentValues(stabilityState.getStabilityChange());
                     stabilityUpdateTicks.removeFirst();
                 }
                 //update the movement state
                 StatusState movementState = tickToMovementVentState.get(i);
-                movementState.setVentValueEqualTo(ventIndex, identifyState.getVents()[ventIndex].getActualValue());
-                identifyState.reverseMovement();
+                movementState.setVentsEqualTo(curState);
+                curState.reverseMovement();
             } else ++numTicksNoMovement;
+
+            if(isEarthquakeDelayMovement(i)) numTicksNoMovement = 0;
+
+            if((timeline[i] & (1 << DIRECTION_CHANGED_FLAG)) != 0) {
+                //Change our direction if it occured this tick
+                changeStateDirection(curState, i);
+            }
         }
     }
 
@@ -147,13 +141,19 @@ public class VentStatusTimeline {
     }
     public void addMovementTick(StatusState currentState) {
         addNewMovementTickState(currentTick, currentState);
+        //Update previous values on the very first movement update (likely after a vent check)
+        if(currentMovementTick == startingTick) {
+            //Only do this if A is known
+            if(identifiedVentTick[0] != -1)
+                updatePreviousVentValues(currentState, currentTick);
+        }
         currentMovementTick = currentTick;
     }
-
     public void addStabilityUpdateTick(StatusState currentState, int change) {
         currentState.calcPredictedVentValues(change);
         addNewStabilityUpdateTickState(currentTick, currentState);
     }
+
     public StatusState getTimelinePredictionState() {
         StatusState predictedState = new StatusState(tickToStabilityUpdateState.get(startingTick));
         for(int i = startingTick+1; i <= currentTick; ++i) {
@@ -180,8 +180,12 @@ public class VentStatusTimeline {
             }
             if((timeline[i] & (1 << STABILITY_UPDATE_FLAG)) != 0) {
                 //Use stability updates to set/narrow our possible values
-                predictedState.setOverlappingRangesWith(tickToStabilityUpdateState.get(i));
-//                predictedState.doBoundsClipping();
+                //account for +1
+                StatusState stabilityState = tickToStabilityUpdateState.get(i);
+                StatusState rngPossibility = new StatusState(stabilityState);
+                rngPossibility.calcPredictedVentValues(stabilityState.getStabilityChange() - 1);
+                rngPossibility.mergePredictedRangesWith(stabilityState);
+                predictedState.setOverlappingRangesWith(rngPossibility);
             }
         }
         return predictedState;
@@ -211,6 +215,21 @@ public class VentStatusTimeline {
             if(!vents[i].isIdentified()) continue;
             state.getVents()[i].setEqualTo(vents[i]);
         }
+    }
+
+    private boolean isEarthquakeDelayMovement(int tick) {
+        if((timeline[tick] & (1 << EARTHQUAKE_EVENT_FLAG)) == 0) return false;
+
+        //Check if next 10 ticks was a movement update
+        if(tick + VENT_MOVE_TICK_TIME <= VM_GAME_FULL_TIME) {
+            if ((timeline[tick + VENT_MOVE_TICK_TIME] & (1 << MOVEMENT_UPDATE_FLAG)) != 0)
+                return true;
+        }
+        //Check if previous 10 ticks was a movement update
+        if(tick - VENT_MOVE_TICK_TIME >= startingTick) {
+            return (timeline[tick - VENT_MOVE_TICK_TIME] & (1 << MOVEMENT_UPDATE_FLAG)) != 0;
+        }
+        return false;
     }
 
     //Accessors

@@ -104,14 +104,19 @@ public class StatusStateTest {
         vents[0].setLowerBoundRange(41, 59);
         vents[0].setUpperBoundRange(41, 59);
         state.updateVentMovement();
-        Assert.assertEquals(vents[0].getLowerBoundStartMove(), 1);
+        Assert.assertEquals(vents[0].getLowerBoundStart(), 42);
+        Assert.assertEquals(vents[0].getUpperBoundStart(), 42);
+        Assert.assertEquals(vents[0].getLowerBoundEnd(), 60);
+        Assert.assertEquals(vents[0].getUpperBoundEnd(), 60);
 
         //Movement by 2 since outside of 41-59% range
-        vents[0].clearMovement();
         vents[0].setLowerBoundRange(0, 40);
         vents[0].setUpperBoundRange(60, 99);
         state.updateVentMovement();
-        Assert.assertEquals(vents[0].getLowerBoundStartMove(), 2);
+        Assert.assertEquals(vents[0].getLowerBoundStart(), 2);
+        Assert.assertEquals(vents[0].getLowerBoundEnd(), 42);
+        Assert.assertEquals(vents[0].getUpperBoundStart(), 62);
+        Assert.assertEquals(vents[0].getUpperBoundEnd(), 100);
     }
 
     public void updateVentMovementBInfluenceTest() {
@@ -126,47 +131,61 @@ public class StatusStateTest {
         vents[1].setLowerBoundRange(41, 59);
         vents[1].setUpperBoundRange(41, 59);
         state.updateVentMovement();
-        Assert.assertEquals(vents[1].getLowerBoundStartMove(), 0);
+        Assert.assertEquals(vents[1].getLowerBoundStart(), 41);
+        Assert.assertEquals(vents[1].getUpperBoundStart(), 41);
+        Assert.assertEquals(vents[1].getLowerBoundEnd(), 59);
+        Assert.assertEquals(vents[1].getUpperBoundEnd(), 59);
 
         //Movement by 1 since A is unknown and B is outside of 41-59% range
         vents[1].setLowerBoundRange(0, 40);
         vents[1].setUpperBoundRange(60, 99);
         state.updateVentMovement();
-        Assert.assertEquals(vents[1].getLowerBoundStartMove(), 1);
+        Assert.assertEquals(vents[1].getLowerBoundStart(), 1);
+        Assert.assertEquals(vents[1].getLowerBoundEnd(), 41);
+        Assert.assertEquals(vents[1].getUpperBoundStart(), 61);
+        Assert.assertEquals(vents[1].getUpperBoundEnd(), 100);
 
 
         //A 41-59% range influence
-        state.clearVentMovement();
         state.updateVentStatus(new int[]{50, u, 50}, 7);
         //Movement by 0 since A and B are 41-59% range
         vents[1].setLowerBoundRange(41, 59);
         vents[1].setUpperBoundRange(41, 59);
         state.updateVentMovement();
-        Assert.assertEquals(vents[1].getLowerBoundStartMove(), 0);
+        Assert.assertEquals(vents[1].getLowerBoundStart(), 41);
+        Assert.assertEquals(vents[1].getUpperBoundStart(), 41);
+        Assert.assertEquals(vents[1].getLowerBoundEnd(), 59);
+        Assert.assertEquals(vents[1].getUpperBoundEnd(), 59);
 
         //Movement by 1 since A is 41-59% and B is outside of 41-59% range
         vents[1].setLowerBoundRange(0, 40);
         vents[1].setUpperBoundRange(60, 99);
         state.updateVentMovement();
-        Assert.assertEquals(vents[1].getLowerBoundStartMove(), 1);
+        Assert.assertEquals(vents[1].getLowerBoundStart(), 1);
+        Assert.assertEquals(vents[1].getLowerBoundEnd(), 41);
+        Assert.assertEquals(vents[1].getUpperBoundStart(), 61);
+        Assert.assertEquals(vents[1].getUpperBoundEnd(), 100);
 
 
         //Zero A influence (outside 41-59%)
         state.updateVentStatus(new int[]{0, u, 50}, 7);
         //Movement by 1 since A is not 41-59% but B is 41-59% range
-        state.clearVentMovement();
         vents[1].setLowerBoundRange(41, 59);
         vents[1].setUpperBoundRange(41, 59);
         state.updateVentMovement();
-        Assert.assertEquals(vents[1].getLowerBoundStartMove(), 1);
+        Assert.assertEquals(vents[1].getLowerBoundStart(), 42);
+        Assert.assertEquals(vents[1].getUpperBoundStart(), 42);
+        Assert.assertEquals(vents[1].getLowerBoundEnd(), 60);
+        Assert.assertEquals(vents[1].getUpperBoundEnd(), 60);
 
         //Movement by 2 since A and B are outside of 41-59% range
-        state.clearVentMovement();
         vents[1].setLowerBoundRange(0, 40);
         vents[1].setUpperBoundRange(60, 99);
         state.updateVentMovement();
-        Assert.assertEquals(vents[1].getLowerBoundStartMove(), 2);
-
+        Assert.assertEquals(vents[1].getLowerBoundStart(), 2);
+        Assert.assertEquals(vents[1].getLowerBoundEnd(), 42);
+        Assert.assertEquals(vents[1].getUpperBoundStart(), 62);
+        Assert.assertEquals(vents[1].getUpperBoundEnd(), 100);
     }
 
     public void updateVentMovementCInfluenceTest() {
@@ -182,14 +201,20 @@ public class StatusStateTest {
         vents[2].setLowerBoundRange(41, 59);
         vents[2].setUpperBoundRange(41, 59);
         state.updateVentMovement();
-        Assert.assertEquals(vents[2].getLowerBoundStartMove(), 0);
+        Assert.assertEquals(vents[2].getLowerBoundStart(), 41);
+        Assert.assertEquals(vents[2].getUpperBoundStart(), 41);
+        Assert.assertEquals(vents[2].getLowerBoundEnd(), 59);
+        Assert.assertEquals(vents[2].getUpperBoundEnd(), 59);
 
         //Movement by 0 since A and B are unknown;
         //doesnt matter C is outside of 41-59% range
         vents[2].setLowerBoundRange(0, 40);
         vents[2].setUpperBoundRange(60, 99);
         state.updateVentMovement();
-        Assert.assertEquals(vents[2].getLowerBoundStartMove(), 0);
+        Assert.assertEquals(vents[2].getLowerBoundStart(), 0);
+        Assert.assertEquals(vents[2].getLowerBoundEnd(), 40);
+        Assert.assertEquals(vents[2].getUpperBoundStart(), 60);
+        Assert.assertEquals(vents[2].getUpperBoundEnd(), 99);
 
 
         //Unidentified A and 41-59% B influence (assume worst movement)
@@ -199,14 +224,20 @@ public class StatusStateTest {
         vents[2].setLowerBoundRange(41, 59);
         vents[2].setUpperBoundRange(41, 59);
         state.updateVentMovement();
-        Assert.assertEquals(vents[2].getLowerBoundStartMove(), 0);
+        Assert.assertEquals(vents[2].getLowerBoundStart(), 41);
+        Assert.assertEquals(vents[2].getUpperBoundStart(), 41);
+        Assert.assertEquals(vents[2].getLowerBoundEnd(), 59);
+        Assert.assertEquals(vents[2].getUpperBoundEnd(), 59);
 
         //Movement by 0 since A is unknown and B is 41-59%;
         //doesnt matter C is outside of 41-59% range
         vents[2].setLowerBoundRange(0, 40);
         vents[2].setUpperBoundRange(60, 99);
         state.updateVentMovement();
-        Assert.assertEquals(vents[2].getLowerBoundStartMove(), 0);
+        Assert.assertEquals(vents[2].getLowerBoundStart(), 0);
+        Assert.assertEquals(vents[2].getLowerBoundEnd(), 40);
+        Assert.assertEquals(vents[2].getUpperBoundStart(), 60);
+        Assert.assertEquals(vents[2].getUpperBoundEnd(), 99);
 
 
         //Unidentified A and outside 41-59% B influence (assume worst movement)
@@ -217,35 +248,46 @@ public class StatusStateTest {
         vents[2].setLowerBoundRange(41, 59);
         vents[2].setUpperBoundRange(41, 59);
         state.updateVentMovement();
-        Assert.assertEquals(vents[2].getLowerBoundStartMove(), 0);
+        Assert.assertEquals(vents[2].getLowerBoundStart(), 41);
+        Assert.assertEquals(vents[2].getUpperBoundStart(), 41);
+        Assert.assertEquals(vents[2].getLowerBoundEnd(), 59);
+        Assert.assertEquals(vents[2].getUpperBoundEnd(), 59);
 
         //Movement by 1 since A is unknown;
         //B and C are outside of 41-59% range
         vents[2].setLowerBoundRange(0, 40);
         vents[2].setUpperBoundRange(60, 99);
         state.updateVentMovement();
-        Assert.assertEquals(vents[2].getLowerBoundStartMove(), 1);
+        Assert.assertEquals(vents[2].getLowerBoundStart(), 1);
+        Assert.assertEquals(vents[2].getLowerBoundEnd(), 41);
+        Assert.assertEquals(vents[2].getUpperBoundStart(), 61);
+        Assert.assertEquals(vents[2].getUpperBoundEnd(), 100);
 
 
 
 
         //41-59% A and unidentified B influence (assume worst movement)
         state.updateVentStatus(new int[]{50, u, u}, 7);
-        state.clearVentMovement();
         vents[1].clearRanges();
 
         //Movement by 0 since A is 41-59% and B is unknown
         vents[2].setLowerBoundRange(41, 59);
         vents[2].setUpperBoundRange(41, 59);
         state.updateVentMovement();
-        Assert.assertEquals(vents[2].getLowerBoundStartMove(), 0);
+        Assert.assertEquals(vents[2].getLowerBoundStart(), 41);
+        Assert.assertEquals(vents[2].getUpperBoundStart(), 41);
+        Assert.assertEquals(vents[2].getLowerBoundEnd(), 59);
+        Assert.assertEquals(vents[2].getUpperBoundEnd(), 59);
 
         //Movement by 0 since A and B are unknown;
         //doesnt matter C is outside of 41-59% range
         vents[2].setLowerBoundRange(0, 40);
         vents[2].setUpperBoundRange(60, 99);
         state.updateVentMovement();
-        Assert.assertEquals(vents[2].getLowerBoundStartMove(), 0);
+        Assert.assertEquals(vents[2].getLowerBoundStart(), 0);
+        Assert.assertEquals(vents[2].getLowerBoundEnd(), 40);
+        Assert.assertEquals(vents[2].getUpperBoundStart(), 60);
+        Assert.assertEquals(vents[2].getUpperBoundEnd(), 99);
 
 
         //41-59% A and B influence
@@ -255,14 +297,20 @@ public class StatusStateTest {
         vents[2].setLowerBoundRange(41, 59);
         vents[2].setUpperBoundRange(41, 59);
         state.updateVentMovement();
-        Assert.assertEquals(vents[2].getLowerBoundStartMove(), 0);
+        Assert.assertEquals(vents[2].getLowerBoundStart(), 41);
+        Assert.assertEquals(vents[2].getUpperBoundStart(), 41);
+        Assert.assertEquals(vents[2].getLowerBoundEnd(), 59);
+        Assert.assertEquals(vents[2].getUpperBoundEnd(), 59);
 
         //Movement by 0 since A and B are 41-59%;
         //doesnt matter C is outside of 41-59% range
         vents[2].setLowerBoundRange(0, 40);
         vents[2].setUpperBoundRange(60, 99);
         state.updateVentMovement();
-        Assert.assertEquals(vents[2].getLowerBoundStartMove(), 0);
+        Assert.assertEquals(vents[2].getLowerBoundStart(), 0);
+        Assert.assertEquals(vents[2].getLowerBoundEnd(), 40);
+        Assert.assertEquals(vents[2].getUpperBoundStart(), 60);
+        Assert.assertEquals(vents[2].getUpperBoundEnd(), 99);
 
 
         //41-59% A and outside 41-59% B influence
@@ -273,21 +321,26 @@ public class StatusStateTest {
         vents[2].setLowerBoundRange(41, 59);
         vents[2].setUpperBoundRange(41, 59);
         state.updateVentMovement();
-        Assert.assertEquals(vents[2].getLowerBoundStartMove(), 0);
+        Assert.assertEquals(vents[2].getLowerBoundStart(), 41);
+        Assert.assertEquals(vents[2].getUpperBoundStart(), 41);
+        Assert.assertEquals(vents[2].getLowerBoundEnd(), 59);
+        Assert.assertEquals(vents[2].getUpperBoundEnd(), 59);
 
         //Movement by 1 since B and C are outside of 41-59% range;
         //because A is 41-59%
         vents[2].setLowerBoundRange(0, 40);
         vents[2].setUpperBoundRange(60, 99);
         state.updateVentMovement();
-        Assert.assertEquals(vents[2].getLowerBoundStartMove(), 1);
+        Assert.assertEquals(vents[2].getLowerBoundStart(), 1);
+        Assert.assertEquals(vents[2].getLowerBoundEnd(), 41);
+        Assert.assertEquals(vents[2].getUpperBoundStart(), 61);
+        Assert.assertEquals(vents[2].getUpperBoundEnd(), 100);
 
 
 
 
         //Outside 41-59% A and unidentified B influence (assume worst movement)
         state.updateVentStatus(new int[]{0, u, u}, 7);
-        state.clearVentMovement();
         vents[1].clearRanges();
 
         //Movement by 0 since B is unknown and C is 41-59%
@@ -295,71 +348,66 @@ public class StatusStateTest {
         vents[2].setLowerBoundRange(41, 59);
         vents[2].setUpperBoundRange(41, 59);
         state.updateVentMovement();
-        Assert.assertEquals(vents[2].getLowerBoundStartMove(), 0);
+        Assert.assertEquals(vents[2].getLowerBoundStart(), 41);
+        Assert.assertEquals(vents[2].getUpperBoundStart(), 41);
+        Assert.assertEquals(vents[2].getLowerBoundEnd(), 59);
+        Assert.assertEquals(vents[2].getUpperBoundEnd(), 59);
 
         //Movement by 1 since B is unknown;
         //both A and C are outside of 41-59% range
         vents[2].setLowerBoundRange(0, 40);
         vents[2].setUpperBoundRange(60, 99);
         state.updateVentMovement();
-        Assert.assertEquals(vents[2].getLowerBoundStartMove(), 1);
+        Assert.assertEquals(vents[2].getLowerBoundStart(), 1);
+        Assert.assertEquals(vents[2].getLowerBoundEnd(), 41);
+        Assert.assertEquals(vents[2].getUpperBoundStart(), 61);
+        Assert.assertEquals(vents[2].getUpperBoundEnd(), 100);
 
 
         //Outside 41-59% A and 41-59% B influence
         state.updateVentStatus(new int[]{0, 50, u}, 7);
-        state.clearVentMovement();
 
         //Movement by 0 since B and C are 41-59%
         vents[2].setLowerBoundRange(41, 59);
         vents[2].setUpperBoundRange(41, 59);
         state.updateVentMovement();
-        Assert.assertEquals(vents[2].getLowerBoundStartMove(), 0);
+        Assert.assertEquals(vents[2].getLowerBoundStart(), 41);
+        Assert.assertEquals(vents[2].getUpperBoundStart(), 41);
+        Assert.assertEquals(vents[2].getLowerBoundEnd(), 59);
+        Assert.assertEquals(vents[2].getUpperBoundEnd(), 59);
 
         //Movement by 1 since A and C are outside 41-59%;
         //B is 41-59% range
         vents[2].setLowerBoundRange(0, 40);
         vents[2].setUpperBoundRange(60, 99);
         state.updateVentMovement();
-        Assert.assertEquals(vents[2].getLowerBoundStartMove(), 1);
+        Assert.assertEquals(vents[2].getLowerBoundStart(), 1);
+        Assert.assertEquals(vents[2].getLowerBoundEnd(), 41);
+        Assert.assertEquals(vents[2].getUpperBoundStart(), 61);
+        Assert.assertEquals(vents[2].getUpperBoundEnd(), 100);
 
 
         //41-59% A and outside 41-59% B influence
         state.updateVentStatus(new int[]{0, 0, u}, 7);
-        state.clearVentMovement();
 
         //Movement by 1 since A and B are outside 41-59%;
         //C is 41-59% range
         vents[2].setLowerBoundRange(41, 59);
         vents[2].setUpperBoundRange(41, 59);
         state.updateVentMovement();
-        Assert.assertEquals(vents[2].getLowerBoundStartMove(), 1);
+        Assert.assertEquals(vents[2].getLowerBoundStart(), 42);
+        Assert.assertEquals(vents[2].getUpperBoundStart(), 42);
+        Assert.assertEquals(vents[2].getLowerBoundEnd(), 60);
+        Assert.assertEquals(vents[2].getUpperBoundEnd(), 60);
 
         //Movement by 2 since all vents are outside of 41-59% range;
-        state.clearVentMovement();
         vents[2].setLowerBoundRange(0, 40);
         vents[2].setUpperBoundRange(60, 99);
         state.updateVentMovement();
-        Assert.assertEquals(vents[2].getLowerBoundStartMove(), 2);
-    }
-
-    public void clearVentMovementTest() {
-        StatusState state = new StatusState();
-        final VentStatus[] vents = state.getVents();
-        state.updateVentStatus(new int[]{VentStatus.STARTING_VENT_VALUE,
-                VentStatus.STARTING_VENT_VALUE,
-                VentStatus.STARTING_VENT_VALUE}, 7);
-        for(int i = 0; i < StatusState.NUM_VENTS; ++i) {
-            vents[i].setLowerBoundRange(0,0);
-            vents[i].setUpperBoundRange(0,0);
-        }
-        state.updateVentMovement();
-        for(int i = 0; i < StatusState.NUM_VENTS; ++i) {
-            Assert.assertEquals(vents[i].getLowerBoundStartMove(), 2);
-        }
-        state.clearVentMovement();
-        for(int i = 0; i < StatusState.NUM_VENTS; ++i) {
-            Assert.assertEquals(vents[i].getLowerBoundStartMove(), 0);
-        }
+        Assert.assertEquals(vents[2].getLowerBoundStart(), 2);
+        Assert.assertEquals(vents[2].getLowerBoundEnd(), 42);
+        Assert.assertEquals(vents[2].getUpperBoundStart(), 62);
+        Assert.assertEquals(vents[2].getUpperBoundEnd(), 100);
     }
 
     public void doVMResetTest() {
@@ -461,6 +509,27 @@ public class StatusStateTest {
         Assert.assertEquals(vents[0].getLowerBoundEnd(), 0);
         Assert.assertEquals(vents[0].getUpperBoundStart(), 100);
         Assert.assertEquals(vents[0].getUpperBoundEnd(), 100);
+    }
+
+    public void calcSingleVentValueInvalidTest() {
+        //Max calc test
+        StatusState state = new StatusState();
+        int u = VentStatus.STARTING_VENT_VALUE;
+        state.updateVentStatus(new int[]{u, 50, 50}, 7);
+        state.calcPredictedVentValues(24);
+        final VentStatus[] vents = state.getVents();
+        Assert.assertEquals(vents[0].getLowerBoundStart(), u);
+        Assert.assertEquals(vents[0].getLowerBoundEnd(), u);
+        Assert.assertEquals(vents[0].getUpperBoundStart(), u);
+        Assert.assertEquals(vents[0].getUpperBoundEnd(), u);
+
+        //Min calc test
+        state.updateVentStatus(new int[]{u, 0, 0}, 7);
+        state.calcPredictedVentValues(-27);
+        Assert.assertEquals(vents[0].getLowerBoundStart(), u);
+        Assert.assertEquals(vents[0].getLowerBoundEnd(), u);
+        Assert.assertEquals(vents[0].getUpperBoundStart(), u);
+        Assert.assertEquals(vents[0].getUpperBoundEnd(), u);
     }
 
     public float getPercent(int value) {

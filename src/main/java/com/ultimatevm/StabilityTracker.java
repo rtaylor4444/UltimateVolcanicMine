@@ -19,13 +19,13 @@ public class StabilityTracker {
 
     public StabilityTracker() {
         initialize();
+        numDisplay = 3;
     }
 
     public void initialize() {
         currentStability = STARTING_STABILITY;
         stabilityHistory.clear();
         hasResetHistory = false;
-        numDisplay = 3;
     }
 
     public void resetStabilityHistory() {

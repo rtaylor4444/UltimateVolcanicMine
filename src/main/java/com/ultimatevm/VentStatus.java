@@ -32,11 +32,6 @@ public class VentStatus {
     private int lowerBoundStart, lowerBoundEnd;
     private int upperBoundStart, upperBoundEnd;
 
-    //Estimated Movement
-    private int lowerBoundStartMove, lowerBoundEndMove;
-    private int upperBoundStartMove, upperBoundEndMove;
-    private int totalDirectionalMovement;
-
     public static int getStabilityInfluence(int ventValue) {
         float percentValue = PERFECT_VENT_VALUE - Math.abs(PERFECT_VENT_VALUE - ventValue);
         percentValue = (percentValue / 50.0f) * VENT_STABILITY_WEIGHT;
@@ -63,7 +58,6 @@ public class VentStatus {
         actualValue = STARTING_VENT_VALUE;
         totalBoundStart = MIN_VENT_VALUE;
         totalBoundEnd = MAX_VENT_VALUE;
-        clearMovement();
         clearRanges();
     }
     public void setEqualTo(VentStatus vent) {
@@ -77,12 +71,6 @@ public class VentStatus {
         this.upperBoundEnd = vent.upperBoundEnd;
         this.totalBoundStart = vent.totalBoundStart;
         this.totalBoundEnd = vent.totalBoundEnd;
-        //Movement
-        this.lowerBoundStartMove = vent.lowerBoundStartMove;
-        this.lowerBoundEndMove = vent.lowerBoundEndMove;
-        this.upperBoundStartMove = vent.upperBoundStartMove;
-        this.upperBoundEndMove = vent.upperBoundEndMove;
-        this.totalDirectionalMovement = vent.totalDirectionalMovement;
     }
     public int update(int actualValue, int direction) {
         int bitState = 0;
@@ -138,23 +126,6 @@ public class VentStatus {
         clearRanges();
         setLowerBoundRange(lowerStart + lowerStartMove, lowerEnd + lowerEndMove);
         setUpperBoundRange(upperStart + upperStartMove, upperEnd + upperEndMove);
-
-        //Keep track of the movement of our ranges
-        lowerBoundStartMove += getLowerBoundStart() - lowerStart;
-        upperBoundStartMove += getUpperBoundStart() - upperStart;
-        lowerBoundEndMove += getLowerBoundEnd() - lowerEnd;
-        upperBoundEndMove += getUpperBoundEnd() - upperEnd;
-
-        //Increase amount of time we were moving in a specific direction
-        //Use values before they were updated
-        if(movementDirection > 0 && upperEnd >= MAX_VENT_VALUE) return;
-        if(movementDirection < 0 && lowerStart <= MIN_VENT_VALUE) return;
-        totalDirectionalMovement += movementDirection;
-    }
-    public void clearMovement() {
-        lowerBoundStartMove = lowerBoundEndMove = 0;
-        upperBoundStartMove = upperBoundEndMove = 0;
-        totalDirectionalMovement = 0;
     }
     public void clearRanges() {
         lowerBoundStart = lowerBoundEnd = STARTING_VENT_VALUE;
@@ -286,9 +257,4 @@ public class VentStatus {
     public int getUpperBoundEnd() { return upperBoundEnd; }
     public int getTotalBoundStart() { return totalBoundStart; }
     public int getTotalBoundEnd() { return totalBoundEnd; }
-    public int getTotalDirectionalMovement() { return totalDirectionalMovement; }
-    public int getLowerBoundStartMove() { return lowerBoundStartMove; }
-    public int getLowerBoundEndMove() { return lowerBoundEndMove; }
-    public int getUpperBoundStartMove() { return upperBoundStartMove; }
-    public int getUpperBoundEndMove() { return upperBoundEndMove; }
 }
