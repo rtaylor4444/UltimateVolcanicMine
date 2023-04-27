@@ -33,9 +33,10 @@ public class VentStatusTimeline {
     private short[] timeline;
     private int[] identifiedVentTick;
     private StatusState[] identifiedVentStates;
-    private int numIdentifiedVents, playerCount;
+    private int numIdentifiedVents;
+    StatusState initialState;
     HashMap<Integer, StatusState> tickToMovementVentState;
-    HashMap<Integer, StatusState> tickToStabilityUpdateState;
+    HashMap<Integer, StabilityUpdateInfo> tickToStabilityUpdateState;
 
     public VentStatusTimeline() {
         createLog();
@@ -44,7 +45,6 @@ public class VentStatusTimeline {
     public void initialize() {
         startLog();
         currentTick = 0;
-        playerCount = 1;
         timeline = new short[VM_GAME_FULL_TIME];
         tickToMovementVentState = new HashMap<>();
         tickToStabilityUpdateState = new HashMap<>();
@@ -53,6 +53,7 @@ public class VentStatusTimeline {
     public void reset() {
         currentMovementTick = startingTick = currentTick;
         numIdentifiedVents = 0;
+        initialState = null;
         identifiedVentTick = new int[StatusState.NUM_VENTS];
         identifiedVentStates = new StatusState[StatusState.NUM_VENTS];
         for(int i = 0; i < StatusState.NUM_VENTS; ++i) {
@@ -62,9 +63,8 @@ public class VentStatusTimeline {
     }
     public boolean addInitialState(StatusState startingState) {
         //Only add initial state once for pre reset and post reset
-        if(tickToStabilityUpdateState.containsKey(startingTick)) return false;
-        StatusState newState = new StatusState(startingState);
-        tickToStabilityUpdateState.put(startingTick, newState);
+        if(initialState != null) return false;
+        initialState = new StatusState(startingState);
         return true;
     }
     public void addIdentifiedVentTick(StatusState currentState, int bitState) {
@@ -99,9 +99,8 @@ public class VentStatusTimeline {
             if((timeline[i] & (1 << STABILITY_UPDATE_FLAG)) != 0) {
                 //If future movement occured within 10 ticks we can process this now
                 if(futureMovementTick - i <= VENT_MOVE_TICK_TIME) {
-                    StatusState stabilityState = tickToStabilityUpdateState.get(i);
-                    stabilityState.setVentsEqualTo(curState);
-                    stabilityState.calcPredictedVentValues(stabilityState.getStabilityChange());
+                    StabilityUpdateInfo stabilityInfo = tickToStabilityUpdateState.get(i);
+                    stabilityInfo.updateVentValues(curState);
                 }
                 //otherwise we have to process this during the previous movement update
                 else stabilityUpdateTicks.addLast(i);
@@ -112,9 +111,8 @@ public class VentStatusTimeline {
                 futureMovementTick = i;
                 //update the future stability state
                 if(!stabilityUpdateTicks.isEmpty()) {
-                    StatusState stabilityState = tickToStabilityUpdateState.get(stabilityUpdateTicks.getFirst());
-                    stabilityState.setVentsEqualTo(curState);
-                    stabilityState.calcPredictedVentValues(stabilityState.getStabilityChange());
+                    StabilityUpdateInfo stabilityInfo = tickToStabilityUpdateState.get(stabilityUpdateTicks.getFirst());
+                    stabilityInfo.updateVentValues(curState);
                     stabilityUpdateTicks.removeFirst();
                 }
                 //update the movement state
@@ -150,12 +148,11 @@ public class VentStatusTimeline {
         currentMovementTick = currentTick;
     }
     public void addStabilityUpdateTick(StatusState currentState, int change) {
-        currentState.calcPredictedVentValues(change);
-        addNewStabilityUpdateTickState(currentTick, currentState);
+        addNewStabilityUpdateTickState(currentTick, currentState, change);
     }
 
     public StatusState getTimelinePredictionState() {
-        StatusState predictedState = new StatusState(tickToStabilityUpdateState.get(startingTick));
+        StatusState predictedState = new StatusState(initialState);
         for(int i = startingTick+1; i <= currentTick; ++i) {
             if((timeline[i] & (1 << IDENTIFIED_VENT_FLAG)) != 0) {
                 int idFlags = timeline[i] & IDENTIFIED_BIT_MASK;
@@ -180,12 +177,8 @@ public class VentStatusTimeline {
             }
             if((timeline[i] & (1 << STABILITY_UPDATE_FLAG)) != 0) {
                 //Use stability updates to set/narrow our possible values
-                //account for +1
-                StatusState stabilityState = tickToStabilityUpdateState.get(i);
-                StatusState rngPossibility = new StatusState(stabilityState);
-                rngPossibility.calcPredictedVentValues(stabilityState.getStabilityChange() - 1);
-                rngPossibility.mergePredictedRangesWith(stabilityState);
-                predictedState.setOverlappingRangesWith(rngPossibility);
+                StabilityUpdateInfo stabilityInfo = tickToStabilityUpdateState.get(i);
+                stabilityInfo.updatePredictedState(predictedState);
             }
         }
         return predictedState;
@@ -197,9 +190,8 @@ public class VentStatusTimeline {
         tickToMovementVentState.put(tick, newState);
         timeline[tick] |= (1 << MOVEMENT_UPDATE_FLAG);
     }
-    private void addNewStabilityUpdateTickState(int tick, StatusState currentState) {
-        StatusState newState = new StatusState(currentState);
-        tickToStabilityUpdateState.put(currentTick, newState);
+    private void addNewStabilityUpdateTickState(int tick, StatusState currentState, int change) {
+        tickToStabilityUpdateState.put(currentTick, new StabilityUpdateInfo(currentState, tick, change));
         timeline[tick] |= (1 << STABILITY_UPDATE_FLAG);
     }
     private void changeStateDirection(StatusState state, int tick) {
@@ -239,12 +231,12 @@ public class VentStatusTimeline {
     public final short[] getTimeline() { return timeline; }
     public final int[] getIdentifiedVentTicks() { return identifiedVentTick; }
     public final StatusState[] getIdentifiedVentStates() { return identifiedVentStates; }
+    public final StatusState getInitialState() { return initialState; }
     public final HashMap<Integer, StatusState> getMovementVentStates() { return tickToMovementVentState; }
-    public final HashMap<Integer, StatusState> getStabilityUpdateStates() { return tickToStabilityUpdateState; }
+    public final HashMap<Integer, StabilityUpdateInfo> getStabilityUpdateStates() { return tickToStabilityUpdateState; }
 
     //Modifiers
     public void updateTick() { ++currentTick; }
-    public void setPlayerCount(int count) { playerCount = Math.max(playerCount, count); }
 
     //Logging
     private void createLog() {
@@ -312,8 +304,8 @@ public class VentStatusTimeline {
         }
     }
     public void log() {
-        StatusState predictedState = new StatusState(tickToStabilityUpdateState.get(startingTick));
-        logText("Starting player count was: " + playerCount);
+        StatusState predictedState = new StatusState(initialState);
+        logText("Starting player count was: " + StabilityUpdateInfo.getNumPlayers());
         for(int i = startingTick+1; i <= currentTick; ++i) {
             if((timeline[i] & (1 << IDENTIFIED_VENT_FLAG)) != 0) {
                 int idFlags = timeline[i] & IDENTIFIED_BIT_MASK;
@@ -355,10 +347,9 @@ public class VentStatusTimeline {
                 predictedState.updateVentMovement();
             }
             if((timeline[i] & (1 << STABILITY_UPDATE_FLAG)) != 0) {
-                StatusState stabilityState = tickToStabilityUpdateState.get(i);
-                logText("On tick: " + i + " there was a stability update of " + stabilityState.getStabilityChange());
-                predictedState.setOverlappingRangesWith(stabilityState);
-//                predictedState.doBoundsClipping();
+                StabilityUpdateInfo stabilityInfo = tickToStabilityUpdateState.get(i);
+                logText("On tick: " + i + " there was a stability update of " + stabilityInfo.getInitialChange());
+                stabilityInfo.updatePredictedState(predictedState);
             }
         }
     }

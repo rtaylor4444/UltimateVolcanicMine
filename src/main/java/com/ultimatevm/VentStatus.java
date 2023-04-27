@@ -15,7 +15,8 @@ public class VentStatus {
         NO_CHANGE (2),
         ONE_CHANGE (4),
         TWO_CHANGE (8),
-        DIRECTION_CHANGE (16);
+        DIRECTION_CHANGE (16),
+        RESET(32);
         private final int bitFlag;
 
         VentChangeStateFlag(int bitFlag) {
@@ -76,14 +77,17 @@ public class VentStatus {
         int bitState = 0;
         int prevValue = this.actualValue;
         this.actualValue = actualValue;
+        if(!isIdentified() && prevValue != STARTING_VENT_VALUE)
+            bitState |= VentChangeStateFlag.RESET.bitFlag;
         if(this.movementDirection != 0 && this.movementDirection != direction)
             bitState |= VentChangeStateFlag.DIRECTION_CHANGE.bitFlag;
         this.movementDirection = direction;
 
-        if(isIdentified()) {
+        if(isIdentified() || (bitState & VentChangeStateFlag.RESET.bitFlag) != 0) {
             lowerBoundStart = lowerBoundEnd = actualValue;
             upperBoundStart = upperBoundEnd = actualValue;
-        } else return bitState;
+        }
+        if(!isIdentified()) return bitState;
 
         int diff = Math.abs(this.actualValue - prevValue);
         if(diff == 1) return bitState | VentChangeStateFlag.ONE_CHANGE.bitFlag;
@@ -237,6 +241,8 @@ public class VentStatus {
         if(!isIdentified()) return;
         int currentMoveRate = Math.max(0, BASE_MOVE_RATE + outsideVentInfluence);
         actualValue = capVentValue(actualValue - (currentMoveRate * movementDirection));
+        lowerBoundStart = lowerBoundEnd = actualValue;
+        upperBoundStart = upperBoundEnd = actualValue;
     }
 
     public int getStabilityInfluence() {

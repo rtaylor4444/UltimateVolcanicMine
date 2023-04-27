@@ -164,7 +164,7 @@ public class UltimateVolcanicMinePlugin extends Plugin
 
 		if(!hasGameStarted()) return;
 
-		ventStatusPredicter.getTimeline().setPlayerCount(client.getVarbitValue(VARBIT_PLAYER_COUNT));
+		StabilityUpdateInfo.setNumPlayers(client.getVarbitValue(VARBIT_PLAYER_COUNT));
 		rockTracker.updateRockTimers();
 
 		updateVentStatus(client.getVarbitValue(VARBIT_VENT_STATUS_A),
@@ -204,18 +204,15 @@ public class UltimateVolcanicMinePlugin extends Plugin
 				timeRemainingFromServer <= VentStatusTimeline.VM_GAME_RESET_TIME) {
 			stabilityTracker.resetStabilityHistory();
 			futureStabilityTracker.resetStabilityHistory();
-
-			if(!ventStatusPredicter.getDisplayState().hasDoneVMReset())
-				ventStatusPredicter.log();
-			ventStatusPredicter.reset();
 		}
 
+		int currentTick = ventStatusPredicter.getCurrentTick();
 		if (estimatedTimeRemaining <= (VentStatusTimeline.VM_GAME_RESET_TIME + ventWarningTime))
-			VM_notifier.notify(notifier, VMNotifier.NotificationEvents.VM_RESET, ventStatusPredicter.getCurrentTick());
+			VM_notifier.notify(notifier, VMNotifier.NotificationEvents.VM_RESET, currentTick);
 
 		if (estimatedTimeRemaining <= eruptionTime) {
-			VM_notifier.notify(notifier, VMNotifier.NotificationEvents.VM_ERUPTION, ventStatusPredicter.getCurrentTick());
-			ventStatusPredicter.log();
+			VM_notifier.notify(notifier, VMNotifier.NotificationEvents.VM_ERUPTION, currentTick);
+			if(currentTick > 5) ventStatusPredicter.log();
 		}
 
 		ventStatusPredicter.getTimeline().updateTick();

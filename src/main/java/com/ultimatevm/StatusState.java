@@ -90,7 +90,7 @@ public class StatusState {
             }
         }
     }
-    public void setOverlappingRangesWith(StatusState state) {
+    public boolean setOverlappingRangesWith(StatusState state) {
         for(int i = 0; i < NUM_VENTS; ++i) {
             if(vents[i].isIdentified()) continue;
             if(!state.vents[i].isRangeDefined()) continue;
@@ -102,10 +102,9 @@ public class StatusState {
                 boolean isLowerValid = !(lower[0] == 0 && lower[1] == 0);
                 boolean isUpperValid = !(upper[0] == 0 && upper[1] == 0);
                 vents[i].clearRanges();
-                if(!isLowerValid && !isUpperValid) {
-                    //Do nothing our ranges do not overlap
-                }
-                else if(!isLowerValid) {
+                if(!isLowerValid && !isUpperValid) return false;
+
+                if(!isLowerValid) {
                     vents[i].setLowerBoundRange(upper[0], upper[1]);
                     vents[i].setUpperBoundRange(upper[0], upper[1]);
                 }
@@ -122,6 +121,7 @@ public class StatusState {
                 vents[i].setUpperBoundRange(state.vents[i].getUpperBoundStart(), state.vents[i].getUpperBoundEnd());
             }
         }
+        return true;
     }
     public void doBoundsClipping() {
         for(int i = 0; i < NUM_VENTS; ++i) {
@@ -146,20 +146,20 @@ public class StatusState {
         }
         return indices;
     }
-    public void calcPredictedVentValues(int change) {
+    public boolean calcPredictedVentValues(int change) {
         stabilityChange = change;
-        if(isAllVentsIdentified()) return;
-        if(!isEnoughVentsIdentified()) return;
+        if(isAllVentsIdentified()) return false;
+        if(!isEnoughVentsIdentified()) return false;
         int[] indices = getUnidentifiedVentIndices();
-        calcSingleVentValue(vents[indices[0]], change);
+        return calcSingleVentValue(vents[indices[0]], change);
     }
 
     //Helpers
-    private void calcSingleVentValue(VentStatus vent, int change) {
+    private boolean calcSingleVentValue(VentStatus vent, int change) {
         int partialVentUpdate = getIdentifiedVentTotalValue();
         int pointsNeeded = getTotalVentUpdate(change) - partialVentUpdate;
         //Exit if the value we need is out of range - stability change is invalid
-        if(pointsNeeded < 0 || pointsNeeded > (int)VENT_STABILITY_WEIGHT) return;
+        if(pointsNeeded < 0 || pointsNeeded > (int)VENT_STABILITY_WEIGHT) return false;
 
         float missingInversePercent = 1.0f - (pointsNeeded / VENT_STABILITY_WEIGHT);
         int missingVentUpdate = (int)Math.ceil(PERFECT_VENT_VALUE * missingInversePercent);
@@ -184,6 +184,7 @@ public class StatusState {
         vent.clearRanges();
         vent.setLowerBoundRange(lowerBoundStart, lowerBoundEnd);
         vent.setUpperBoundRange(upperBoundStart, upperBoundEnd);
+        return true;
     }
     private void calcDoubleVentValue(VentStatus[] vents, int change) {
         int partialVentUpdate = getIdentifiedVentTotalValue();

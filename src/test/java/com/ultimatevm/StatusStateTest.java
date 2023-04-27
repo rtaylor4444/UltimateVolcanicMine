@@ -485,7 +485,7 @@ public class StatusStateTest {
         //Max calc test
         StatusState state = new StatusState();
         state.updateVentStatus(new int[]{VentStatus.STARTING_VENT_VALUE, 50, 50}, 7);
-        state.calcPredictedVentValues(23);
+        Assert.assertTrue(state.calcPredictedVentValues(23));
         Assert.assertEquals(state.getStabilityChange(), 23);
         final VentStatus[] vents = state.getVents();
         Assert.assertTrue(vents[0].isRangeDefined());
@@ -495,7 +495,7 @@ public class StatusStateTest {
         Assert.assertEquals(vents[0].getUpperBoundEnd(), 53);
 
         //Normal calc test
-        state.calcPredictedVentValues(22);
+        Assert.assertTrue(state.calcPredictedVentValues(22));
         Assert.assertEquals(state.getStabilityChange(), 22);
         Assert.assertEquals(vents[0].getLowerBoundStart(), 44);
         Assert.assertEquals(vents[0].getLowerBoundEnd(), 46);
@@ -503,7 +503,7 @@ public class StatusStateTest {
         Assert.assertEquals(vents[0].getUpperBoundEnd(), 56);
 
         //Min calc test
-        state.calcPredictedVentValues(7);
+        Assert.assertTrue(state.calcPredictedVentValues(7));
         Assert.assertEquals(state.getStabilityChange(), 7);
         Assert.assertEquals(vents[0].getLowerBoundStart(), 0);
         Assert.assertEquals(vents[0].getLowerBoundEnd(), 0);
@@ -516,7 +516,7 @@ public class StatusStateTest {
         StatusState state = new StatusState();
         int u = VentStatus.STARTING_VENT_VALUE;
         state.updateVentStatus(new int[]{u, 50, 50}, 7);
-        state.calcPredictedVentValues(24);
+        Assert.assertFalse(state.calcPredictedVentValues(24));
         final VentStatus[] vents = state.getVents();
         Assert.assertEquals(vents[0].getLowerBoundStart(), u);
         Assert.assertEquals(vents[0].getLowerBoundEnd(), u);
@@ -525,7 +525,7 @@ public class StatusStateTest {
 
         //Min calc test
         state.updateVentStatus(new int[]{u, 0, 0}, 7);
-        state.calcPredictedVentValues(-27);
+        Assert.assertFalse(state.calcPredictedVentValues(-27));
         Assert.assertEquals(vents[0].getLowerBoundStart(), u);
         Assert.assertEquals(vents[0].getLowerBoundEnd(), u);
         Assert.assertEquals(vents[0].getUpperBoundStart(), u);

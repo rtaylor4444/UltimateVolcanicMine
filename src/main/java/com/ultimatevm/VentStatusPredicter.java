@@ -101,9 +101,17 @@ public class VentStatusPredicter {
                 bitState |= 128;
                 //TODO: Narrow down display states ranges accordingly
             }
+
+            if((changeStates[i] & VentChangeStateFlag.RESET.bitFlag()) != 0){
+                bitState |= 512;
+            }
         }
 
         timeline.addInitialState(displayState);
+        if((bitState & 512) != 0) {
+            if(!getDisplayState().hasDoneVMReset()) log();
+            reset();
+        }
         if((bitState & VentStatusTimeline.DIRECTION_CHANGED_BIT_MASK) != 0) timeline.addDirectionChangeTick(bitState);
         if((bitState & 128) != 0) timeline.addMovementTick(displayState);
         if((bitState & VentStatusTimeline.IDENTIFIED_BIT_MASK) != 0) {
@@ -143,10 +151,10 @@ public class VentStatusPredicter {
 
             switch(scenario) {
                 case WORST_CASE:
-                    ventUpdate = Math.max(getStabilityInfluence(avgLower), getStabilityInfluence(avgUpper));
+                    ventUpdate = Math.min(getStabilityInfluence(avgLower), getStabilityInfluence(avgUpper));
                     break;
                 case BEST_CASE:
-                    ventUpdate = Math.min(getStabilityInfluence(avgLower), getStabilityInfluence(avgUpper));
+                    ventUpdate = Math.max(getStabilityInfluence(avgLower), getStabilityInfluence(avgUpper));
                     break;
                 default:
                     //Average-case (crap)

@@ -59,30 +59,15 @@ public class VentStatusPredicterTest {
         }
     }
 
-    public void makeStatusStateRangeTest() {
+    public void makeStatusStateTest() {
         VentStatusPredicter predicter = new VentStatusPredicter();
-        //No identified vents so ranges should NOT be made
-        predicter.makeStatusState(10);
-        for(int i = 0; i < StatusState.NUM_VENTS; ++i) {
-            Assert.assertFalse(predicter.getDisplayState().getVents()[i].isIdentified());
-            Assert.assertFalse(predicter.getDisplayState().getVents()[i].isRangeDefined());
-        }
-
+        int u = VentStatus.STARTING_VENT_VALUE;
         //Right amount of vents are known a range should be made!
-        predicter.updateVentStatus(new int[]{VentStatus.STARTING_VENT_VALUE, 40, 50}, 7);
+        predicter.updateVentStatus(new int[]{u, 40, 50}, 7);
+        predicter.getTimeline().updateTick();
         predicter.makeStatusState(10);
         Assert.assertFalse(predicter.getDisplayState().getVents()[0].isIdentified());
         Assert.assertTrue(predicter.getDisplayState().getVents()[0].isRangeDefined());
-
-
-        //All identified vents so ranges should NOT be made
-        int[] values = new int[]{30, 40, 50};
-        predicter.updateVentStatus(values, 7);
-        predicter.makeStatusState(10);
-        for(int i = 0; i < StatusState.NUM_VENTS; ++i) {
-            Assert.assertTrue(predicter.getDisplayState().getVents()[i].isIdentified());
-            Assert.assertEquals(predicter.getDisplayState().getVents()[i].getLowerBoundStart(), values[i]);
-        }
     }
 
     public void updateVentStatusMovementTest() {
@@ -118,7 +103,7 @@ public class VentStatusPredicterTest {
 
         //Ensure the initial state is created
         predicter.updateVentStatus(new int[]{u, u, u}, 7);
-        Assert.assertNotNull(predicter.getTimeline().getStabilityUpdateStates().get(0));
+        Assert.assertNotNull(predicter.getTimeline().getInitialState());
     }
 
     public void processVentChangeStateIdentifyTest() {
@@ -162,6 +147,19 @@ public class VentStatusPredicterTest {
         predicter.getTimeline().updateTick();
         predicter.updateVentStatus(new int[]{53, u, u}, 7);
         Assert.assertNotEquals(timeline.getTimeline()[2] & (1 << VentStatusTimeline.MOVEMENT_UPDATE_FLAG), 0);
+    }
+
+    public void processVentChangeStateResetTest() {
+        VentStatusPredicter predicter = new VentStatusPredicter();
+        final VentStatusTimeline timeline = predicter.getTimeline();
+        int u = VentStatus.STARTING_VENT_VALUE;
+
+        //Ensure reset event occurs
+        predicter.updateVentStatus(new int[]{50, 50, 50}, 7);
+        predicter.updateVentStatus(new int[]{u, u, u}, 7);
+        Assert.assertTrue(predicter.getDisplayState().hasDoneVMReset());
+        Assert.assertEquals(predicter.getDisplayState().getNumIdentifiedVents(), 0);
+        Assert.assertEquals(predicter.getTimeline().getNumIdentifiedVents(), 0);
     }
 
     public void getVentStatusTextTest() {

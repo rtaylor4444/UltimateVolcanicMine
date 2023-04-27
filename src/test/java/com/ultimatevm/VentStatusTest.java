@@ -202,7 +202,8 @@ public class VentStatusTest {
         //Identified tests
         //Vent was just identified
         Assert.assertEquals(vent.update(100, -1), VentStatus.VentChangeStateFlag.IDENTIFIED.bitFlag());
-        vent.update(VentStatus.STARTING_VENT_VALUE, -1);
+        //Vent was unidentified (reset)
+        Assert.assertEquals(vent.update(VentStatus.STARTING_VENT_VALUE, -1), VentStatus.VentChangeStateFlag.RESET.bitFlag());
         //Vent was just identified and direction changed
         Assert.assertEquals(vent.update(100, 1),
                 VentStatus.VentChangeStateFlag.IDENTIFIED.bitFlag() + VentStatus.VentChangeStateFlag.DIRECTION_CHANGE.bitFlag());
@@ -233,8 +234,9 @@ public class VentStatusTest {
         //No change
         vent.update(50, 1);
         Assert.assertEquals(vent.update(50, 1), VentStatus.VentChangeStateFlag.NO_CHANGE.bitFlag());
-        //Vent became unidentified
-        Assert.assertEquals(vent.update(VentStatus.STARTING_VENT_VALUE, 1), 0);
+        //Vent became unidentified and direction changed
+        Assert.assertEquals(vent.update(VentStatus.STARTING_VENT_VALUE, -1),
+                VentStatus.VentChangeStateFlag.RESET.bitFlag() | VentStatus.VentChangeStateFlag.DIRECTION_CHANGE.bitFlag());
     }
 
     public void updateMovementInvalidTest() {
