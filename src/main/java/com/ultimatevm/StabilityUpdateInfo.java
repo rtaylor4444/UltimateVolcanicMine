@@ -28,7 +28,7 @@ public class StabilityUpdateInfo {
             initialStabUpdate.RNGUpdateMod = 1 - i;
             //Run a prediction with this new mod to see if we get a valid result
             predictionState = timeline.getTimelinePredictionState();
-            if(isValidResult(initialStabUpdate.stabilityUpdateState, missingVentIndices)) break;
+            if(isValidResult(predictionState, missingVentIndices)) break;
         }
         initialStabUpdate.RNGUpdateMod = startingRNGMod;
         return predictionState;

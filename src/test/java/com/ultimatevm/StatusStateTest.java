@@ -588,6 +588,89 @@ public class StatusStateTest {
         Assert.assertEquals(state.getVents()[2].getUpperBoundEnd(), 53);
     }
 
+    public void setOverlappingRangesWithTest() {
+        StatusState state = new StatusState();
+        final VentStatus vent = state.getVents()[2];
+        StatusState toOverlap = new StatusState();
+        int u = VentStatus.STARTING_VENT_VALUE;
+        toOverlap.updateVentStatus(new int[]{50, 50, u}, 7);
+        toOverlap.getVents()[2].setLowerBoundRange(41, 46);
+        toOverlap.getVents()[2].setUpperBoundRange(54, 59);
+
+        //When we have no range defined to take the other states range
+        state.updateVentStatus(new int[]{50, 50, u}, 7);
+        state.setOverlappingRangesWith(toOverlap);
+        Assert.assertEquals(vent.getLowerBoundStart(), 41);
+        Assert.assertEquals(vent.getLowerBoundEnd(), 46);
+        Assert.assertEquals(vent.getUpperBoundStart(), 54);
+        Assert.assertEquals(vent.getUpperBoundEnd(), 59);
+
+        //Both ranges overlap
+        vent.setLowerBoundRange(38, 44);
+        vent.setUpperBoundRange(56, 62);
+        state.setOverlappingRangesWith(toOverlap);
+        Assert.assertEquals(vent.getLowerBoundStart(), 41);
+        Assert.assertEquals(vent.getLowerBoundEnd(), 44);
+        Assert.assertEquals(vent.getUpperBoundStart(), 56);
+        Assert.assertEquals(vent.getUpperBoundEnd(), 59);
+
+        //Only lower bound overlaps
+        vent.setLowerBoundRange(38, 44);
+        vent.setUpperBoundRange(62, 65);
+        state.setOverlappingRangesWith(toOverlap);
+        Assert.assertEquals(vent.getLowerBoundStart(), 41);
+        Assert.assertEquals(vent.getLowerBoundEnd(), 44);
+        Assert.assertEquals(vent.getUpperBoundStart(), 41);
+        Assert.assertEquals(vent.getUpperBoundEnd(), 44);
+
+        //Only upper bound overlaps
+        vent.setLowerBoundRange(35, 38);
+        vent.setUpperBoundRange(56, 62);
+        state.setOverlappingRangesWith(toOverlap);
+        Assert.assertEquals(vent.getLowerBoundStart(), 56);
+        Assert.assertEquals(vent.getLowerBoundEnd(), 59);
+        Assert.assertEquals(vent.getUpperBoundStart(), 56);
+        Assert.assertEquals(vent.getUpperBoundEnd(), 59);
+
+        //Neither range overlap
+        vent.setLowerBoundRange(35, 38);
+        vent.setUpperBoundRange(62, 65);
+        state.setOverlappingRangesWith(toOverlap);
+        Assert.assertEquals(vent.getLowerBoundStart(), u);
+        Assert.assertEquals(vent.getLowerBoundEnd(), u);
+        Assert.assertEquals(vent.getUpperBoundStart(), u);
+        Assert.assertEquals(vent.getUpperBoundEnd(), u);
+
+    }
+
+    public void setOverlappingRangesWithInvalidTest() {
+        StatusState state = new StatusState();
+        StatusState toOverlap = new StatusState();
+        int u = VentStatus.STARTING_VENT_VALUE;
+        toOverlap.updateVentStatus(new int[]{50, 50, u}, 7);
+        toOverlap.getVents()[2].setLowerBoundRange(41, 59);
+        toOverlap.getVents()[2].setUpperBoundRange(41, 59);
+
+        //All vents identified no overlapping should be done
+        state.updateVentStatus(new int[]{50, 50, 50}, 7);
+        state.setOverlappingRangesWith(toOverlap);
+        Assert.assertEquals(state.getVents()[2].getLowerBoundStart(), 50);
+        Assert.assertEquals(state.getVents()[2].getLowerBoundEnd(), 50);
+        Assert.assertEquals(state.getVents()[2].getUpperBoundStart(), 50);
+        Assert.assertEquals(state.getVents()[2].getUpperBoundEnd(), 50);
+
+        //Undefined ranges to merge means nothing to overlap
+        state.updateVentStatus(new int[]{50, 50, u}, 7);
+        state.getVents()[2].setLowerBoundRange(47, 53);
+        state.getVents()[2].setUpperBoundRange(47, 53);
+        toOverlap.getVents()[2].clearRanges();
+        state.setOverlappingRangesWith(toOverlap);
+        Assert.assertEquals(state.getVents()[2].getLowerBoundStart(), 47);
+        Assert.assertEquals(state.getVents()[2].getLowerBoundEnd(), 53);
+        Assert.assertEquals(state.getVents()[2].getUpperBoundStart(), 47);
+        Assert.assertEquals(state.getVents()[2].getUpperBoundEnd(), 53);
+    }
+
     public float getPercent(int value) {
         float percentValue = 50 - Math.abs(50 - value);
         return percentValue / 50.0f;

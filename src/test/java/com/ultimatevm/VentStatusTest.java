@@ -528,6 +528,72 @@ public class VentStatusTest {
         Assert.assertTrue(vent.isWithinRange(VentStatus.MIN_VENT_VALUE - 1, VentStatus.MAX_VENT_VALUE + 1));
     }
 
+    public void getOverlappedLowerBoundRangeTest() {
+        VentStatus vent = new VentStatus('A');
+        vent.setLowerBoundRange(35,45);
+        //Start is lower
+        int[] ans = vent.getOverlappedLowerBoundRange(30, 45);
+        Assert.assertEquals(ans[0], 35);
+        Assert.assertEquals(ans[1], 45);
+        //End is higher
+        ans = vent.getOverlappedLowerBoundRange(35, 50);
+        Assert.assertEquals(ans[0], 35);
+        Assert.assertEquals(ans[1], 45);
+        //Range is greater
+        ans = vent.getOverlappedLowerBoundRange(30, 50);
+        Assert.assertEquals(ans[0], 35);
+        Assert.assertEquals(ans[1], 45);
+        //Start is higher
+        ans = vent.getOverlappedLowerBoundRange(40, 45);
+        Assert.assertEquals(ans[0], 40);
+        Assert.assertEquals(ans[1], 45);
+        //End is lower
+        ans = vent.getOverlappedLowerBoundRange(35, 40);
+        Assert.assertEquals(ans[0], 35);
+        Assert.assertEquals(ans[1], 40);
+        //Both are within bounds
+        ans = vent.getOverlappedLowerBoundRange(40, 40);
+        Assert.assertEquals(ans[0], 40);
+        Assert.assertEquals(ans[1], 40);
+        //Out of bounds
+        ans = vent.getOverlappedLowerBoundRange(25, 30);
+        Assert.assertEquals(ans[0], -1);
+        Assert.assertEquals(ans[1], -1);
+    }
+
+    public void getOverlappedUpperBoundRangeTest() {
+        VentStatus vent = new VentStatus('A');
+        vent.setUpperBoundRange(35,45);
+        //Start is lower
+        int[] ans = vent.getOverlappedUpperBoundRange(30, 45);
+        Assert.assertEquals(ans[0], 35);
+        Assert.assertEquals(ans[1], 45);
+        //End is higher
+        ans = vent.getOverlappedUpperBoundRange(35, 50);
+        Assert.assertEquals(ans[0], 35);
+        Assert.assertEquals(ans[1], 45);
+        //Range is greater
+        ans = vent.getOverlappedUpperBoundRange(30, 50);
+        Assert.assertEquals(ans[0], 35);
+        Assert.assertEquals(ans[1], 45);
+        //Start is higher
+        ans = vent.getOverlappedUpperBoundRange(40, 45);
+        Assert.assertEquals(ans[0], 40);
+        Assert.assertEquals(ans[1], 45);
+        //End is lower
+        ans = vent.getOverlappedUpperBoundRange(35, 40);
+        Assert.assertEquals(ans[0], 35);
+        Assert.assertEquals(ans[1], 40);
+        //Both are within bounds
+        ans = vent.getOverlappedUpperBoundRange(40, 40);
+        Assert.assertEquals(ans[0], 40);
+        Assert.assertEquals(ans[1], 40);
+        //Out of bounds
+        ans = vent.getOverlappedUpperBoundRange(25, 30);
+        Assert.assertEquals(ans[0], -1);
+        Assert.assertEquals(ans[1], -1);
+    }
+
     public void doBoundsClippingTest() {
         //Bounds starts at 25-75%
 

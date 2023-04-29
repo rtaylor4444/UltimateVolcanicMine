@@ -165,8 +165,8 @@ public class VentStatus {
         if(!isRangeDefined()) return;
         int[] lower = getOverlappedLowerBoundRange(getTotalBoundStart(), getTotalBoundEnd());
         int[] upper = getOverlappedUpperBoundRange(getTotalBoundStart(), getTotalBoundEnd());
-        boolean isLowerBoundClipped = (lower[0] == 0 && lower[1] == 0);
-        boolean isUpperBoundClipped = (upper[0] == 0 && upper[1] == 0);
+        boolean isLowerBoundClipped = (lower[0] == -1 && lower[1] == -1);
+        boolean isUpperBoundClipped = (upper[0] == -1 && upper[1] == -1);
         clearRanges();
         if(isLowerBoundClipped && isUpperBoundClipped) {
             //Both ranges are outside possible bounds (shouldn't happen)
@@ -214,13 +214,13 @@ public class VentStatus {
         return false;
     }
     public int[] getOverlappedLowerBoundRange(int start, int end) {
-        if(!isLowerBoundWithinRange(start, end)) return new int[]{0, 0};
+        if(!isLowerBoundWithinRange(start, end)) return new int[]{-1, -1};
         int maxStart = Math.max(getLowerBoundStart(), start);
         int minEnd = Math.min(getLowerBoundEnd(), end);
         return new int[]{maxStart, minEnd};
     }
     public int[] getOverlappedUpperBoundRange(int start, int end) {
-        if(!isUpperBoundWithinRange(start, end)) return new int[]{0, 0};
+        if(!isUpperBoundWithinRange(start, end)) return new int[]{-1, -1};
         int maxStart = Math.max(getUpperBoundStart(), start);
         int minEnd = Math.min(getUpperBoundEnd(), end);
         return new int[]{maxStart, minEnd};

@@ -95,7 +95,7 @@ public class StatusState {
             }
         }
     }
-    public boolean setOverlappingRangesWith(StatusState state) {
+    public void setOverlappingRangesWith(StatusState state) {
         for(int i = 0; i < NUM_VENTS; ++i) {
             if(vents[i].isIdentified()) continue;
             if(!state.vents[i].isRangeDefined()) continue;
@@ -104,10 +104,10 @@ public class StatusState {
                         state.vents[i].getLowerBoundEnd());
                 int[] upper = vents[i].getOverlappedUpperBoundRange(state.vents[i].getUpperBoundStart(),
                         state.vents[i].getUpperBoundEnd());
-                boolean isLowerValid = !(lower[0] == 0 && lower[1] == 0);
-                boolean isUpperValid = !(upper[0] == 0 && upper[1] == 0);
+                boolean isLowerValid = !(lower[0] == -1 && lower[1] == -1);
+                boolean isUpperValid = !(upper[0] == -1 && upper[1] == -1);
                 vents[i].clearRanges();
-                if(!isLowerValid && !isUpperValid) return false;
+                if(!isLowerValid && !isUpperValid) continue;
 
                 if(!isLowerValid) {
                     vents[i].setLowerBoundRange(upper[0], upper[1]);
@@ -126,7 +126,6 @@ public class StatusState {
                 vents[i].setUpperBoundRange(state.vents[i].getUpperBoundStart(), state.vents[i].getUpperBoundEnd());
             }
         }
-        return true;
     }
     public void doBoundsClipping() {
         for(int i = 0; i < NUM_VENTS; ++i) {
