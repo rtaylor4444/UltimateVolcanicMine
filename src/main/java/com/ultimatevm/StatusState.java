@@ -84,6 +84,11 @@ public class StatusState {
                         state.vents[i].getLowerBoundEnd());
                 vents[i].mergeUpperBoundRanges(state.vents[i].getUpperBoundStart(),
                         state.vents[i].getUpperBoundEnd());
+                //Merge ranges if they are both overlap
+                if(vents[i].isUpperBoundWithinRange(vents[i].getLowerBoundStart(), vents[i].getLowerBoundEnd())) {
+                    vents[i].mergeUpperBoundRanges(vents[i].getLowerBoundStart(), vents[i].getLowerBoundEnd());
+                    vents[i].mergeLowerBoundRanges(vents[i].getUpperBoundStart(), vents[i].getUpperBoundEnd());
+                }
             } else {
                 vents[i].setLowerBoundRange(state.vents[i].getLowerBoundStart(), state.vents[i].getLowerBoundEnd());
                 vents[i].setUpperBoundRange(state.vents[i].getUpperBoundStart(), state.vents[i].getUpperBoundEnd());

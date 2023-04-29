@@ -121,7 +121,8 @@ public class VentStatusPredicter {
     }
     private void updateDisplayState() {
         if(displayState.isAllVentsIdentified()) return;
-        StatusState predictedState = timeline.getTimelinePredictionState();
+        StatusState predictedState = timeline.getCurrentPredictionState();
+        if(predictedState == null) return;
         for(int i = 0; i < NUM_VENTS; ++i) {
             VentStatus vent = displayState.getVents()[i];
             if(vent.isIdentified()) continue;
@@ -168,7 +169,7 @@ public class VentStatusPredicter {
 
         if(estimatedVentValue != Integer.MAX_VALUE)
             totalVentValue += estimatedVentValue;
-        return calcStabilityChange(totalVentValue);
+        return calcStabilityChange(totalVentValue) + StabilityUpdateInfo.getMinRNGVariation();
     }
     public final StatusState getDisplayState() { return displayState; }
     public final VentStatusTimeline getTimeline() { return timeline; }

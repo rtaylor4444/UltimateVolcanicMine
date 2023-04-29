@@ -532,6 +532,62 @@ public class StatusStateTest {
         Assert.assertEquals(vents[0].getUpperBoundEnd(), u);
     }
 
+    public void mergePredictedRangesWithTest() {
+        StatusState state = new StatusState();
+        StatusState toMerge = new StatusState();
+        int u = VentStatus.STARTING_VENT_VALUE;
+        toMerge.updateVentStatus(new int[]{50, 50, u}, 7);
+        toMerge.getVents()[2].setLowerBoundRange(41, 59);
+        toMerge.getVents()[2].setUpperBoundRange(41, 59);
+
+        //When we have no range defined to take the other states range
+        state.updateVentStatus(new int[]{50, 50, u}, 7);
+        state.mergePredictedRangesWith(toMerge);
+        Assert.assertEquals(state.getVents()[2].getLowerBoundStart(), 41);
+        Assert.assertEquals(state.getVents()[2].getLowerBoundEnd(), 59);
+        Assert.assertEquals(state.getVents()[2].getUpperBoundStart(), 41);
+        Assert.assertEquals(state.getVents()[2].getUpperBoundEnd(), 59);
+
+        //Ensure ranges merge correctly
+        state.updateVentStatus(new int[]{50, 50, u}, 7);
+        state.getVents()[2].clearRanges();
+        state.getVents()[2].setLowerBoundRange(30, 40);
+        state.getVents()[2].setUpperBoundRange(60, 70);
+        state.mergePredictedRangesWith(toMerge);
+        Assert.assertEquals(state.getVents()[2].getLowerBoundStart(), 30);
+        Assert.assertEquals(state.getVents()[2].getLowerBoundEnd(), 70);
+        Assert.assertEquals(state.getVents()[2].getUpperBoundStart(), 30);
+        Assert.assertEquals(state.getVents()[2].getUpperBoundEnd(), 70);
+    }
+
+    public void mergePredictedRangesWithInvalidTest() {
+        StatusState state = new StatusState();
+        StatusState toMerge = new StatusState();
+        int u = VentStatus.STARTING_VENT_VALUE;
+        toMerge.updateVentStatus(new int[]{50, 50, u}, 7);
+        toMerge.getVents()[2].setLowerBoundRange(41, 59);
+        toMerge.getVents()[2].setUpperBoundRange(41, 59);
+
+        //All vents identified nothing to merge
+        state.updateVentStatus(new int[]{50, 50, 50}, 7);
+        state.mergePredictedRangesWith(toMerge);
+        Assert.assertEquals(state.getVents()[2].getLowerBoundStart(), 50);
+        Assert.assertEquals(state.getVents()[2].getLowerBoundEnd(), 50);
+        Assert.assertEquals(state.getVents()[2].getUpperBoundStart(), 50);
+        Assert.assertEquals(state.getVents()[2].getUpperBoundEnd(), 50);
+
+        //Undefined ranges to merge means nothing to merge
+        state.updateVentStatus(new int[]{50, 50, u}, 7);
+        state.getVents()[2].setLowerBoundRange(47, 53);
+        state.getVents()[2].setUpperBoundRange(47, 53);
+        toMerge.getVents()[2].clearRanges();
+        state.mergePredictedRangesWith(toMerge);
+        Assert.assertEquals(state.getVents()[2].getLowerBoundStart(), 47);
+        Assert.assertEquals(state.getVents()[2].getLowerBoundEnd(), 53);
+        Assert.assertEquals(state.getVents()[2].getUpperBoundStart(), 47);
+        Assert.assertEquals(state.getVents()[2].getUpperBoundEnd(), 53);
+    }
+
     public float getPercent(int value) {
         float percentValue = 50 - Math.abs(50 - value);
         return percentValue / 50.0f;

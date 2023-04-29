@@ -35,6 +35,7 @@ public class VentStatusTimeline {
     private StatusState[] identifiedVentStates;
     private int numIdentifiedVents;
     StatusState initialState;
+    StabilityUpdateInfo initialStabInfo;
     HashMap<Integer, StatusState> tickToMovementVentState;
     HashMap<Integer, StabilityUpdateInfo> tickToStabilityUpdateState;
 
@@ -54,6 +55,7 @@ public class VentStatusTimeline {
         currentMovementTick = startingTick = currentTick;
         numIdentifiedVents = 0;
         initialState = null;
+        initialStabInfo = null;
         identifiedVentTick = new int[StatusState.NUM_VENTS];
         identifiedVentStates = new StatusState[StatusState.NUM_VENTS];
         for(int i = 0; i < StatusState.NUM_VENTS; ++i) {
@@ -101,6 +103,7 @@ public class VentStatusTimeline {
                 if(futureMovementTick - i <= VENT_MOVE_TICK_TIME) {
                     StabilityUpdateInfo stabilityInfo = tickToStabilityUpdateState.get(i);
                     stabilityInfo.updateVentValues(curState);
+                    setInitialStabilityUpdateInfo(stabilityInfo);
                 }
                 //otherwise we have to process this during the previous movement update
                 else stabilityUpdateTicks.addLast(i);
@@ -113,6 +116,7 @@ public class VentStatusTimeline {
                 if(!stabilityUpdateTicks.isEmpty()) {
                     StabilityUpdateInfo stabilityInfo = tickToStabilityUpdateState.get(stabilityUpdateTicks.getFirst());
                     stabilityInfo.updateVentValues(curState);
+                    setInitialStabilityUpdateInfo(stabilityInfo);
                     stabilityUpdateTicks.removeFirst();
                 }
                 //update the movement state
@@ -178,10 +182,15 @@ public class VentStatusTimeline {
             if((timeline[i] & (1 << STABILITY_UPDATE_FLAG)) != 0) {
                 //Use stability updates to set/narrow our possible values
                 StabilityUpdateInfo stabilityInfo = tickToStabilityUpdateState.get(i);
-                stabilityInfo.updatePredictedState(predictedState);
+                if(stabilityInfo == initialStabInfo)
+                    predictedState.setOverlappingRangesWith(initialStabInfo.getStabilityUpdateState());
+                else stabilityInfo.updatePredictedState(predictedState);
             }
         }
         return predictedState;
+    }
+    public StatusState getCurrentPredictionState() {
+        return StabilityUpdateInfo.getPredictionState(initialStabInfo, this);
     }
 
     //Helpers
@@ -191,8 +200,19 @@ public class VentStatusTimeline {
         timeline[tick] |= (1 << MOVEMENT_UPDATE_FLAG);
     }
     private void addNewStabilityUpdateTickState(int tick, StatusState currentState, int change) {
-        tickToStabilityUpdateState.put(currentTick, new StabilityUpdateInfo(currentState, tick, change));
+        StabilityUpdateInfo newInfo = new StabilityUpdateInfo(currentState, tick, change);
+        tickToStabilityUpdateState.put(currentTick, newInfo);
         timeline[tick] |= (1 << STABILITY_UPDATE_FLAG);
+        setInitialStabilityUpdateInfo(newInfo);
+    }
+    private void setInitialStabilityUpdateInfo(StabilityUpdateInfo info) {
+        if(!info.isValid()) return;
+        if(initialStabInfo != null) {
+            //TODO: account for different number of known vents
+            if(initialStabInfo.getTickTimeStamp() > info.getTickTimeStamp())
+                initialStabInfo = info;
+        }
+        else initialStabInfo = info;
     }
     private void changeStateDirection(StatusState state, int tick) {
         int directionFlags = timeline[tick] & DIRECTION_CHANGED_BIT_MASK;
