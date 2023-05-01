@@ -37,10 +37,18 @@ public class StatusState {
         }
         setEqualTo(state);
     }
+    public void setVentEqualTo(StatusState state, int ventIndex) {
+        //Update number of vents we have identified
+        if(vents[ventIndex].isIdentified() && !state.vents[ventIndex].isIdentified())
+            --numIdentifiedVents;
+        if(!vents[ventIndex].isIdentified() && state.vents[ventIndex].isIdentified())
+            ++numIdentifiedVents;
+
+        vents[ventIndex].setEqualTo(state.vents[ventIndex]);
+    }
     public void setVentsEqualTo(StatusState state) {
-        this.numIdentifiedVents = state.numIdentifiedVents;
         for(int i = 0; i < vents.length; ++i) {
-            vents[i].setEqualTo(state.vents[i]);
+            setVentEqualTo(state, i);
         }
     }
     public void setEqualTo(StatusState state) {
@@ -65,15 +73,22 @@ public class StatusState {
             currentVentInfluence += vents[i].getEstimatedInfluence();
         }
     }
-    public boolean reverseMovement() {
+    public int reverseMovement(int knownBitFlag) {
         int currentVentInfluence = 0;
         for(int i = 0; i < vents.length; ++i) {
-            int inf = vents[i].getReversedInfluence();
-            if(inf == STARTING_VENT_VALUE) return false;
-            currentVentInfluence += inf;
-            vents[i].doReversedMovement(currentVentInfluence);
+            //Do reversed movement only if the previous value is unknown
+            if((knownBitFlag & (1 << i)) == 0) {
+                //Exit if the value cannot be reversed
+                int inf = vents[i].getReversedInfluence(currentVentInfluence);
+                if (inf == STARTING_VENT_VALUE) return -(i + 1);
+
+                currentVentInfluence += inf;
+                vents[i].doReversedMovement(currentVentInfluence);
+            }
+            //Otherwise if known just update movement influence
+            else currentVentInfluence += vents[i].getEstimatedInfluence();
         }
-        return true;
+        return 0;
     }
     public void mergePredictedRangesWith(StatusState state) {
         for(int i = 0; i < NUM_VENTS; ++i) {

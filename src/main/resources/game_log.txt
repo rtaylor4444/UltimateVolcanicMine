@@ -1,0 +1,541 @@
+Starting player count was: 1
+On tick: 22 there was a stability update of 18
+On tick: 34 A Vent was identified to be 58
+On tick: 37 there was a movement update
+A: 57%
+Direction -1
+B: 43%
+Direction -1
+C: 127%
+Direction -1
+
+On tick: 47 there was a movement update
+A: 56%
+Direction -1
+B: 43%
+Direction -1
+C: 127%
+Direction -1
+
+On tick: 47 there was a stability update of 19
+On tick: 57 B Vent was identified to be 43
+On tick: 57 there was a movement update
+A: 55%
+Direction -1
+B: 43%
+Direction -1
+C: 127%
+Direction -1
+
+On tick: 67 there was a movement update
+A: 54%
+Direction -1
+B: 43%
+Direction -1
+C: 44-46 54-56
+Direction -1
+
+On tick: 77 there was a movement update
+A: 53%
+Direction -1
+B: 43%
+Direction -1
+C: 44-46 54-56
+Direction -1
+
+On tick: 87 there was a movement update
+A: 52%
+Direction -1
+B: 43%
+Direction -1
+C: 44-46 54-56
+Direction -1
+
+On tick: 97 there was a movement update
+A: 51%
+Direction -1
+B: 43%
+Direction -1
+C: 44-46 54-56
+Direction -1
+
+On tick: 107 there was a movement update
+A: 50%
+Direction -1
+B: 43%
+Direction -1
+C: 44-46 54-56
+Direction -1
+
+On tick: 117 there was a movement update
+A: 49%
+Direction -1
+B: 43%
+Direction -1
+C: 44-46 54-56
+Direction -1
+
+On tick: 127 there was a movement update
+A: 48%
+Direction -1
+B: 43%
+Direction -1
+C: 44-46 54-56
+Direction -1
+
+On tick: 137 there was a movement update
+A: 47%
+Direction -1
+B: 43%
+Direction -1
+C: 44-46 54-56
+Direction -1
+
+On tick: 147 there was a movement update
+A: 46%
+Direction -1
+B: 43%
+Direction -1
+C: 44-46 54-56
+Direction -1
+
+On tick: 157 there was a movement update
+A: 45%
+Direction -1
+B: 43%
+Direction -1
+C: 44-46 54-56
+Direction -1
+
+On tick: 167 there was a movement update
+A: 44%
+Direction -1
+B: 43%
+Direction -1
+C: 44-46 54-56
+Direction -1
+
+On tick: 177 there was a movement update
+A: 43%
+Direction -1
+B: 43%
+Direction -1
+C: 44-46 54-56
+Direction -1
+
+On tick: 187 there was a movement update
+A: 42%
+Direction -1
+B: 43%
+Direction -1
+C: 44-46 54-56
+Direction -1
+
+On tick: 197 there was a movement update
+A: 41%
+Direction -1
+B: 43%
+Direction -1
+C: 44-46 54-56
+Direction -1
+
+On tick: 207 there was a movement update
+A: 40%
+Direction -1
+B: 43%
+Direction -1
+C: 44-46 54-56
+Direction -1
+
+On tick: 217 there was a movement update
+A: 38%
+Direction -1
+B: 42%
+Direction -1
+C: 44-46 54-56
+Direction -1
+
+On tick: 227 there was a movement update
+A: 36%
+Direction -1
+B: 41%
+Direction -1
+C: 44-46 54-56
+Direction -1
+
+On tick: 237 there was a movement update
+A: 34%
+Direction -1
+B: 40%
+Direction -1
+C: 44-46 54-56
+Direction -1
+
+On tick: 247 there was an earthquake event
+On tick: 257 there was a movement update
+A: 32%
+Direction -1
+B: 38%
+Direction -1
+C: 42-44 52-54
+Direction -1
+
+On tick: 267 there was a movement update
+A: 30%
+Direction -1
+B: 36%
+Direction -1
+C: 41-43 51-53
+Direction -1
+
+On tick: 277 there was an earthquake event
+On tick: 287 there was a movement update
+A: 28%
+Direction -1
+B: 34%
+Direction -1
+C: 38-41 49-51
+Direction -1
+
+On tick: 292 there was an earthquake event
+On tick: 297 there was a movement update
+A: 26%
+Direction -1
+B: 32%
+Direction -1
+C: 36-40 48-50
+Direction -1
+
+On tick: 307 there was a movement update
+A: 24%
+Direction -1
+B: 30%
+Direction -1
+C: 34-38 47-49
+Direction -1
+
+On tick: 308 A Vent direction has changed
+On tick: 317 there was a movement update
+A: 26%
+Direction 1
+B: 28%
+Direction -1
+C: 32-36 46-48
+Direction -1
+
+On tick: 327 there was a movement update
+A: 28%
+Direction 1
+B: 26%
+Direction -1
+C: 30-34 45-47
+Direction -1
+
+On tick: 337 there was an earthquake event
+On tick: 347 there was a movement update
+A: 30%
+Direction 1
+B: 24%
+Direction -1
+C: 26-30 43-45
+Direction -1
+
+On tick: 357 there was a movement update
+A: 32%
+Direction 1
+B: 22%
+Direction -1
+C: 24-28 42-44
+Direction -1
+
+On tick: 367 there was an earthquake event
+On tick: 377 there was a movement update
+A: 34%
+Direction 1
+B: 20%
+Direction -1
+C: 20-24 40-42
+Direction -1
+
+On tick: 387 there was a movement update
+A: 36%
+Direction 1
+B: 18%
+Direction -1
+C: 18-22 38-41
+Direction -1
+
+On tick: 397 there was an earthquake event
+On tick: 407 there was a movement update
+A: 38%
+Direction 1
+B: 16%
+Direction -1
+C: 14-18 34-38
+Direction -1
+
+On tick: 417 there was a movement update
+A: 40%
+Direction 1
+B: 14%
+Direction -1
+C: 12-16 32-36
+Direction -1
+
+On tick: 422 there was a stability update of -1
+On tick: 427 there was an earthquake event
+On tick: 437 there was a movement update
+A: 42%
+Direction 1
+B: 12%
+Direction -1
+C: 127%
+Direction -1
+
+On tick: 447 there was a movement update
+A: 43%
+Direction 1
+B: 11%
+Direction -1
+C: 127%
+Direction -1
+
+On tick: 447 there was a stability update of -2
+On tick: 457 there was a movement update
+A: 44%
+Direction 1
+B: 10%
+Direction -1
+C: 9-14 84-89
+Direction -1
+
+On tick: 467 there was a movement update
+A: 45%
+Direction 1
+B: 9%
+Direction -1
+C: 8-13 83-88
+Direction -1
+
+On tick: 472 there was a stability update of -2
+On tick: 477 there was a movement update
+A: 46%
+Direction 1
+B: 8%
+Direction -1
+C: 10-13 85-88
+Direction -1
+
+On tick: 487 there was a movement update
+A: 47%
+Direction 1
+B: 7%
+Direction -1
+C: 9-12 84-87
+Direction -1
+
+On tick: 495 C Vent was identified to be 11
+Starting player count was: 1
+On tick: 500 C Vent was identified to be 27
+On tick: 507 there was a movement update
+A: 127%
+Direction 1
+B: 127%
+Direction -1
+C: 26%
+Direction -1
+
+On tick: 517 there was a movement update
+A: 127%
+Direction 1
+B: 45%
+Direction -1
+C: 25%
+Direction -1
+
+On tick: 522 B Vent was identified to be 45
+On tick: 522 there was a stability update of 3
+On tick: 527 there was a movement update
+A: 13-15 85-87
+Direction 1
+B: 44%
+Direction -1
+C: 24%
+Direction -1
+
+On tick: 537 there was a movement update
+A: 15-17 87-89
+Direction 1
+B: 43%
+Direction -1
+C: 23%
+Direction -1
+
+On tick: 543 B Vent direction has changed
+On tick: 547 there was an earthquake event
+On tick: 557 there was a movement update
+A: 19-21 91-93
+Direction 1
+B: 44%
+Direction 1
+C: 22%
+Direction -1
+
+On tick: 567 there was a movement update
+A: 21-23 93-95
+Direction 1
+B: 45%
+Direction 1
+C: 21%
+Direction -1
+
+On tick: 577 there was a movement update
+A: 23-25 95-97
+Direction 1
+B: 46%
+Direction 1
+C: 20%
+Direction -1
+
+On tick: 587 there was a movement update
+A: 25-27 97-99
+Direction 1
+B: 47%
+Direction 1
+C: 19%
+Direction -1
+
+On tick: 592 there was an earthquake event
+On tick: 597 there was a movement update
+A: 27-29 99-100
+Direction 1
+B: 48%
+Direction 1
+C: 18%
+Direction -1
+
+On tick: 607 there was a movement update
+A: 29-31 100%
+Direction 1
+B: 49%
+Direction 1
+C: 17%
+Direction -1
+
+On tick: 617 there was a movement update
+A: 31-33 100%
+Direction 1
+B: 50%
+Direction 1
+C: 16%
+Direction -1
+
+On tick: 627 there was a movement update
+A: 33-35 100%
+Direction 1
+B: 51%
+Direction 1
+C: 15%
+Direction -1
+
+On tick: 637 there was a movement update
+A: 35-37 100%
+Direction 1
+B: 52%
+Direction 1
+C: 14%
+Direction -1
+
+On tick: 647 there was a movement update
+A: 37-39 100%
+Direction 1
+B: 53%
+Direction 1
+C: 13%
+Direction -1
+
+On tick: 657 there was a movement update
+A: 39-41 100%
+Direction 1
+B: 54%
+Direction 1
+C: 12%
+Direction -1
+
+On tick: 667 there was a movement update
+A: 41-42 100%
+Direction 1
+B: 55%
+Direction 1
+C: 11%
+Direction -1
+
+On tick: 672 B Vent direction has changed
+On tick: 673 B Vent direction has changed
+On tick: 676 B Vent direction has changed
+On tick: 817 B Vent direction has changed
+On tick: 821 B Vent direction has changed
+On tick: 857 there was a movement update
+A: 60-62 100%
+Direction 1
+B: 54%
+Direction -1
+C: 10%
+Direction -1
+
+On tick: 867 there was a movement update
+A: 62-64 100%
+Direction 1
+B: 53%
+Direction -1
+C: 9%
+Direction -1
+
+On tick: 877 there was a movement update
+A: 64-66 100%
+Direction 1
+B: 52%
+Direction -1
+C: 8%
+Direction -1
+
+On tick: 887 there was a movement update
+A: 66-68 100%
+Direction 1
+B: 51%
+Direction -1
+C: 7%
+Direction -1
+
+On tick: 897 there was a movement update
+A: 68-70 100%
+Direction 1
+B: 50%
+Direction -1
+C: 6%
+Direction -1
+
+On tick: 907 there was a movement update
+A: 70-72 100%
+Direction 1
+B: 49%
+Direction -1
+C: 5%
+Direction -1
+
+On tick: 917 there was a movement update
+A: 72-74 100%
+Direction 1
+B: 48%
+Direction -1
+C: 4%
+Direction -1
+
+On tick: 927 there was a movement update
+A: 74-76 100%
+Direction 1
+B: 47%
+Direction -1
+C: 3%
+Direction -1
+

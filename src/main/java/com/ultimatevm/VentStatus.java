@@ -230,14 +230,27 @@ public class VentStatus {
         if(isWithinRange(41,59)) return -1;
         return 0;
     }
-    public int getReversedInfluence() {
-        //TODO: Fix this code later to work with estimated ranges and bounded values
-        //in the future exit when ranges give two possible values
+    public int getReversedInfluence(int outsideVentInfluence) {
+        //TODO: Fix this code later to work with estimated ranges
+        //We know the value is the same as before so we can exit safely
+        if(outsideVentInfluence < -1)
+            return isIdentified() ? getInfluenceOfValue(capVentValue(actualValue)) : 0;
         if(!isIdentified()) return STARTING_VENT_VALUE;
+        //We cannot reverse bounded values; dont know how long they been bounded
+        if(isBounded()) return STARTING_VENT_VALUE;
+
+        int[] infPossibilities = new int[BASE_MOVE_RATE];
+        for(int i = 0; i < BASE_MOVE_RATE; ++i) {
+            int move = (outsideVentInfluence + (BASE_MOVE_RATE - i)) * movementDirection;
+            infPossibilities[i] = getInfluenceOfValue(capVentValue(actualValue - move));
+        }
+        //Exit on freeze, non-freeze mismatch cannot reverse reliably
+        //eg blocked 41 or unblocked 59
+        if(infPossibilities[0] != infPossibilities[1]) return STARTING_VENT_VALUE;
         return getInfluenceOfValue(capVentValue(actualValue - movementDirection));
     }
     public void doReversedMovement(int outsideVentInfluence) {
-        //TODO: Fix this code later to work with estimated ranges and bounded values
+        //TODO: Fix this code later to work with estimated ranges
         if(!isIdentified()) return;
         int currentMoveRate = Math.max(0, BASE_MOVE_RATE + outsideVentInfluence);
         actualValue = capVentValue(actualValue - (currentMoveRate * movementDirection));
@@ -248,6 +261,9 @@ public class VentStatus {
     public int getStabilityInfluence() {
         if(!isIdentified()) return 0;
         return getStabilityInfluence(actualValue);
+    }
+    private boolean isBounded() {
+        return actualValue == 100 || actualValue == 0;
     }
 
     private int capVentValue(int value) { return Math.min(MAX_VENT_VALUE, Math.max(MIN_VENT_VALUE, value));}

@@ -630,4 +630,141 @@ public class VentStatusTest {
         Assert.assertEquals(vent.getLowerBoundEnd(), 75);
         Assert.assertEquals(vent.getUpperBoundEnd(), 75);
     }
+
+    public void getReversedInfluenceATest() {
+        VentStatus vent = new VentStatus('A');
+
+        //Unidentified vent
+        Assert.assertEquals(vent.getReversedInfluence(0), VentStatus.STARTING_VENT_VALUE);
+
+        //Cannot reverse bounded values
+        vent.update(0, -1);
+        Assert.assertEquals(vent.getReversedInfluence(0), VentStatus.STARTING_VENT_VALUE);
+        vent.update(0, 1);
+        Assert.assertEquals(vent.getReversedInfluence(0), VentStatus.STARTING_VENT_VALUE);
+        vent.update(100, -1);
+        Assert.assertEquals(vent.getReversedInfluence(0), VentStatus.STARTING_VENT_VALUE);
+        vent.update(100, 1);
+        Assert.assertEquals(vent.getReversedInfluence(0), VentStatus.STARTING_VENT_VALUE);
+
+        //Non Freeze range A
+        vent.update(60, -1);
+        Assert.assertEquals(vent.getReversedInfluence(0), 0);
+        vent.update(40, 1);
+        Assert.assertEquals(vent.getReversedInfluence(0), 0);
+
+        //Freeze range A
+        vent.update(40, -1);
+        Assert.assertEquals(vent.getReversedInfluence(0), -1);
+        vent.update(41, -1);
+        Assert.assertEquals(vent.getReversedInfluence(0), -1);
+        vent.update(59, 1);
+        Assert.assertEquals(vent.getReversedInfluence(0), -1);
+        vent.update(60, 1);
+        Assert.assertEquals(vent.getReversedInfluence(0), -1);
+
+        //Freeze - non-freeze mismatch A
+        //only 39 -> 41 is possible; 40 -> 42
+        vent.update(41, 1);
+        Assert.assertEquals(vent.getReversedInfluence(0), 0);
+        //40 -> 42 or 41 -> 42 is possible
+        vent.update(42, 1);
+        Assert.assertEquals(vent.getReversedInfluence(0), VentStatus.STARTING_VENT_VALUE);
+        //60 -> 58 or 59 -> 58 is possible
+        vent.update(58, -1);
+        Assert.assertEquals(vent.getReversedInfluence(0), VentStatus.STARTING_VENT_VALUE);
+        //only 61 -> 59 is possible; 60 -> 58
+        vent.update(59, -1);
+        Assert.assertEquals(vent.getReversedInfluence(0), 0);
+
+        //Impossible reverses
+        //60 -> 62 and 59 -> 60; blocked 61 is impossible to reverse
+        vent.update(61, 1);
+        Assert.assertEquals(vent.getReversedInfluence(0), VentStatus.STARTING_VENT_VALUE);
+        //40 -> 38 and 41 -> 40; unblocked 39 is impossible to reverse
+        vent.update(39, -1);
+        Assert.assertEquals(vent.getReversedInfluence(0), VentStatus.STARTING_VENT_VALUE);
+    }
+
+    public void getReversedInfluenceBTest() {
+        VentStatus vent = new VentStatus('B');
+
+        //We will assume A is in freeze range otherwise same result as above test(s)
+        //Unidentified vent
+        Assert.assertEquals(vent.getReversedInfluence(-1), VentStatus.STARTING_VENT_VALUE);
+
+        //Cannot reverse bounded values
+        vent.update(0, -1);
+        Assert.assertEquals(vent.getReversedInfluence(-1), VentStatus.STARTING_VENT_VALUE);
+        vent.update(0, 1);
+        Assert.assertEquals(vent.getReversedInfluence(-1), VentStatus.STARTING_VENT_VALUE);
+        vent.update(100, -1);
+        Assert.assertEquals(vent.getReversedInfluence(-1), VentStatus.STARTING_VENT_VALUE);
+        vent.update(100, 1);
+        Assert.assertEquals(vent.getReversedInfluence(-1), VentStatus.STARTING_VENT_VALUE);
+
+        //Non Freeze range B
+        vent.update(60, -1);
+        Assert.assertEquals(vent.getReversedInfluence(-1), 0);
+        vent.update(40, 1);
+        Assert.assertEquals(vent.getReversedInfluence(-1), 0);
+
+        //Freeze range B
+        vent.update(41, -1);
+        Assert.assertEquals(vent.getReversedInfluence(-1), -1);
+        vent.update(59, 1);
+        Assert.assertEquals(vent.getReversedInfluence(-1), -1);
+
+        //Impossible reverses
+        //40 -> 41 and 41 -> 41; blocked 41 is impossible to reverse
+        vent.update(41, 1);
+        Assert.assertEquals(vent.getReversedInfluence(-1), VentStatus.STARTING_VENT_VALUE);
+        //60 -> 59 and 59 -> 59; unblocked 59 is impossible to reverse
+        vent.update(59, -1);
+        Assert.assertEquals(vent.getReversedInfluence(-1), VentStatus.STARTING_VENT_VALUE);
+        //59 -> 59; blocked 60 cannot come from anywhere
+        vent.update(60, 1);
+        Assert.assertEquals(vent.getReversedInfluence(-1), VentStatus.STARTING_VENT_VALUE);
+        //41 -> 41; unblocked 40 cannot come from anywhere
+        vent.update(40, -1);
+        Assert.assertEquals(vent.getReversedInfluence(-1), VentStatus.STARTING_VENT_VALUE);
+    }
+
+    public void getReversedInfluenceCTest() {
+        VentStatus vent = new VentStatus('B');
+
+        //We will assume A and B are in freeze range otherwise same result as above test(s)
+        //Unidentified vent
+        Assert.assertEquals(vent.getReversedInfluence(-2), 0);
+
+        //In this case we know bounded values stay the same
+        vent.update(0, -1);
+        Assert.assertEquals(vent.getReversedInfluence(-2), 0);
+        vent.update(0, 1);
+        Assert.assertEquals(vent.getReversedInfluence(-2), 0);
+        vent.update(100, -1);
+        Assert.assertEquals(vent.getReversedInfluence(-2), 0);
+        vent.update(100, 1);
+        Assert.assertEquals(vent.getReversedInfluence(-2), 0);
+
+        //Non Freeze range C
+        vent.update(60, -1);
+        Assert.assertEquals(vent.getReversedInfluence(-2), 0);
+        vent.update(60, 1);
+        Assert.assertEquals(vent.getReversedInfluence(-2), 0);
+        vent.update(40, 1);
+        Assert.assertEquals(vent.getReversedInfluence(-2), 0);
+        vent.update(40, -1);
+        Assert.assertEquals(vent.getReversedInfluence(-2), 0);
+
+        //Freeze range C
+        vent.update(41, -1);
+        Assert.assertEquals(vent.getReversedInfluence(-2), -1);
+        vent.update(41, 1);
+        Assert.assertEquals(vent.getReversedInfluence(-2), -1);
+        vent.update(59, 1);
+        Assert.assertEquals(vent.getReversedInfluence(-2), -1);
+        vent.update(59, -1);
+        Assert.assertEquals(vent.getReversedInfluence(-2), -1);
+    }
 }

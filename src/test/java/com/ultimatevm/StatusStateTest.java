@@ -671,6 +671,95 @@ public class StatusStateTest {
         Assert.assertEquals(state.getVents()[2].getUpperBoundEnd(), 53);
     }
 
+    public void reverseMovementKnownBitTest() {
+        StatusState state = new StatusState();
+        final VentStatus[] vents = state.getVents();
+        state.updateVentStatus(new int[]{30, 30, 30}, 0);
+
+        //All vents should be reversed
+        state.reverseMovement(0);
+        Assert.assertEquals(vents[0].getActualValue(), 32);
+        Assert.assertEquals(vents[1].getActualValue(), 32);
+        Assert.assertEquals(vents[2].getActualValue(), 32);
+
+
+        //Two vents should be reversed
+        state.updateVentStatus(new int[]{30, 30, 30}, 0);
+        state.reverseMovement(1);
+        Assert.assertEquals(vents[0].getActualValue(), 30);
+        Assert.assertEquals(vents[1].getActualValue(), 32);
+        Assert.assertEquals(vents[2].getActualValue(), 32);
+
+        state.updateVentStatus(new int[]{30, 30, 30}, 0);
+        state.reverseMovement(2);
+        Assert.assertEquals(vents[0].getActualValue(), 32);
+        Assert.assertEquals(vents[1].getActualValue(), 30);
+        Assert.assertEquals(vents[2].getActualValue(), 32);
+
+        state.updateVentStatus(new int[]{30, 30, 30}, 0);
+        state.reverseMovement(4);
+        Assert.assertEquals(vents[0].getActualValue(), 32);
+        Assert.assertEquals(vents[1].getActualValue(), 32);
+        Assert.assertEquals(vents[2].getActualValue(), 30);
+
+
+        //One vent should be reversed
+        state.updateVentStatus(new int[]{30, 30, 30}, 0);
+        state.reverseMovement(3);
+        Assert.assertEquals(vents[0].getActualValue(), 30);
+        Assert.assertEquals(vents[1].getActualValue(), 30);
+        Assert.assertEquals(vents[2].getActualValue(), 32);
+
+        state.updateVentStatus(new int[]{30, 30, 30}, 0);
+        state.reverseMovement(5);
+        Assert.assertEquals(vents[0].getActualValue(), 30);
+        Assert.assertEquals(vents[1].getActualValue(), 32);
+        Assert.assertEquals(vents[2].getActualValue(), 30);
+
+        state.updateVentStatus(new int[]{30, 30, 30}, 0);
+        state.reverseMovement(6);
+        Assert.assertEquals(vents[0].getActualValue(), 32);
+        Assert.assertEquals(vents[1].getActualValue(), 30);
+        Assert.assertEquals(vents[2].getActualValue(), 30);
+
+
+        //No vents should be reversed
+        state.updateVentStatus(new int[]{30, 30, 30}, 0);
+        state.reverseMovement(7);
+        Assert.assertEquals(vents[0].getActualValue(), 30);
+        Assert.assertEquals(vents[1].getActualValue(), 30);
+        Assert.assertEquals(vents[2].getActualValue(), 30);
+    }
+
+    public void reverseMovementResultTest() {
+        StatusState state = new StatusState();
+        int u = VentStatus.STARTING_VENT_VALUE;
+
+        //A reverse move should fail
+        state.updateVentStatus(new int[]{u, u, u}, 0);
+        Assert.assertEquals(state.reverseMovement(0), -1);
+        state.updateVentStatus(new int[]{u, 70, 70}, 0);
+        Assert.assertEquals(state.reverseMovement(0), -1);
+        state.updateVentStatus(new int[]{u, 70, u}, 0);
+        Assert.assertEquals(state.reverseMovement(0), -1);
+        state.updateVentStatus(new int[]{u, u, 70}, 0);
+        Assert.assertEquals(state.reverseMovement(0), -1);
+
+        //B reverse move should fail
+        state.updateVentStatus(new int[]{70, u, u}, 0);
+        Assert.assertEquals(state.reverseMovement(0), -2);
+        state.updateVentStatus(new int[]{70, u, 70}, 0);
+        Assert.assertEquals(state.reverseMovement(0), -2);
+
+        //C reverse move should fail
+        state.updateVentStatus(new int[]{70, 70, u}, 0);
+        Assert.assertEquals(state.reverseMovement(0), -3);
+
+        //No reverse move should fail
+        state.updateVentStatus(new int[]{70, 70, 70}, 0);
+        Assert.assertEquals(state.reverseMovement(0), 0);
+    }
+
     public float getPercent(int value) {
         float percentValue = 50 - Math.abs(50 - value);
         return percentValue / 50.0f;

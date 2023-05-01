@@ -440,11 +440,10 @@ public class VentStatusTimelineTest {
         timeline.addMovementTick(state);
 
         //1st Stability update should be changed
-        //TODO: Fix code so it will be changed
         HashMap<Integer, StabilityUpdateInfo> tickToStabilityUpdateState = timeline.getStabilityUpdateStates();
         StatusState tick20StabState = tickToStabilityUpdateState.get(20).getStabilityUpdateState();
         Assert.assertEquals(tick20StabState.getVents()[0].getActualValue(), u);
-        Assert.assertEquals(tick20StabState.getVents()[1].getActualValue(), u);
+        Assert.assertEquals(tick20StabState.getVents()[1].getActualValue(), 60);
         Assert.assertEquals(tick20StabState.getVents()[2].getActualValue(), u);
 
         //Skipped movement updates due to a freeze
@@ -461,7 +460,7 @@ public class VentStatusTimelineTest {
 
         //1st Stability update should be the same as before - skipped movement updates
         Assert.assertEquals(tick20StabState.getVents()[0].getActualValue(), u);
-        Assert.assertEquals(tick20StabState.getVents()[1].getActualValue(), u);
+        Assert.assertEquals(tick20StabState.getVents()[1].getActualValue(), 60);
         Assert.assertEquals(tick20StabState.getVents()[2].getActualValue(), u);
         //2nd Stability update should be changed
         StatusState tick69StabState = tickToStabilityUpdateState.get(69).getStabilityUpdateState();
@@ -469,6 +468,41 @@ public class VentStatusTimelineTest {
         Assert.assertEquals(tick69StabState.getVents()[1].getActualValue(), 58);
         Assert.assertEquals(tick69StabState.getVents()[2].getActualValue(), u);
         Assert.assertTrue(tick69StabState.getVents()[2].isRangeDefined());
+    }
+
+    public void updatePreviousVentValuesReverseFailTest() {
+        VentStatusTimeline timeline = new VentStatusTimeline();
+        StatusState state = new StatusState();
+        int u = VentStatus.STARTING_VENT_VALUE;
+        state.updateVentStatus(new int[]{u,u,u}, 7);
+        timeline.addInitialState(state);
+
+        //Vent A is identified
+        advanceTicks(timeline, 38);
+        state.updateVentStatus(new int[]{53,u,u}, 7);
+        timeline.addIdentifiedVentTick(state, 1);
+        //Do movement tick
+        advanceTicks(timeline, 2);
+        state.updateVentStatus(new int[]{54,u,u}, 7);
+        timeline.addMovementTick(state);
+        //Do movement tick + stability update
+        advanceTicks(timeline, 10);
+        state.updateVentStatus(new int[]{55,u,u}, 7);
+        timeline.addMovementTick(state);
+        timeline.addStabilityUpdateTick(state, 18);
+        //Identification + movement tick
+        advanceTicks(timeline, 10);
+        state.updateVentStatus(new int[]{56,41,u}, 7);
+        timeline.addMovementTick(state);
+        timeline.addIdentifiedVentTick(state, 2);
+
+
+        //1st Stability update should remain the same due to reverse move fail
+        HashMap<Integer, StabilityUpdateInfo> tickToStabilityUpdateState = timeline.getStabilityUpdateStates();
+        StatusState tick50StabState = tickToStabilityUpdateState.get(50).getStabilityUpdateState();
+        Assert.assertEquals(tick50StabState.getVents()[0].getActualValue(), 55);
+        Assert.assertEquals(tick50StabState.getVents()[1].getActualValue(), u);
+        Assert.assertEquals(tick50StabState.getVents()[2].getActualValue(), u);
     }
 
     public void sandbox() {
@@ -514,14 +548,26 @@ public class VentStatusTimelineTest {
         timeline.addMovementTick(state);
         //80: B Vent was identified to be 77
         advanceTicks(timeline, 1);
-        state.updateVentStatus(new int[]{58,77,u}, 3);
+        state.updateVentStatus(new int[]{58,77,u}, 2);
         timeline.addIdentifiedVentTick(state, 2);
 
-        //Verify results
+        //Verify results - lowerbound 30s was right answer
         HashMap<Integer, StabilityUpdateInfo> tickToStabilityUpdateState = timeline.getStabilityUpdateStates();
         HashMap<Integer, StatusState> tickToMovementVentState = timeline.getMovementVentStates();
         StatusState tick74StabState = tickToStabilityUpdateState.get(74).getStabilityUpdateState();
-        StatusState predictedState = timeline.getTimelinePredictionState();
+        StatusState predictedState = timeline.getCurrentPredictionState();
+
+        //89: Movement update
+        advanceTicks(timeline, 9);
+        state.updateVentStatus(new int[]{57,78,u}, 2);
+        timeline.addMovementTick(state);
+        //99: Same tick movement and stability update of 10
+        advanceTicks(timeline, 10);
+        state.updateVentStatus(new int[]{56,79,u}, 2);
+        timeline.addMovementTick(state);
+        timeline.addStabilityUpdateTick(state, 10);
+
+        predictedState = timeline.getCurrentPredictionState();
     }
 
     public void sandbox2() {
@@ -616,7 +662,7 @@ public class VentStatusTimelineTest {
         advanceTicks(timeline, 5);
         timeline.addStabilityUpdateTick(state, -8);
 
-        //Verify Results
+        //Verify Results - A should be 0
         StatusState predictedState = timeline.getCurrentPredictionState();
     }
 }

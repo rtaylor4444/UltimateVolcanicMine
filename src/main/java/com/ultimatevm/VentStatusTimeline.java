@@ -82,13 +82,10 @@ public class VentStatusTimeline {
                 ventIndex = i;
             }
         }
-        //Backtrack and fill out missing vent values on the
-        //second identified vent
-        if(numIdentifiedVents == 2) {
-            //Skip if vents arent AB for now
-            if(identifiedVentTick[0] == -1 || identifiedVentTick[1] == -1) return;
-            updatePreviousVentValues(identifiedVentStates[ventIndex], currentTick);
-        }
+
+        if(numIdentifiedVents == 3 || ventIndex == -1) return;
+        //Backtrack and fill out missing vent values
+        updatePreviousVentValues(identifiedVentStates[ventIndex], currentTick);
     }
     private void updatePreviousVentValues(StatusState startingState, int tick) {
         StatusState curState = new StatusState(startingState);
@@ -122,7 +119,8 @@ public class VentStatusTimeline {
                 //update the movement state
                 StatusState movementState = tickToMovementVentState.get(i);
                 movementState.setVentsEqualTo(curState);
-                curState.reverseMovement();
+                //exit if we can longer reverse the movement
+                if(!reverseMovement(curState, i-1)) break;
             } else ++numTicksNoMovement;
 
             if(isEarthquakeDelayMovement(i)) numTicksNoMovement = 0;
@@ -145,9 +143,7 @@ public class VentStatusTimeline {
         addNewMovementTickState(currentTick, currentState);
         //Update previous values on the very first movement update (likely after a vent check)
         if(currentMovementTick == startingTick) {
-            //Only do this if A is known
-            if(identifiedVentTick[0] != -1)
-                updatePreviousVentValues(currentState, currentTick);
+            updatePreviousVentValues(currentState, currentTick);
         }
         currentMovementTick = currentTick;
     }
@@ -222,13 +218,12 @@ public class VentStatusTimeline {
         if((directionFlags & 4) != 0) state.getVents()[2].flipDirection();
     }
     private void syncWithMovementState(StatusState state, int tick) {
-        final VentStatus[] vents = tickToMovementVentState.get(tick).getVents();
+        StatusState moveState = tickToMovementVentState.get(tick);
         for(int i = 0; i < StatusState.NUM_VENTS; ++i) {
-            if(!vents[i].isIdentified()) continue;
-            state.getVents()[i].setEqualTo(vents[i]);
+            if(!moveState.getVents()[i].isIdentified()) continue;
+            state.setVentEqualTo(moveState, i);
         }
     }
-
     private boolean isEarthquakeDelayMovement(int tick) {
         if((timeline[tick] & (1 << EARTHQUAKE_EVENT_FLAG)) == 0) return false;
 
@@ -242,6 +237,73 @@ public class VentStatusTimeline {
             return (timeline[tick - VENT_MOVE_TICK_TIME] & (1 << MOVEMENT_UPDATE_FLAG)) != 0;
         }
         return false;
+    }
+    private boolean reverseMovement(StatusState curState, int tick) {
+        //Check what vent values are known from the previous movement tick
+        StatusState prevMoveTickState = null;
+        int numTicksNoMovement = 0;
+        for(int i = tick; i >= startingTick; --i) {
+            //Exit when there is a chain of missing movement updates
+            if(numTicksNoMovement > (VENT_MOVE_TICK_TIME * 2)) break;
+
+            if((timeline[i] & (1 << IDENTIFIED_VENT_FLAG)) != 0) {
+                int idFlags = timeline[i] & IDENTIFIED_BIT_MASK;
+                if((idFlags & 1) != 0) {
+                    prevMoveTickState = identifiedVentStates[0];
+                }
+                if((idFlags & 2) != 0) {
+                    prevMoveTickState = identifiedVentStates[1];
+                }
+                if((idFlags & 4) != 0) {
+                    prevMoveTickState = identifiedVentStates[2];
+                }
+                break;
+            }
+
+            if((timeline[i] & (1 << MOVEMENT_UPDATE_FLAG)) != 0) {
+                prevMoveTickState = tickToMovementVentState.get(i);
+                break;
+            } else ++numTicksNoMovement;
+
+            if(isEarthquakeDelayMovement(i)) numTicksNoMovement = 0;
+        }
+
+        //Set and mark known values
+        int knownBitFlag = 0, unknownBitMask = 0;
+        if(prevMoveTickState != null) {
+            for(int i = 0; i < StatusState.NUM_VENTS; ++i) {
+                VentStatus prevVent = prevMoveTickState.getVents()[i];
+                VentStatus curVent = curState.getVents()[i];
+                //Both identified we already know the reverse state
+                if(curVent.isIdentified() && prevVent.isIdentified()) {
+                    knownBitFlag |= (1 << i);
+                    curState.setVentEqualTo(prevMoveTickState, i);
+                }
+                if(!curVent.isIdentified() && !prevVent.isIdentified()) {
+                    knownBitFlag |= (1 << i);
+                    unknownBitMask |= (1 << i);
+                }
+            }
+        }
+        //If the full previous state is known to us no need to reverse
+        if(knownBitFlag == 7) return true;
+
+        //TODO: Fix this code later to work with estimated ranges
+        int result = curState.reverseMovement(knownBitFlag & (~unknownBitMask));
+        //A failed to reverse always exit
+        if(result == -1) return false;
+        //B failed to reverse
+        else if(result == -2) {
+            //If only A is identified ignore this
+            if(numIdentifiedVents == 1 && identifiedVentTick[0] != -1) return true;
+            //Otherwise treat B, C, AB, AC, BC identification as failure
+            return false;
+        }
+        //C failed to reverse
+        else if(result == -3) {
+            //Typically do not care unless its known and bounded
+        }
+        return true;
     }
 
     //Accessors
