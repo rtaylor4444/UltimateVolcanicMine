@@ -597,14 +597,6 @@ public class StatusStateTest {
         toOverlap.getVents()[2].setLowerBoundRange(41, 46);
         toOverlap.getVents()[2].setUpperBoundRange(54, 59);
 
-        //When we have no range defined to take the other states range
-        state.updateVentStatus(new int[]{50, 50, u}, 7);
-        state.setOverlappingRangesWith(toOverlap);
-        Assert.assertEquals(vent.getLowerBoundStart(), 41);
-        Assert.assertEquals(vent.getLowerBoundEnd(), 46);
-        Assert.assertEquals(vent.getUpperBoundStart(), 54);
-        Assert.assertEquals(vent.getUpperBoundEnd(), 59);
-
         //Both ranges overlap
         vent.setLowerBoundRange(38, 44);
         vent.setUpperBoundRange(56, 62);
@@ -659,6 +651,14 @@ public class StatusStateTest {
         Assert.assertEquals(state.getVents()[2].getUpperBoundStart(), 50);
         Assert.assertEquals(state.getVents()[2].getUpperBoundEnd(), 50);
 
+        //When we have no range defined to take the other states range
+        state.updateVentStatus(new int[]{50, 50, u}, 7);
+        state.setOverlappingRangesWith(toOverlap);
+        Assert.assertEquals(state.getVents()[2].getLowerBoundStart(), u);
+        Assert.assertEquals(state.getVents()[2].getLowerBoundEnd(), u);
+        Assert.assertEquals(state.getVents()[2].getUpperBoundStart(), u);
+        Assert.assertEquals(state.getVents()[2].getUpperBoundEnd(), u);
+
         //Undefined ranges to merge means nothing to overlap
         state.updateVentStatus(new int[]{50, 50, u}, 7);
         state.getVents()[2].setLowerBoundRange(47, 53);
@@ -669,6 +669,61 @@ public class StatusStateTest {
         Assert.assertEquals(state.getVents()[2].getLowerBoundEnd(), 53);
         Assert.assertEquals(state.getVents()[2].getUpperBoundStart(), 47);
         Assert.assertEquals(state.getVents()[2].getUpperBoundEnd(), 53);
+    }
+
+    public void setOverlappingRangesWithRangeMismatchTest() {
+        StatusState state = new StatusState();
+        final VentStatus vent = state.getVents()[2];
+        StatusState toOverlap = new StatusState();
+        int u = VentStatus.STARTING_VENT_VALUE;
+        toOverlap.updateVentStatus(new int[]{46, 0, u}, 7);
+        toOverlap.getVents()[2].setLowerBoundRange(22, 28);
+        toOverlap.getVents()[2].setUpperBoundRange(72, 78);
+
+        //Lower upper range overlap
+        vent.setLowerBoundRange(59, 75);
+        vent.setUpperBoundRange(91, 95);
+        state.setOverlappingRangesWith(toOverlap);
+        Assert.assertEquals(vent.getLowerBoundStart(), 72);
+        Assert.assertEquals(vent.getLowerBoundEnd(), 75);
+        Assert.assertEquals(vent.getUpperBoundStart(), 72);
+        Assert.assertEquals(vent.getUpperBoundEnd(), 75);
+
+        //Lower both range overlap
+        toOverlap.getVents()[2].clearRanges();
+        toOverlap.getVents()[2].setLowerBoundRange(72, 78);
+        toOverlap.getVents()[2].setUpperBoundRange(72, 78);
+        state.setOverlappingRangesWith(toOverlap);
+        Assert.assertEquals(vent.getLowerBoundStart(), 72);
+        Assert.assertEquals(vent.getLowerBoundEnd(), 75);
+        Assert.assertEquals(vent.getUpperBoundStart(), 72);
+        Assert.assertEquals(vent.getUpperBoundEnd(), 75);
+
+        //Upper lower range overlap
+        toOverlap.getVents()[2].clearRanges();
+        toOverlap.getVents()[2].setLowerBoundRange(52, 58);
+        toOverlap.getVents()[2].setUpperBoundRange(100, 100);
+        vent.clearRanges();
+        vent.setLowerBoundRange(9, 25);
+        vent.setUpperBoundRange(51, 55);
+        state.setOverlappingRangesWith(toOverlap);
+        Assert.assertEquals(vent.getLowerBoundStart(), 52);
+        Assert.assertEquals(vent.getLowerBoundEnd(), 55);
+        Assert.assertEquals(vent.getUpperBoundStart(), 52);
+        Assert.assertEquals(vent.getUpperBoundEnd(), 55);
+
+        //Upper both range overlap
+        toOverlap.getVents()[2].clearRanges();
+        toOverlap.getVents()[2].setLowerBoundRange(52, 58);
+        toOverlap.getVents()[2].setUpperBoundRange(52, 58);
+        state.setOverlappingRangesWith(toOverlap);
+        Assert.assertEquals(vent.getLowerBoundStart(), 52);
+        Assert.assertEquals(vent.getLowerBoundEnd(), 55);
+        Assert.assertEquals(vent.getUpperBoundStart(), 52);
+        Assert.assertEquals(vent.getUpperBoundEnd(), 55);
+
+        //Impossible for both a lower upper range match and upper lower range match
+        //at the same time
     }
 
     public void reverseMovementKnownBitTest() {
@@ -794,7 +849,7 @@ public class StatusStateTest {
         //50-53 all gave the same value
         //Vents all have equal weight
 
-        int A = 36, B = 75, C = 44;
+        int A = 46, B = 0, C = 72;
         int stab = calcStabReverse(A, B, C);
         int stab2 = calcStabReverseRound(A, B, C);
     }

@@ -505,6 +505,190 @@ public class VentStatusTimelineTest {
         Assert.assertEquals(tick50StabState.getVents()[2].getActualValue(), u);
     }
 
+    public void getCurrentPredictionStateTest() {
+        VentStatusTimeline timeline = new VentStatusTimeline();
+        StatusState state = new StatusState();
+        int u = VentStatus.STARTING_VENT_VALUE;
+        state.updateVentStatus(new int[]{u,u,u}, 0);
+        timeline.addInitialState(state);
+
+
+        //C range was lost
+        //22: Early Stability update of 18
+        advanceTicks(timeline, 22);
+        timeline.addStabilityUpdateTick(state, 18);
+        //34: A Vent was identified to be 58
+        advanceTicks(timeline, 12);
+        state.updateVentStatus(new int[]{58,u,u}, 0);
+        timeline.addIdentifiedVentTick(state, 1);
+        //37: Movement update
+        advanceTicks(timeline, 3);
+        state.updateVentStatus(new int[]{57,u,u}, 0);
+        timeline.addMovementTick(state);
+        //47: Same tick movement and stability update of 19
+        advanceTicks(timeline, 10);
+        state.updateVentStatus(new int[]{56,u,u}, 0);
+        timeline.addMovementTick(state);
+        timeline.addStabilityUpdateTick(state, 19);
+        //57: Same tick B Vent was identified to be 43 and movement
+        advanceTicks(timeline, 10);
+        state.updateVentStatus(new int[]{55,43,u}, 0);
+        timeline.addIdentifiedVentTick(state, 2);
+        timeline.addMovementTick(state);
+        //67: Movement update
+        advanceTicks(timeline, 10);
+        state.updateVentStatus(new int[]{54,43,u}, 0);
+        timeline.addMovementTick(state);
+        //77: Movement update
+        advanceTicks(timeline, 10);
+        state.updateVentStatus(new int[]{53,43,u}, 0);
+        timeline.addMovementTick(state);
+        //87: Movement update
+        advanceTicks(timeline, 10);
+        state.updateVentStatus(new int[]{52,43,u}, 0);
+        timeline.addMovementTick(state);
+        //97: Movement update
+        advanceTicks(timeline, 10);
+        state.updateVentStatus(new int[]{51,43,u}, 0);
+        timeline.addMovementTick(state);
+        //107: Movement update
+        advanceTicks(timeline, 10);
+        state.updateVentStatus(new int[]{50,43,u}, 0);
+        timeline.addMovementTick(state);
+        //117: Movement update
+        advanceTicks(timeline, 10);
+        state.updateVentStatus(new int[]{49,43,u}, 0);
+        timeline.addMovementTick(state);
+        //127: Movement update
+        advanceTicks(timeline, 10);
+        state.updateVentStatus(new int[]{48,43,u}, 0);
+        timeline.addMovementTick(state);
+        //137: Movement update
+        advanceTicks(timeline, 10);
+        state.updateVentStatus(new int[]{47,43,u}, 0);
+        timeline.addMovementTick(state);
+        //147: Movement update
+        advanceTicks(timeline, 10);
+        state.updateVentStatus(new int[]{46,43,u}, 0);
+        timeline.addMovementTick(state);
+        //157: Movement update
+        advanceTicks(timeline, 10);
+        state.updateVentStatus(new int[]{45,43,u}, 0);
+        timeline.addMovementTick(state);
+        //167: Movement update
+        advanceTicks(timeline, 10);
+        state.updateVentStatus(new int[]{44,43,u}, 0);
+        timeline.addMovementTick(state);
+        //177: Movement update
+        advanceTicks(timeline, 10);
+        state.updateVentStatus(new int[]{43,43,u}, 0);
+        timeline.addMovementTick(state);
+        //187: Movement update
+        advanceTicks(timeline, 10);
+        state.updateVentStatus(new int[]{42,43,u}, 0);
+        timeline.addMovementTick(state);
+        //197: Movement update
+        advanceTicks(timeline, 10);
+        state.updateVentStatus(new int[]{41,43,u}, 0);
+        timeline.addMovementTick(state);
+        //207: Movement update
+        advanceTicks(timeline, 10);
+        state.updateVentStatus(new int[]{40,43,u}, 0);
+        timeline.addMovementTick(state);
+        //217: Movement update
+        advanceTicks(timeline, 10);
+        state.updateVentStatus(new int[]{38,42,u}, 0);
+        timeline.addMovementTick(state);
+        //227: Movement update
+        advanceTicks(timeline, 10);
+        state.updateVentStatus(new int[]{36,41,u}, 0);
+        timeline.addMovementTick(state);
+        //237: Movement update
+        advanceTicks(timeline, 10);
+        state.updateVentStatus(new int[]{34,40,u}, 0);
+        timeline.addMovementTick(state);
+        //247: Earthquake and movement skip
+        advanceTicks(timeline, 10);
+        timeline.addEarthquakeEventTick();
+        //257: Movement update
+        advanceTicks(timeline, 10);
+        state.updateVentStatus(new int[]{32,38,u}, 0);
+        timeline.addMovementTick(state);
+        //267: Movement update
+        advanceTicks(timeline, 10);
+        state.updateVentStatus(new int[]{30,36,u}, 0);
+        timeline.addMovementTick(state);
+        //277: Earthquake and movement skip
+        advanceTicks(timeline, 10);
+        timeline.addEarthquakeEventTick();
+        //287: Movement update
+        advanceTicks(timeline, 10);
+        state.updateVentStatus(new int[]{28,34,u}, 0);
+        timeline.addMovementTick(state);
+        //292: Earthquake event
+        advanceTicks(timeline, 5);
+        timeline.addEarthquakeEventTick();
+        //297: Movement update
+        advanceTicks(timeline, 5);
+        state.updateVentStatus(new int[]{26,32,u}, 0);
+        timeline.addMovementTick(state);
+        //307: Movement update
+        advanceTicks(timeline, 10);
+        state.updateVentStatus(new int[]{24,30,u}, 0);
+        timeline.addMovementTick(state);
+        //308: Vent A direction change
+        advanceTicks(timeline, 1);
+        timeline.addDirectionChangeTick(1 << 3);
+        //317: Movement update
+        advanceTicks(timeline, 9);
+        state.updateVentStatus(new int[]{26,28,u}, 1);
+        timeline.addMovementTick(state);
+        //327: Movement update
+        advanceTicks(timeline, 10);
+        state.updateVentStatus(new int[]{28,26,u}, 1);
+        timeline.addMovementTick(state);
+        //337: Earthquake and movement skip
+        advanceTicks(timeline, 10);
+        timeline.addEarthquakeEventTick();
+        //347: Movement update
+        advanceTicks(timeline, 10);
+        state.updateVentStatus(new int[]{30,24,u}, 1);
+        timeline.addMovementTick(state);
+        //357: Movement update
+        advanceTicks(timeline, 10);
+        state.updateVentStatus(new int[]{32,22,u}, 1);
+        timeline.addMovementTick(state);
+        //367: Earthquake and movement skip
+        advanceTicks(timeline, 10);
+        timeline.addEarthquakeEventTick();
+        //377: Movement update
+        advanceTicks(timeline, 10);
+        state.updateVentStatus(new int[]{34,20,u}, 1);
+        timeline.addMovementTick(state);
+        //387: Movement update
+        advanceTicks(timeline, 10);
+        state.updateVentStatus(new int[]{36,18,u}, 1);
+        timeline.addMovementTick(state);
+        //397: Earthquake and movement skip
+        advanceTicks(timeline, 10);
+        timeline.addEarthquakeEventTick();
+        //407: Movement update
+        advanceTicks(timeline, 10);
+        state.updateVentStatus(new int[]{38,16,u}, 1);
+        timeline.addMovementTick(state);
+        //417: Movement update
+        advanceTicks(timeline, 10);
+        state.updateVentStatus(new int[]{40,14,u}, 1);
+        timeline.addMovementTick(state);
+        //422: Stability update of -1
+        advanceTicks(timeline, 5);
+        timeline.addStabilityUpdateTick(state, -1);
+
+        //Verify Results - C should have an defined range
+        StatusState predictedState = timeline.getCurrentPredictionState();
+        Assert.assertTrue(predictedState.getVents()[2].isRangeDefined());
+    }
+
     public void sandbox() {
         VentStatusTimeline timeline = new VentStatusTimeline();
         StatusState state = new StatusState();
@@ -574,95 +758,409 @@ public class VentStatusTimelineTest {
         VentStatusTimeline timeline = new VentStatusTimeline();
         StatusState state = new StatusState();
         int u = VentStatus.STARTING_VENT_VALUE;
-        state.updateVentStatus(new int[]{u,u,u}, 0);
+        state.updateVentStatus(new int[]{u,u,u}, 4);
         timeline.addInitialState(state);
 
-        //Post Reset A range clipped bug
-        //517: B Vent was identified to be 62
-        advanceTicks(timeline, 17);
-        state.updateVentStatus(new int[]{u,62,u}, 0);
+        //Initial Stability Update is a +1 mod!
+        //22: Early Stability update of 17
+        advanceTicks(timeline, 22);
+        timeline.addStabilityUpdateTick(state, 17);
+        //34: A Vent was identified to be 44
+        advanceTicks(timeline, 12);
+        state.updateVentStatus(new int[]{44,u,u}, 4);
+        timeline.addIdentifiedVentTick(state, 1);
+        //37: Movement update
+        advanceTicks(timeline, 3);
+        state.updateVentStatus(new int[]{43,u,u}, 4);
+        timeline.addMovementTick(state);
+        //47: Same tick movement and stability update of 16
+        advanceTicks(timeline, 10);
+        state.updateVentStatus(new int[]{42,u,u}, 4);
+        timeline.addMovementTick(state);
+        timeline.addStabilityUpdateTick(state, 16);
+        //50: A's direction was changed
+        advanceTicks(timeline, 3);
+        timeline.addDirectionChangeTick(1 << 3);
+        //57: Movement update
+        advanceTicks(timeline, 7);
+        state.updateVentStatus(new int[]{43,u,u}, 5);
+        timeline.addMovementTick(state);
+        //67: Movement update
+        advanceTicks(timeline, 10);
+        state.updateVentStatus(new int[]{44,u,u}, 5);
+        timeline.addMovementTick(state);
+        //72: Stability update of 16
+        advanceTicks(timeline, 5);
+        timeline.addStabilityUpdateTick(state, 16);
+        //77: Movement update
+        advanceTicks(timeline, 5);
+        state.updateVentStatus(new int[]{45,u,u}, 5);
+        timeline.addMovementTick(state);
+        //80: B Vent was identified to be 47
+        advanceTicks(timeline, 3);
+        state.updateVentStatus(new int[]{45,47,u}, 5);
         timeline.addIdentifiedVentTick(state, 2);
-        //519: Movement update
-        advanceTicks(timeline, 2);
-        state.updateVentStatus(new int[]{u,60,u}, 0);
+        //87: Movement update
+        advanceTicks(timeline, 7);
+        state.updateVentStatus(new int[]{46,47,u}, 5);
         timeline.addMovementTick(state);
-        //527: C Vent was identified to be 10
+        //97: Movement update
+        advanceTicks(timeline, 10);
+        state.updateVentStatus(new int[]{47,47,u}, 5);
+        timeline.addMovementTick(state);
+        //107: Movement update
+        advanceTicks(timeline, 10);
+        state.updateVentStatus(new int[]{48,47,u}, 5);
+        timeline.addMovementTick(state);
+        //117: Movement update
+        advanceTicks(timeline, 10);
+        state.updateVentStatus(new int[]{49,47,u}, 5);
+        timeline.addMovementTick(state);
+        //127: Movement update
+        advanceTicks(timeline, 10);
+        state.updateVentStatus(new int[]{50,47,u}, 5);
+        timeline.addMovementTick(state);
+        //137: Movement update
+        advanceTicks(timeline, 10);
+        state.updateVentStatus(new int[]{51,47,u}, 5);
+        timeline.addMovementTick(state);
+        //147: Movement update
+        advanceTicks(timeline, 10);
+        state.updateVentStatus(new int[]{52,47,u}, 5);
+        timeline.addMovementTick(state);
+        //157: Movement update
+        advanceTicks(timeline, 10);
+        state.updateVentStatus(new int[]{53,47,u}, 5);
+        timeline.addMovementTick(state);
+        //167: Movement update
+        advanceTicks(timeline, 10);
+        state.updateVentStatus(new int[]{54,47,u}, 5);
+        timeline.addMovementTick(state);
+        //177: Movement update
+        advanceTicks(timeline, 10);
+        state.updateVentStatus(new int[]{55,47,u}, 5);
+        timeline.addMovementTick(state);
+        //187: Movement update
+        advanceTicks(timeline, 10);
+        state.updateVentStatus(new int[]{56,47,u}, 5);
+        timeline.addMovementTick(state);
+        //197: Movement update
+        advanceTicks(timeline, 10);
+        state.updateVentStatus(new int[]{57,47,u}, 5);
+        timeline.addMovementTick(state);
+        //207: Movement update
+        advanceTicks(timeline, 10);
+        state.updateVentStatus(new int[]{58,47,u}, 5);
+        timeline.addMovementTick(state);
+        //217: Movement update
+        advanceTicks(timeline, 10);
+        state.updateVentStatus(new int[]{59,47,u}, 5);
+        timeline.addMovementTick(state);
+        //227: Movement update
+        advanceTicks(timeline, 10);
+        state.updateVentStatus(new int[]{60,47,u}, 5);
+        timeline.addMovementTick(state);
+        //237: Movement update
+        advanceTicks(timeline, 10);
+        state.updateVentStatus(new int[]{62,46,u}, 5);
+        timeline.addMovementTick(state);
+        //247: Movement update
+        advanceTicks(timeline, 10);
+        state.updateVentStatus(new int[]{64,45,u}, 5);
+        timeline.addMovementTick(state);
+        //257: Movement update
+        advanceTicks(timeline, 10);
+        state.updateVentStatus(new int[]{66,44,u}, 5);
+        timeline.addMovementTick(state);
+        //267: Movement update
+        advanceTicks(timeline, 10);
+        state.updateVentStatus(new int[]{68,43,u}, 5);
+        timeline.addMovementTick(state);
+        //275: A's direction was changed
         advanceTicks(timeline, 8);
-        state.updateVentStatus(new int[]{u,60,10}, 0);
-        timeline.addIdentifiedVentTick(state, 4);
-        //529: Movement update
+        timeline.addDirectionChangeTick(1 << 3);
+        //277: Movement update
         advanceTicks(timeline, 2);
-        state.updateVentStatus(new int[]{u,58,8}, 0);
+        state.updateVentStatus(new int[]{66,42,u}, 4);
         timeline.addMovementTick(state);
-        //539: Movement update
+        //287: Movement update
         advanceTicks(timeline, 10);
-        state.updateVentStatus(new int[]{u,57,7}, 0);
+        state.updateVentStatus(new int[]{64,41,u}, 4);
         timeline.addMovementTick(state);
-        //549: Earthquake and stability/movement skip
+        //297: Movement update
         advanceTicks(timeline, 10);
-        timeline.addEarthquakeEventTick();
-        //559: Movement update
-        advanceTicks(timeline, 10);
-        state.updateVentStatus(new int[]{u,56,6}, 0);
+        state.updateVentStatus(new int[]{62,40,u}, 4);
         timeline.addMovementTick(state);
-        //569: Movement update
+        //307: Movement update
         advanceTicks(timeline, 10);
-        state.updateVentStatus(new int[]{u,55,5}, 0);
+        state.updateVentStatus(new int[]{60,38,u}, 4);
         timeline.addMovementTick(state);
-        //574: Stability update of -2
+        //317: Movement update
+        advanceTicks(timeline, 10);
+        state.updateVentStatus(new int[]{58,36,u}, 4);
+        timeline.addMovementTick(state);
+        //327: Movement update
+        advanceTicks(timeline, 10);
+        state.updateVentStatus(new int[]{57,35,u}, 4);
+        timeline.addMovementTick(state);
+        //337: Movement update
+        advanceTicks(timeline, 10);
+        state.updateVentStatus(new int[]{56,34,u}, 4);
+        timeline.addMovementTick(state);
+        //347: Movement update
+        advanceTicks(timeline, 10);
+        state.updateVentStatus(new int[]{55,33,u}, 4);
+        timeline.addMovementTick(state);
+        //357: Movement update
+        advanceTicks(timeline, 10);
+        state.updateVentStatus(new int[]{54,32,u}, 4);
+        timeline.addMovementTick(state);
+        //367: Movement update
+        advanceTicks(timeline, 10);
+        state.updateVentStatus(new int[]{53,31,u}, 4);
+        timeline.addMovementTick(state);
+        //377: Movement update
+        advanceTicks(timeline, 10);
+        state.updateVentStatus(new int[]{52,30,u}, 4);
+        timeline.addMovementTick(state);
+        //387: Movement update
+        advanceTicks(timeline, 10);
+        state.updateVentStatus(new int[]{51,29,u}, 4);
+        timeline.addMovementTick(state);
+        //397: Movement update
+        advanceTicks(timeline, 10);
+        state.updateVentStatus(new int[]{50,28,u}, 4);
+        timeline.addMovementTick(state);
+        //407: Movement update
+        advanceTicks(timeline, 10);
+        state.updateVentStatus(new int[]{49,27,u}, 4);
+        timeline.addMovementTick(state);
+        //417: Movement update
+        advanceTicks(timeline, 10);
+        state.updateVentStatus(new int[]{48,26,u}, 4);
+        timeline.addMovementTick(state);
+        //427: Movement update
+        advanceTicks(timeline, 10);
+        state.updateVentStatus(new int[]{47,25,u}, 4);
+        timeline.addMovementTick(state);
+        //437: Movement update
+        advanceTicks(timeline, 10);
+        state.updateVentStatus(new int[]{46,24,u}, 4);
+        timeline.addMovementTick(state);
+        //447: Movement update
+        advanceTicks(timeline, 10);
+        state.updateVentStatus(new int[]{45,23,u}, 4);
+        timeline.addMovementTick(state);
+        //457: Movement update
+        advanceTicks(timeline, 10);
+        state.updateVentStatus(new int[]{44,22,u}, 4);
+        timeline.addMovementTick(state);
+        //467: Movement update
+        advanceTicks(timeline, 10);
+        state.updateVentStatus(new int[]{43,21,u}, 4);
+        timeline.addMovementTick(state);
+        //472: Stability update of -2
         advanceTicks(timeline, 5);
         timeline.addStabilityUpdateTick(state, -2);
-        //579: Movement update
-        advanceTicks(timeline, 5);
-        state.updateVentStatus(new int[]{u,54,4}, 0);
-        timeline.addMovementTick(state);
-        //589: Movement update
-        advanceTicks(timeline, 10);
-        state.updateVentStatus(new int[]{u,53,3}, 0);
-        timeline.addMovementTick(state);
-        //599: Same tick movement and stability update of -4
-        advanceTicks(timeline, 10);
-        state.updateVentStatus(new int[]{u,52,2}, 0);
-        timeline.addMovementTick(state);
-        timeline.addStabilityUpdateTick(state, -4);
-        //609: Movement update
-        advanceTicks(timeline, 10);
-        state.updateVentStatus(new int[]{u,51,1}, 0);
-        timeline.addMovementTick(state);
-        //619: Movement update
-        advanceTicks(timeline, 10);
-        state.updateVentStatus(new int[]{u,50,0}, 0);
-        timeline.addMovementTick(state);
-        //624: Same tick C direction change and stability update of -6
-        advanceTicks(timeline, 5);
-        timeline.addDirectionChangeTick(4 << 3);
-        timeline.addStabilityUpdateTick(state, -6);
-        //629: Movement update
-        advanceTicks(timeline, 5);
-        state.updateVentStatus(new int[]{u,49,1}, 4);
-        timeline.addMovementTick(state);
-        //639: Movement update
-        advanceTicks(timeline, 10);
-        state.updateVentStatus(new int[]{u,48,2}, 4);
-        timeline.addMovementTick(state);
-        //649: Same tick movement and stability update of -7
-        advanceTicks(timeline, 10);
-        state.updateVentStatus(new int[]{u,47,3}, 4);
-        timeline.addMovementTick(state);
-        timeline.addStabilityUpdateTick(state, -7);
-        //659: Movement update
-        advanceTicks(timeline, 10);
-        state.updateVentStatus(new int[]{u,46,4}, 4);
-        timeline.addMovementTick(state);
-        //669: Movement update
-        advanceTicks(timeline, 10);
-        state.updateVentStatus(new int[]{u,45,5}, 4);
-        timeline.addMovementTick(state);
-        //674: Stability update of -8
-        advanceTicks(timeline, 5);
-        timeline.addStabilityUpdateTick(state, -8);
 
-        //Verify Results - A should be 0
+        //Verify Results - C is a single range
         StatusState predictedState = timeline.getCurrentPredictionState();
+    }
+
+    public void sandbox3() {
+        VentStatusTimeline timeline = new VentStatusTimeline();
+        StatusState state = new StatusState();
+        int u = VentStatus.STARTING_VENT_VALUE;
+        state.updateVentStatus(new int[]{u,u,u}, 5);
+        timeline.addInitialState(state);
+
+
+        //C range was lost
+        //24: Early Stability update of 22
+        advanceTicks(timeline, 24);
+        timeline.addStabilityUpdateTick(state, 22);
+        //34: A Vent was identified to be 52
+        advanceTicks(timeline, 10);
+        state.updateVentStatus(new int[]{52,u,u}, 5);
+        timeline.addIdentifiedVentTick(state, 1);
+        //39: Movement update
+        advanceTicks(timeline, 5);
+        state.updateVentStatus(new int[]{53,u,u}, 5);
+        timeline.addMovementTick(state);
+        //49: Same tick movement and stability update of 20
+        advanceTicks(timeline, 10);
+        state.updateVentStatus(new int[]{54,u,u}, 5);
+        timeline.addMovementTick(state);
+        timeline.addStabilityUpdateTick(state, 20);
+        //59: Same tick B Vent was identified to be 46 and movement
+        advanceTicks(timeline, 10);
+        state.updateVentStatus(new int[]{55,46,u}, 5);
+        timeline.addIdentifiedVentTick(state, 2);
+        timeline.addMovementTick(state);
+        //69: Earthquake and movement skip
+        advanceTicks(timeline, 10);
+        timeline.addEarthquakeEventTick();
+        //79: Movement update
+        advanceTicks(timeline, 10);
+        state.updateVentStatus(new int[]{56,46,u}, 5);
+        timeline.addMovementTick(state);
+        //89: Movement update
+        advanceTicks(timeline, 10);
+        state.updateVentStatus(new int[]{57,46,u}, 5);
+        timeline.addMovementTick(state);
+        //109: Movement update
+        advanceTicks(timeline, 20);
+        state.updateVentStatus(new int[]{58,46,u}, 5);
+        timeline.addMovementTick(state);
+        //119: Movement update
+        advanceTicks(timeline, 10);
+        state.updateVentStatus(new int[]{59,46,u}, 5);
+        timeline.addMovementTick(state);
+        //129: Movement update
+        advanceTicks(timeline, 10);
+        state.updateVentStatus(new int[]{60,46,u}, 5);
+        timeline.addMovementTick(state);
+        //139: Movement update
+        advanceTicks(timeline, 10);
+        state.updateVentStatus(new int[]{62,45,u}, 5);
+        timeline.addMovementTick(state);
+        //149: Movement update
+        advanceTicks(timeline, 10);
+        state.updateVentStatus(new int[]{64,44,u}, 5);
+        timeline.addMovementTick(state);
+        //159: Movement update
+        advanceTicks(timeline, 10);
+        state.updateVentStatus(new int[]{66,43,u}, 5);
+        timeline.addMovementTick(state);
+        //169: Movement update
+        advanceTicks(timeline, 10);
+        state.updateVentStatus(new int[]{68,42,u}, 5);
+        timeline.addMovementTick(state);
+        //179: Movement update
+        advanceTicks(timeline, 10);
+        state.updateVentStatus(new int[]{70,41,u}, 5);
+        timeline.addMovementTick(state);
+        //189: Movement update
+        advanceTicks(timeline, 10);
+        state.updateVentStatus(new int[]{72,40,u}, 5);
+        timeline.addMovementTick(state);
+        //199: Movement update
+        advanceTicks(timeline, 10);
+        state.updateVentStatus(new int[]{74,38,u}, 5);
+        timeline.addMovementTick(state);
+        //209: Movement update
+        advanceTicks(timeline, 10);
+        state.updateVentStatus(new int[]{76,36,u}, 5);
+        timeline.addMovementTick(state);
+        //219: Movement update
+        advanceTicks(timeline, 10);
+        state.updateVentStatus(new int[]{78,34,u}, 5);
+        timeline.addMovementTick(state);
+        //229: Movement update
+        advanceTicks(timeline, 10);
+        state.updateVentStatus(new int[]{80,32,u}, 5);
+        timeline.addMovementTick(state);
+        //231: Vent A direction change
+        advanceTicks(timeline, 2);
+        timeline.addDirectionChangeTick(1 << 3);
+        //239: Movement update
+        advanceTicks(timeline, 8);
+        state.updateVentStatus(new int[]{78,30,u}, 4);
+        timeline.addMovementTick(state);
+        //249: Movement update
+        advanceTicks(timeline, 10);
+        state.updateVentStatus(new int[]{76,28,u}, 4);
+        timeline.addMovementTick(state);
+        //259: Movement update
+        advanceTicks(timeline, 10);
+        state.updateVentStatus(new int[]{74,26,u}, 4);
+        timeline.addMovementTick(state);
+        //269: Movement update
+        advanceTicks(timeline, 10);
+        state.updateVentStatus(new int[]{72,24,u}, 4);
+        timeline.addMovementTick(state);
+        //279: Movement update
+        advanceTicks(timeline, 10);
+        state.updateVentStatus(new int[]{70,22,u}, 4);
+        timeline.addMovementTick(state);
+        //289: Movement update
+        advanceTicks(timeline, 10);
+        state.updateVentStatus(new int[]{68,20,u}, 4);
+        timeline.addMovementTick(state);
+        //299: Movement update
+        advanceTicks(timeline, 10);
+        state.updateVentStatus(new int[]{66,18,u}, 4);
+        timeline.addMovementTick(state);
+        //309: Movement update
+        advanceTicks(timeline, 10);
+        state.updateVentStatus(new int[]{64,16,u}, 4);
+        timeline.addMovementTick(state);
+        //319: Movement update
+        advanceTicks(timeline, 10);
+        state.updateVentStatus(new int[]{62,14,u}, 4);
+        timeline.addMovementTick(state);
+        //329: Movement update
+        advanceTicks(timeline, 10);
+        state.updateVentStatus(new int[]{60,12,u}, 4);
+        timeline.addMovementTick(state);
+        //339: Movement update
+        advanceTicks(timeline, 10);
+        state.updateVentStatus(new int[]{58,10,u}, 4);
+        timeline.addMovementTick(state);
+        //349: Movement update
+        advanceTicks(timeline, 10);
+        state.updateVentStatus(new int[]{57,9,u}, 4);
+        timeline.addMovementTick(state);
+        //359: Movement update
+        advanceTicks(timeline, 10);
+        state.updateVentStatus(new int[]{56,8,u}, 4);
+        timeline.addMovementTick(state);
+        //369: Movement update
+        advanceTicks(timeline, 10);
+        state.updateVentStatus(new int[]{55,7,u}, 4);
+        timeline.addMovementTick(state);
+        //379: Movement update
+        advanceTicks(timeline, 10);
+        state.updateVentStatus(new int[]{54,6,u}, 4);
+        timeline.addMovementTick(state);
+        //389: Movement update
+        advanceTicks(timeline, 10);
+        state.updateVentStatus(new int[]{53,5,u}, 4);
+        timeline.addMovementTick(state);
+        //409: Movement update
+        advanceTicks(timeline, 20);
+        state.updateVentStatus(new int[]{52,4,u}, 4);
+        timeline.addMovementTick(state);
+        //419: Movement update
+        advanceTicks(timeline, 10);
+        state.updateVentStatus(new int[]{51,3,u}, 4);
+        timeline.addMovementTick(state);
+        //429: Movement update
+        advanceTicks(timeline, 10);
+        state.updateVentStatus(new int[]{50,2,u}, 4);
+        timeline.addMovementTick(state);
+        //439: Movement update
+        advanceTicks(timeline, 10);
+        state.updateVentStatus(new int[]{49,1,u}, 4);
+        timeline.addMovementTick(state);
+        //449: Movement update
+        advanceTicks(timeline, 10);
+        state.updateVentStatus(new int[]{48,0,u}, 4);
+        timeline.addMovementTick(state);
+        //459: Movement update
+        advanceTicks(timeline, 10);
+        state.updateVentStatus(new int[]{47,0,u}, 4);
+        timeline.addMovementTick(state);
+        //469: Movement update
+        advanceTicks(timeline, 10);
+        state.updateVentStatus(new int[]{46,0,u}, 4);
+        timeline.addMovementTick(state);
+        //474: Stability update of -1
+        advanceTicks(timeline, 5);
+        timeline.addStabilityUpdateTick(state, -1);
+
+        //Verify Results - C should have an defined range
+        StatusState predictedState = timeline.getCurrentPredictionState();
+        Assert.assertTrue(predictedState.getVents()[2].isRangeDefined());
     }
 }

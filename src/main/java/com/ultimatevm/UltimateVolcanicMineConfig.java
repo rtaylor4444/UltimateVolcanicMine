@@ -217,7 +217,7 @@ public interface UltimateVolcanicMineConfig extends Config
 			section = notifications
 	)
 	@Range(
-			max = 5,
+			max = 13,
 			min = 1
 	)
 	default int predictedStabilityChange()

@@ -26,11 +26,13 @@ public class StabilityUpdateInfo {
         for(int i = getMaxRNGPossibleSize() - 1; i >= 0; --i) {
             //Start with more common mods first
             initialStabUpdate.RNGUpdateMod = 1 - i;
+            initialStabUpdate.calcStabilityChange();
             //Run a prediction with this new mod to see if we get a valid result
             predictionState = timeline.getTimelinePredictionState();
             if(isValidResult(predictionState, missingVentIndices)) break;
         }
         initialStabUpdate.RNGUpdateMod = startingRNGMod;
+        initialStabUpdate.calcStabilityChange();
         return predictionState;
     }
     //Stability updates have a max rng mod of +1

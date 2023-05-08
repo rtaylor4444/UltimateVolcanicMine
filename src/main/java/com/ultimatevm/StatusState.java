@@ -113,39 +113,47 @@ public class StatusState {
     public void setOverlappingRangesWith(StatusState state) {
         for(int i = 0; i < NUM_VENTS; ++i) {
             if(vents[i].isIdentified()) continue;
+            if(!vents[i].isRangeDefined()) continue;
             if(!state.vents[i].isRangeDefined()) continue;
-            if(vents[i].isRangeDefined()) {
-                int[] lower = vents[i].getOverlappedLowerBoundRange(state.vents[i].getLowerBoundStart(),
-                        state.vents[i].getLowerBoundEnd());
-                int[] upper = vents[i].getOverlappedUpperBoundRange(state.vents[i].getUpperBoundStart(),
-                        state.vents[i].getUpperBoundEnd());
-                boolean isLowerValid = !(lower[0] == -1 && lower[1] == -1);
-                boolean isUpperValid = !(upper[0] == -1 && upper[1] == -1);
-                vents[i].clearRanges();
-                if(!isLowerValid && !isUpperValid) continue;
 
-                if(!isLowerValid) {
-                    vents[i].setLowerBoundRange(upper[0], upper[1]);
-                    vents[i].setUpperBoundRange(upper[0], upper[1]);
-                }
-                else if(!isUpperValid) {
-                    vents[i].setLowerBoundRange(lower[0], lower[1]);
-                    vents[i].setUpperBoundRange(lower[0], lower[1]);
-                }
-                else {
-                    vents[i].setLowerBoundRange(lower[0], lower[1]);
-                    vents[i].setUpperBoundRange(upper[0], upper[1]);
-                }
-            } else {
-                vents[i].setLowerBoundRange(state.vents[i].getLowerBoundStart(), state.vents[i].getLowerBoundEnd());
-                vents[i].setUpperBoundRange(state.vents[i].getUpperBoundStart(), state.vents[i].getUpperBoundEnd());
+            //Get all possible range combinations
+            int[] lowerLower = vents[i].getOverlappedLowerBoundRange(state.vents[i].getLowerBoundStart(),
+                    state.vents[i].getLowerBoundEnd());
+            int[] lowerUpper = vents[i].getOverlappedLowerBoundRange(state.vents[i].getUpperBoundStart(),
+                    state.vents[i].getUpperBoundEnd());
+            int[] upperUpper = vents[i].getOverlappedUpperBoundRange(state.vents[i].getUpperBoundStart(),
+                    state.vents[i].getUpperBoundEnd());
+            int[] upperLower = vents[i].getOverlappedUpperBoundRange(state.vents[i].getLowerBoundStart(),
+                    state.vents[i].getLowerBoundEnd());
+            boolean isLowerLowerValid = !(lowerLower[0] == -1 && lowerLower[1] == -1);
+            boolean isLowerUpperValid = !(lowerUpper[0] == -1 && lowerUpper[1] == -1);
+            boolean isUpperUpperValid = !(upperUpper[0] == -1 && upperUpper[1] == -1);
+            boolean isUpperLowerValid = !(upperLower[0] == -1 && upperLower[1] == -1);
+            boolean isLowerValid = isLowerLowerValid || isLowerUpperValid;
+            boolean isUpperValid = isUpperLowerValid || isUpperUpperValid;
+
+            //Exit if neither range has any overlap
+            vents[i].clearRanges();
+            if(!isLowerValid && !isUpperValid) continue;
+
+            //TODO: For now we assume if both ranges match they are the same
+            //For single range the minimum distance between lower and upper is 6
+            //since our ranges are size 3 its impossible for both to match
+
+            //Lower bound range overlaps with another range
+            if(isLowerValid) {
+                if(isLowerLowerValid) vents[i].setLowerBoundRange(lowerLower[0], lowerLower[1]);
+                else vents[i].setLowerBoundRange(lowerUpper[0], lowerUpper[1]);
+                //If only lower bound is valid set upper bound range as well
+                if(!isUpperValid) vents[i].setUpperBoundRange(vents[i].getLowerBoundStart(), vents[i].getLowerBoundEnd());
             }
-        }
-    }
-    public void doBoundsClipping() {
-        for(int i = 0; i < NUM_VENTS; ++i) {
-            if(vents[i].isIdentified()) continue;
-            vents[i].doBoundsClipping();
+            //Upper bound range overlaps with another range
+            if(isUpperValid) {
+                if(isUpperUpperValid) vents[i].setUpperBoundRange(upperUpper[0], upperUpper[1]);
+                else vents[i].setUpperBoundRange(upperLower[0], upperLower[1]);
+                //If only upper bound is valid set lower bound range as well
+                if(!isLowerValid) vents[i].setLowerBoundRange(vents[i].getUpperBoundStart(), vents[i].getUpperBoundEnd());
+            }
         }
     }
     public void doVMReset() {

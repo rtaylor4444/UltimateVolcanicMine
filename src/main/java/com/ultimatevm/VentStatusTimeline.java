@@ -157,13 +157,13 @@ public class VentStatusTimeline {
             if((timeline[i] & (1 << IDENTIFIED_VENT_FLAG)) != 0) {
                 int idFlags = timeline[i] & IDENTIFIED_BIT_MASK;
                 if((idFlags & 1) != 0) {
-                    predictedState.getVents()[0].setEqualTo(identifiedVentStates[0].getVents()[0]);
+                    predictedState.setVentEqualTo(identifiedVentStates[0], 0);
                 }
                 if((idFlags & 2) != 0) {
-                    predictedState.getVents()[1].setEqualTo(identifiedVentStates[1].getVents()[1]);
+                    predictedState.setVentEqualTo(identifiedVentStates[1], 1);
                 }
                 if((idFlags & 4) != 0) {
-                    predictedState.getVents()[2].setEqualTo(identifiedVentStates[2].getVents()[2]);
+                    predictedState.setVentEqualTo(identifiedVentStates[2], 2);
                 }
             }
             if((timeline[i] & (1 << DIRECTION_CHANGED_FLAG)) != 0) {
@@ -179,7 +179,7 @@ public class VentStatusTimeline {
                 //Use stability updates to set/narrow our possible values
                 StabilityUpdateInfo stabilityInfo = tickToStabilityUpdateState.get(i);
                 if(stabilityInfo == initialStabInfo)
-                    predictedState.setOverlappingRangesWith(initialStabInfo.getStabilityUpdateState());
+                    predictedState.mergePredictedRangesWith(initialStabInfo.getStabilityUpdateState());
                 else stabilityInfo.updatePredictedState(predictedState);
             }
         }
