@@ -61,8 +61,9 @@ public class StabilityTracker {
     }
 
     public boolean isFutureStabilityBad(int stabilityThreshold) {
-        int trend = calcTrend();
-        if(trend >= 0) return false;
+        int trend = 0;
+//        int trend = calcTrend();
+//        if(trend >= 0) return false;
         return getCurrentChange() + trend <= stabilityThreshold;
     }
     public String getStabilityText() {

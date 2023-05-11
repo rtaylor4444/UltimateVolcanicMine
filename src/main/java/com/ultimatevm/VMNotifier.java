@@ -73,7 +73,7 @@ public class VMNotifier {
 
             case VM_PREDICTED_VENT_FIX:
                 if(!config.predictedVentFixNotifier()) return;
-                notifier.notify("Fix your vent! (Prediction)");
+                notifier.notify("Be alert you might have to fix your vent soon!");
                 break;
 
             default:

@@ -16,9 +16,6 @@ public class VentStatusTest {
         Assert.assertEquals(vent.getLowerBoundEnd(), VentStatus.STARTING_VENT_VALUE);
         Assert.assertEquals(vent.getUpperBoundStart(), VentStatus.STARTING_VENT_VALUE);
         Assert.assertEquals(vent.getUpperBoundEnd(), VentStatus.STARTING_VENT_VALUE);
-        //Vent values vary between 25-75% at the start
-        Assert.assertEquals(vent.getTotalBoundStart(), VentStatus.MIN_VENT_START_VALUE);
-        Assert.assertEquals(vent.getTotalBoundEnd(), VentStatus.MAX_VENT_START_VALUE);
     }
 
     public void copyConstructorTest() {
@@ -36,9 +33,6 @@ public class VentStatusTest {
         Assert.assertEquals(newVent.getLowerBoundEnd(), 40+VentStatus.BASE_MOVE_RATE);
         Assert.assertEquals(newVent.getUpperBoundStart(), 60+VentStatus.BASE_MOVE_RATE);
         Assert.assertEquals(newVent.getUpperBoundEnd(), 70+VentStatus.BASE_MOVE_RATE);
-        //Vent bounds should be updated
-        Assert.assertEquals(newVent.getTotalBoundStart(), VentStatus.MIN_VENT_START_VALUE+VentStatus.BASE_MOVE_RATE);
-        Assert.assertEquals(newVent.getTotalBoundEnd(), VentStatus.MAX_VENT_START_VALUE+VentStatus.BASE_MOVE_RATE);
     }
 
     public void setEqualToTest() {
@@ -57,9 +51,6 @@ public class VentStatusTest {
         Assert.assertEquals(newVent.getLowerBoundEnd(), 40+VentStatus.BASE_MOVE_RATE);
         Assert.assertEquals(newVent.getUpperBoundStart(), 60+VentStatus.BASE_MOVE_RATE);
         Assert.assertEquals(newVent.getUpperBoundEnd(), 70+VentStatus.BASE_MOVE_RATE);
-        //Vent bounds should be updated
-        Assert.assertEquals(newVent.getTotalBoundStart(), VentStatus.MIN_VENT_START_VALUE+VentStatus.BASE_MOVE_RATE);
-        Assert.assertEquals(newVent.getTotalBoundEnd(), VentStatus.MAX_VENT_START_VALUE+VentStatus.BASE_MOVE_RATE);
     }
 
     public void doVMResetTest() {
@@ -75,9 +66,6 @@ public class VentStatusTest {
         Assert.assertEquals(vent.getLowerBoundEnd(), VentStatus.STARTING_VENT_VALUE);
         Assert.assertEquals(vent.getUpperBoundStart(), VentStatus.STARTING_VENT_VALUE);
         Assert.assertEquals(vent.getUpperBoundEnd(), VentStatus.STARTING_VENT_VALUE);
-        //Vent values vary between 0-100% after the reset
-        Assert.assertEquals(vent.getTotalBoundStart(), VentStatus.MIN_VENT_VALUE);
-        Assert.assertEquals(vent.getTotalBoundEnd(), VentStatus.MAX_VENT_VALUE);
     }
 
     public void isIdentifiedTest() {
@@ -244,94 +232,18 @@ public class VentStatusTest {
         //Nothing should change if the vent is identified
         vent.update(VentStatus.PERFECT_VENT_VALUE, 1);
         vent.updateMovement(0);
-        //Bounds
-        Assert.assertEquals(vent.getTotalBoundStart(), VentStatus.MIN_VENT_START_VALUE);
-        Assert.assertEquals(vent.getTotalBoundEnd(), VentStatus.MAX_VENT_START_VALUE);
         //Ranges
         Assert.assertEquals(vent.getLowerBoundStart(), VentStatus.PERFECT_VENT_VALUE);
         Assert.assertEquals(vent.getLowerBoundEnd(), VentStatus.PERFECT_VENT_VALUE);
         Assert.assertEquals(vent.getUpperBoundStart(), VentStatus.PERFECT_VENT_VALUE);
         Assert.assertEquals(vent.getUpperBoundEnd(), VentStatus.PERFECT_VENT_VALUE);
 
-        //Only bounds should change if range is undefined
+        //Nothing should change if range is undefined
         vent.clearRanges();
         vent.update(VentStatus.STARTING_VENT_VALUE, 1);
         vent.updateMovement(0);
-        //Bounds
-        Assert.assertEquals(vent.getTotalBoundStart(), VentStatus.MIN_VENT_START_VALUE+VentStatus.BASE_MOVE_RATE);
-        Assert.assertEquals(vent.getTotalBoundEnd(), VentStatus.MAX_VENT_START_VALUE+VentStatus.BASE_MOVE_RATE);
         //Ranges
         Assert.assertFalse(vent.isRangeDefined());
-    }
-
-    public void updateMovementBoundsTest() {
-        VentStatus vent = new VentStatus('A');
-
-        //Upward movement total bound end should remain the same
-        vent.update(VentStatus.STARTING_VENT_VALUE, 1);
-        vent.doVMReset();
-        vent.setLowerBoundRange(VentStatus.PERFECT_VENT_VALUE, VentStatus.PERFECT_VENT_VALUE);
-        vent.setUpperBoundRange(VentStatus.PERFECT_VENT_VALUE, VentStatus.PERFECT_VENT_VALUE);
-        vent.updateMovement(0);
-        Assert.assertEquals(vent.getTotalBoundEnd(), VentStatus.MAX_VENT_VALUE);
-        Assert.assertEquals(vent.getTotalBoundStart(), VentStatus.MIN_VENT_VALUE+VentStatus.BASE_MOVE_RATE);
-
-        //Downward movement total bound start should remain the same
-        vent.update(VentStatus.STARTING_VENT_VALUE, -1);
-        vent.doVMReset();
-        vent.setLowerBoundRange(VentStatus.PERFECT_VENT_VALUE, VentStatus.PERFECT_VENT_VALUE);
-        vent.setUpperBoundRange(VentStatus.PERFECT_VENT_VALUE, VentStatus.PERFECT_VENT_VALUE);
-        vent.updateMovement(0);
-        Assert.assertEquals(vent.getTotalBoundEnd(), VentStatus.MAX_VENT_VALUE-VentStatus.BASE_MOVE_RATE);
-        Assert.assertEquals(vent.getTotalBoundStart(), VentStatus.MIN_VENT_VALUE);
-
-        //Multiple movements test - bounds should actually narrow
-        vent.doVMReset();
-        vent.setLowerBoundRange(VentStatus.PERFECT_VENT_VALUE, VentStatus.PERFECT_VENT_VALUE);
-        vent.setUpperBoundRange(VentStatus.PERFECT_VENT_VALUE, VentStatus.PERFECT_VENT_VALUE);
-        //4 downward movements
-        for(int i = 0; i < 4; ++i) vent.updateMovement(0);
-        Assert.assertEquals(vent.getTotalBoundEnd(), VentStatus.MAX_VENT_VALUE-(VentStatus.BASE_MOVE_RATE*4));
-        Assert.assertEquals(vent.getTotalBoundStart(), VentStatus.MIN_VENT_VALUE);
-        vent.update(VentStatus.STARTING_VENT_VALUE, 1);
-        //2 upward movements
-        for(int i = 0; i < 2; ++i) vent.updateMovement(0);
-        Assert.assertEquals(vent.getTotalBoundEnd(), VentStatus.MAX_VENT_VALUE-(VentStatus.BASE_MOVE_RATE*2));
-        Assert.assertEquals(vent.getTotalBoundStart(), VentStatus.MIN_VENT_VALUE+(VentStatus.BASE_MOVE_RATE*2));
-
-        //Same as above but with some influence
-        int newBaseRate = VentStatus.BASE_MOVE_RATE-1;
-        //Upward movement total bound end should remain the same
-        vent.update(VentStatus.STARTING_VENT_VALUE, 1);
-        vent.doVMReset();
-        vent.setLowerBoundRange(VentStatus.PERFECT_VENT_VALUE, VentStatus.PERFECT_VENT_VALUE);
-        vent.setUpperBoundRange(VentStatus.PERFECT_VENT_VALUE, VentStatus.PERFECT_VENT_VALUE);
-        vent.updateMovement(-1);
-        Assert.assertEquals(vent.getTotalBoundEnd(), VentStatus.MAX_VENT_VALUE);
-        Assert.assertEquals(vent.getTotalBoundStart(), VentStatus.MIN_VENT_VALUE+newBaseRate);
-
-        //Downward movement total bound start should remain the same
-        vent.update(VentStatus.STARTING_VENT_VALUE, -1);
-        vent.doVMReset();
-        vent.setLowerBoundRange(VentStatus.PERFECT_VENT_VALUE, VentStatus.PERFECT_VENT_VALUE);
-        vent.setUpperBoundRange(VentStatus.PERFECT_VENT_VALUE, VentStatus.PERFECT_VENT_VALUE);
-        vent.updateMovement(-1);
-        Assert.assertEquals(vent.getTotalBoundEnd(), VentStatus.MAX_VENT_VALUE-newBaseRate);
-        Assert.assertEquals(vent.getTotalBoundStart(), VentStatus.MIN_VENT_VALUE);
-
-        //Multiple movements test - bounds should actually narrow
-        vent.doVMReset();
-        vent.setLowerBoundRange(VentStatus.PERFECT_VENT_VALUE, VentStatus.PERFECT_VENT_VALUE);
-        vent.setUpperBoundRange(VentStatus.PERFECT_VENT_VALUE, VentStatus.PERFECT_VENT_VALUE);
-        //4 downward movements
-        for(int i = 0; i < 4; ++i) vent.updateMovement(-1);
-        Assert.assertEquals(vent.getTotalBoundEnd(), VentStatus.MAX_VENT_VALUE-(newBaseRate*4));
-        Assert.assertEquals(vent.getTotalBoundStart(), VentStatus.MIN_VENT_VALUE);
-        vent.update(VentStatus.STARTING_VENT_VALUE, 1);
-        //2 upward movements
-        for(int i = 0; i < 2; ++i) vent.updateMovement(-1);
-        Assert.assertEquals(vent.getTotalBoundEnd(), VentStatus.MAX_VENT_VALUE-(newBaseRate*2));
-        Assert.assertEquals(vent.getTotalBoundStart(), VentStatus.MIN_VENT_VALUE+(newBaseRate*2));
     }
 
     public void updateMovementRangeTest() {
@@ -594,41 +506,146 @@ public class VentStatusTest {
         Assert.assertEquals(ans[1], -1);
     }
 
-    public void doBoundsClippingTest() {
-        //Bounds starts at 25-75%
-
-        //Both ranges outside of bounds
+    public void getOutsideLowerBoundRangeTest() {
         VentStatus vent = new VentStatus('A');
-        vent.setLowerBoundRange(15,24);
-        vent.setUpperBoundRange(76,85);
-        vent.doBoundsClipping();
-        //Range should be set to bounds
-        Assert.assertEquals(vent.getLowerBoundStart(), vent.getTotalBoundStart());
-        Assert.assertEquals(vent.getUpperBoundStart(), vent.getTotalBoundStart());
-        Assert.assertEquals(vent.getLowerBoundEnd(), vent.getTotalBoundEnd());
-        Assert.assertEquals(vent.getUpperBoundEnd(), vent.getTotalBoundEnd());
+        vent.setLowerBoundRange(35,45);
+        //Start is lower
+        int[] ans = vent.getOutsideLowerBoundRange(40, 45);
+        Assert.assertEquals(ans[0], 35);
+        Assert.assertEquals(ans[1], 39);
+        //End is higher
+        ans = vent.getOutsideLowerBoundRange(35, 40);
+        Assert.assertEquals(ans[0], 41);
+        Assert.assertEquals(ans[1], 45);
+        //Range completely overlaps
+        ans = vent.getOutsideLowerBoundRange(35, 45);
+        Assert.assertEquals(ans[0], -1);
+        Assert.assertEquals(ans[1], -1);
+        //Out of bounds - Start is higher
+        ans = vent.getOutsideLowerBoundRange(25, 30);
+        Assert.assertEquals(ans[0], 35);
+        Assert.assertEquals(ans[1], 45);
+        //Out of bounds - End is lower
+        ans = vent.getOutsideLowerBoundRange(50, 55);
+        Assert.assertEquals(ans[0], 35);
+        Assert.assertEquals(ans[1], 45);
+        //Range is within bounds
+        ans = vent.getOutsideLowerBoundRange(38, 42);
+        Assert.assertEquals(ans[0], 35);
+        Assert.assertEquals(ans[1], 45);
+    }
 
-        //Upper range outside of bounds should be set to lower range
-        vent = new VentStatus('A');
-        vent.setLowerBoundRange(15,25);
-        vent.setUpperBoundRange(76,85);
-        vent.doBoundsClipping();
-        //Range should be set to bounds
-        Assert.assertEquals(vent.getLowerBoundStart(), 25);
-        Assert.assertEquals(vent.getUpperBoundStart(), 25);
-        Assert.assertEquals(vent.getLowerBoundEnd(), 25);
-        Assert.assertEquals(vent.getUpperBoundEnd(), 25);
+    public void getOutsideUpperBoundRangeTest() {
+        VentStatus vent = new VentStatus('A');
+        vent.setUpperBoundRange(35,45);
+        //Start is lower
+        int[] ans = vent.getOutsideUpperBoundRange(40, 45);
+        Assert.assertEquals(ans[0], 35);
+        Assert.assertEquals(ans[1], 39);
+        //End is higher
+        ans = vent.getOutsideUpperBoundRange(35, 40);
+        Assert.assertEquals(ans[0], 41);
+        Assert.assertEquals(ans[1], 45);
+        //Range completely overlaps
+        ans = vent.getOutsideUpperBoundRange(35, 45);
+        Assert.assertEquals(ans[0], -1);
+        Assert.assertEquals(ans[1], -1);
+        //Out of bounds - Start is higher
+        ans = vent.getOutsideUpperBoundRange(25, 30);
+        Assert.assertEquals(ans[0], 35);
+        Assert.assertEquals(ans[1], 45);
+        //Out of bounds - End is lower
+        ans = vent.getOutsideUpperBoundRange(50, 55);
+        Assert.assertEquals(ans[0], 35);
+        Assert.assertEquals(ans[1], 45);
+        //Range is within bounds
+        ans = vent.getOutsideUpperBoundRange(38, 42);
+        Assert.assertEquals(ans[0], 35);
+        Assert.assertEquals(ans[1], 45);
+    }
 
-        //lower range outside of bounds should be set to upper range
-        vent = new VentStatus('A');
-        vent.setLowerBoundRange(15,24);
-        vent.setUpperBoundRange(75,85);
-        vent.doBoundsClipping();
-        //Range should be set to bounds
-        Assert.assertEquals(vent.getLowerBoundStart(), 75);
-        Assert.assertEquals(vent.getUpperBoundStart(), 75);
-        Assert.assertEquals(vent.getLowerBoundEnd(), 75);
-        Assert.assertEquals(vent.getUpperBoundEnd(), 75);
+    public void doInnerBoundsClippingTest() {
+        //Only test case is 41-59
+        int u = VentStatus.STARTING_VENT_VALUE;
+        VentStatus vent = new VentStatus('A');
+
+        //Both are out of bounds
+        vent.setLowerBoundRange(38, 40);
+        vent.setUpperBoundRange(60, 62);
+        vent.doInnerBoundsClipping(41, 59);
+        Assert.assertEquals(vent.getLowerBoundStart(), u);
+        Assert.assertEquals(vent.getLowerBoundEnd(), u);
+        Assert.assertEquals(vent.getUpperBoundStart(), u);
+        Assert.assertEquals(vent.getUpperBoundEnd(), u);
+
+        //Only lower bound is in bounds
+        vent.setLowerBoundRange(41, 43);
+        vent.setUpperBoundRange(63, 65);
+        vent.doInnerBoundsClipping(41, 59);
+        Assert.assertEquals(vent.getLowerBoundStart(), 41);
+        Assert.assertEquals(vent.getLowerBoundEnd(), 43);
+        Assert.assertEquals(vent.getUpperBoundStart(), 41);
+        Assert.assertEquals(vent.getUpperBoundEnd(), 43);
+
+        //Only upper bound is in bounds
+        vent.setLowerBoundRange(35, 37);
+        vent.setUpperBoundRange(57, 59);
+        vent.doInnerBoundsClipping(41, 59);
+        Assert.assertEquals(vent.getLowerBoundStart(), 57);
+        Assert.assertEquals(vent.getLowerBoundEnd(), 59);
+        Assert.assertEquals(vent.getUpperBoundStart(), 57);
+        Assert.assertEquals(vent.getUpperBoundEnd(), 59);
+
+        //Both are in bounds
+        vent.setLowerBoundRange(41, 43);
+        vent.setUpperBoundRange(57, 59);
+        vent.doInnerBoundsClipping(41, 59);
+        Assert.assertEquals(vent.getLowerBoundStart(), 41);
+        Assert.assertEquals(vent.getLowerBoundEnd(), 43);
+        Assert.assertEquals(vent.getUpperBoundStart(), 57);
+        Assert.assertEquals(vent.getUpperBoundEnd(), 59);
+    }
+
+    public void doOuterBoundsClippingTest() {
+        //Only test case is 41-59
+        int u = VentStatus.STARTING_VENT_VALUE;
+        VentStatus vent = new VentStatus('A');
+
+        //Both are out of bounds
+        vent.setLowerBoundRange(38, 40);
+        vent.setUpperBoundRange(60, 62);
+        vent.doOuterBoundsClipping(41, 59);
+        Assert.assertEquals(vent.getLowerBoundStart(), 38);
+        Assert.assertEquals(vent.getLowerBoundEnd(), 40);
+        Assert.assertEquals(vent.getUpperBoundStart(), 60);
+        Assert.assertEquals(vent.getUpperBoundEnd(), 62);
+
+        //Only lower bound is in bounds
+        vent.setLowerBoundRange(41, 43);
+        vent.setUpperBoundRange(63, 65);
+        vent.doOuterBoundsClipping(41, 59);
+        Assert.assertEquals(vent.getLowerBoundStart(), 63);
+        Assert.assertEquals(vent.getLowerBoundEnd(), 65);
+        Assert.assertEquals(vent.getUpperBoundStart(), 63);
+        Assert.assertEquals(vent.getUpperBoundEnd(), 65);
+
+        //Only upper bound is in bounds
+        vent.setLowerBoundRange(35, 37);
+        vent.setUpperBoundRange(57, 59);
+        vent.doOuterBoundsClipping(41, 59);
+        Assert.assertEquals(vent.getLowerBoundStart(), 35);
+        Assert.assertEquals(vent.getLowerBoundEnd(), 37);
+        Assert.assertEquals(vent.getUpperBoundStart(), 35);
+        Assert.assertEquals(vent.getUpperBoundEnd(), 37);
+
+        //Both are in bounds
+        vent.setLowerBoundRange(41, 43);
+        vent.setUpperBoundRange(57, 59);
+        vent.doOuterBoundsClipping(41, 59);
+        Assert.assertEquals(vent.getLowerBoundStart(), u);
+        Assert.assertEquals(vent.getLowerBoundEnd(), u);
+        Assert.assertEquals(vent.getUpperBoundStart(), u);
+        Assert.assertEquals(vent.getUpperBoundEnd(), u);
     }
 
     public void getReversedInfluenceATest() {

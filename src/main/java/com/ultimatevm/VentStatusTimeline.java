@@ -14,15 +14,19 @@ public class VentStatusTimeline {
     public static final int VM_GAME_RESET_TIME = 500;
 
     //Flags
-    public static final int EARTHQUAKE_EVENT_FLAG = 11;
-    public static final int STABILITY_UPDATE_FLAG = 10;
-    public static final int MOVEMENT_UPDATE_FLAG = 9;
-    public static final int IDENTIFIED_VENT_FLAG = 8;
-    public static final int DIRECTION_CHANGED_FLAG = 7;
+    public static final int DIRECTION_CHANGED_FLAG = 16;
+    public static final int IDENTIFIED_VENT_FLAG = DIRECTION_CHANGED_FLAG+1;
+    public static final int MOVEMENT_UPDATE_FLAG = IDENTIFIED_VENT_FLAG+1;
+    public static final int STABILITY_UPDATE_FLAG = MOVEMENT_UPDATE_FLAG+1;
+    public static final int EARTHQUAKE_EVENT_FLAG = STABILITY_UPDATE_FLAG+1;
+
 
     //Masks
     public static final int IDENTIFIED_BIT_MASK = 7;
     public static final int DIRECTION_CHANGED_BIT_MASK = 7 << 3;
+    public static final int MOVEMENT_BIT_MASK = 63 << 6;
+    //       |   move    | dir |  id |
+    //0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
 
     private static final String FILE_PATH =
             "C:\\Users\\cyanw\\IdeaProjects\\UltimateVolcanicMine\\src\\main\\resources\\game_log.txt";
@@ -30,7 +34,7 @@ public class VentStatusTimeline {
 
     private int currentTick, startingTick;
     private int currentMovementTick;
-    private short[] timeline;
+    private int[] timeline;
     private int[] identifiedVentTick;
     private StatusState[] identifiedVentStates;
     private int numIdentifiedVents;
@@ -46,7 +50,7 @@ public class VentStatusTimeline {
     public void initialize() {
         startLog();
         currentTick = 0;
-        timeline = new short[VM_GAME_FULL_TIME];
+        timeline = new int[VM_GAME_FULL_TIME];
         tickToMovementVentState = new HashMap<>();
         tickToStabilityUpdateState = new HashMap<>();
         reset();
@@ -139,8 +143,8 @@ public class VentStatusTimeline {
     public void addEarthquakeEventTick() {
         timeline[currentTick] |= (1 << EARTHQUAKE_EVENT_FLAG);
     }
-    public void addMovementTick(StatusState currentState) {
-        addNewMovementTickState(currentTick, currentState);
+    public void addMovementTick(StatusState currentState, int movementBitState) {
+        addNewMovementTickState(currentTick, currentState, movementBitState);
         //Update previous values on the very first movement update (likely after a vent check)
         if(currentMovementTick == startingTick) {
             updatePreviousVentValues(currentState, currentTick);
@@ -173,6 +177,8 @@ public class VentStatusTimeline {
             if((timeline[i] & (1 << MOVEMENT_UPDATE_FLAG)) != 0) {
                 //Update our estimated vent values
                 syncWithMovementState(predictedState, i);
+                int moveBitState = timeline[i] & MOVEMENT_BIT_MASK;
+                predictedState.doFreezeClipping(moveBitState >> 6);
                 predictedState.updateVentMovement();
             }
             if((timeline[i] & (1 << STABILITY_UPDATE_FLAG)) != 0) {
@@ -190,10 +196,11 @@ public class VentStatusTimeline {
     }
 
     //Helpers
-    private void addNewMovementTickState(int tick, StatusState currentState) {
+    private void addNewMovementTickState(int tick, StatusState currentState, int moveState) {
         StatusState newState = new StatusState(currentState);
         tickToMovementVentState.put(tick, newState);
         timeline[tick] |= (1 << MOVEMENT_UPDATE_FLAG);
+        timeline[tick] |= moveState;
     }
     private void addNewStabilityUpdateTickState(int tick, StatusState currentState, int change) {
         StabilityUpdateInfo newInfo = new StabilityUpdateInfo(currentState, tick, change);
@@ -310,7 +317,7 @@ public class VentStatusTimeline {
     public int getCurrentTick() { return currentTick; }
     public int getCurrentStartingTick() {return startingTick;}
     public int getNumIdentifiedVents() { return numIdentifiedVents; }
-    public final short[] getTimeline() { return timeline; }
+    public final int[] getTimeline() { return timeline; }
     public final int[] getIdentifiedVentTicks() { return identifiedVentTick; }
     public final StatusState[] getIdentifiedVentStates() { return identifiedVentStates; }
     public final StatusState getInitialState() { return initialState; }
@@ -426,6 +433,8 @@ public class VentStatusTimeline {
                     logText("Calculated Stability: " + StatusState.calcStabilityChange(moveState));
                 }
                 syncWithMovementState(predictedState, i);
+                int moveBitState = timeline[i] & MOVEMENT_BIT_MASK;
+                predictedState.doFreezeClipping(moveBitState >> 6);
                 predictedState.updateVentMovement();
             }
             if((timeline[i] & (1 << STABILITY_UPDATE_FLAG)) != 0) {

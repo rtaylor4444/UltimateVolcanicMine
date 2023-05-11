@@ -3,9 +3,7 @@ package com.ultimatevm;
 public class VentStatus {
     public static final int STARTING_VENT_VALUE = 127;
     public static final int MIN_VENT_VALUE = 0;
-    public static final int MIN_VENT_START_VALUE = 25;
     public static final int PERFECT_VENT_VALUE = 50;
-    public static final int MAX_VENT_START_VALUE = 75;
     public static final int MAX_VENT_VALUE = 100;
     public static final float VENT_STABILITY_WEIGHT = 16.0f;
     public static int BASE_MOVE_RATE = 2;
@@ -29,7 +27,6 @@ public class VentStatus {
     private int movementDirection;
 
     //Estimated Bounds
-    private int totalBoundStart, totalBoundEnd;
     private int lowerBoundStart, lowerBoundEnd;
     private int upperBoundStart, upperBoundEnd;
 
@@ -47,8 +44,6 @@ public class VentStatus {
         ventName = name;
         this.movementDirection = 0;
         doVMReset();
-        totalBoundStart = MIN_VENT_START_VALUE;
-        totalBoundEnd = MAX_VENT_START_VALUE;
     }
     public VentStatus(VentStatus vent) {
         setEqualTo(vent);
@@ -57,8 +52,6 @@ public class VentStatus {
     public void doVMReset() {
         //Direction state will remain the same as before
         actualValue = STARTING_VENT_VALUE;
-        totalBoundStart = MIN_VENT_VALUE;
-        totalBoundEnd = MAX_VENT_VALUE;
         clearRanges();
     }
     public void setEqualTo(VentStatus vent) {
@@ -70,8 +63,6 @@ public class VentStatus {
         this.lowerBoundEnd = vent.lowerBoundEnd;
         this.upperBoundStart = vent.upperBoundStart;
         this.upperBoundEnd = vent.upperBoundEnd;
-        this.totalBoundStart = vent.totalBoundStart;
-        this.totalBoundEnd = vent.totalBoundEnd;
     }
     public int update(int actualValue, int direction) {
         int bitState = 0;
@@ -104,17 +95,11 @@ public class VentStatus {
     }
     public void updateMovement(int outsideVentInfluence) {
         if(isIdentified()) return;
-
-        //Allow bounds to be updated even if no ranges are defined
-        int currentMoveRate = BASE_MOVE_RATE + outsideVentInfluence;
-        //Update our maximum bounds
-        totalBoundStart += Math.max(0, (currentMoveRate + getInfluenceOfValue(totalBoundStart))) * movementDirection;
-        totalBoundStart = Math.max(MIN_VENT_VALUE, totalBoundStart);
-        totalBoundEnd += Math.max(0, (currentMoveRate + getInfluenceOfValue(totalBoundEnd))) * movementDirection;
-        totalBoundEnd = Math.min(MAX_VENT_VALUE, totalBoundEnd);
         if(!isRangeDefined()) return;
 
         //Update our current ranges
+        int currentMoveRate = BASE_MOVE_RATE + outsideVentInfluence;
+
         int lowerStart = getLowerBoundStart();
         int lowerStartMove = Math.max(0, (currentMoveRate + getInfluenceOfValue(lowerStart))) * movementDirection;
 
@@ -161,25 +146,47 @@ public class VentStatus {
             mergeLowerBoundRanges(upperBoundStart, upperBoundEnd);
         }
     }
-    public void doBoundsClipping() {
+    public void doInnerBoundsClipping(int start, int end) {
+        if(isIdentified()) return;
         if(!isRangeDefined()) return;
-        int[] lower = getOverlappedLowerBoundRange(getTotalBoundStart(), getTotalBoundEnd());
-        int[] upper = getOverlappedUpperBoundRange(getTotalBoundStart(), getTotalBoundEnd());
+        int[] lower = getOverlappedLowerBoundRange(start, end);
+        int[] upper = getOverlappedUpperBoundRange(start, end);
         boolean isLowerBoundClipped = (lower[0] == -1 && lower[1] == -1);
         boolean isUpperBoundClipped = (upper[0] == -1 && upper[1] == -1);
         clearRanges();
-        if(isLowerBoundClipped && isUpperBoundClipped) {
-            //Both ranges are outside possible bounds (shouldn't happen)
-            setLowerBoundRange(getTotalBoundStart(), getTotalBoundEnd());
-            setUpperBoundRange(getTotalBoundStart(), getTotalBoundEnd());
-        }
-        else if(isLowerBoundClipped) {
-            //Lower bound doesnt fit in total bounds use upper bound instead
+        if(isLowerBoundClipped && isUpperBoundClipped) return;
+
+        if(isLowerBoundClipped) {
+            //Lower bound doesnt fit use upper bound instead
             setUpperBoundRange(upper[0], upper[1]);
             setLowerBoundRange(upper[0], upper[1]);
         }
         else if(isUpperBoundClipped) {
-            //Upper bound doesnt fit in total bounds use lower bound instead
+            //Upper bound doesnt fit use lower bound instead
+            setUpperBoundRange(lower[0], lower[1]);
+            setLowerBoundRange(lower[0], lower[1]);
+        } else {
+            setUpperBoundRange(upper[0], upper[1]);
+            setLowerBoundRange(lower[0], lower[1]);
+        }
+    }
+    public void doOuterBoundsClipping(int start, int end) {
+        if(isIdentified()) return;
+        if(!isRangeDefined()) return;
+        int[] lower = getOutsideLowerBoundRange(start, end);
+        int[] upper = getOutsideUpperBoundRange(start, end);
+        boolean isLowerBoundClipped = (lower[0] == -1 && lower[1] == -1);
+        boolean isUpperBoundClipped = (upper[0] == -1 && upper[1] == -1);
+        clearRanges();
+        if(isLowerBoundClipped && isUpperBoundClipped) return;
+
+        if(isLowerBoundClipped) {
+            //Lower bound doesnt fit use upper bound instead
+            setUpperBoundRange(upper[0], upper[1]);
+            setLowerBoundRange(upper[0], upper[1]);
+        }
+        else if(isUpperBoundClipped) {
+            //Upper bound doesnt fit use lower bound instead
             setUpperBoundRange(lower[0], lower[1]);
             setLowerBoundRange(lower[0], lower[1]);
         } else {
@@ -219,11 +226,33 @@ public class VentStatus {
         int minEnd = Math.min(getLowerBoundEnd(), end);
         return new int[]{maxStart, minEnd};
     }
+    public int[] getOutsideLowerBoundRange(int start, int end) {
+        int newStart = lowerBoundStart, newEnd = lowerBoundEnd;
+        if(!isLowerBoundWithinRange(start, end)) return new int[]{newStart, newEnd};
+        //Check if start is within the passed bounds
+        if(lowerBoundStart >= start && lowerBoundStart <= end) newStart = end+1;
+        //Check if end is within the passed bounds
+        if(lowerBoundEnd >= start && lowerBoundEnd <= end) newEnd = start-1;
+        //return invalid range if both are within the passed bounds
+        if(newStart > newEnd) return new int[]{-1, -1};
+        return new int[]{newStart, newEnd};
+    }
     public int[] getOverlappedUpperBoundRange(int start, int end) {
         if(!isUpperBoundWithinRange(start, end)) return new int[]{-1, -1};
         int maxStart = Math.max(getUpperBoundStart(), start);
         int minEnd = Math.min(getUpperBoundEnd(), end);
         return new int[]{maxStart, minEnd};
+    }
+    public int[] getOutsideUpperBoundRange(int start, int end) {
+        int newStart = upperBoundStart, newEnd = upperBoundEnd;
+        if(!isUpperBoundWithinRange(start, end)) return new int[]{newStart, newEnd};
+        //Check if start is within the passed bounds
+        if(upperBoundStart >= start && upperBoundStart <= end) newStart = end+1;
+        //Check if end is within the passed bounds
+        if(upperBoundEnd >= start && upperBoundEnd <= end) newEnd = start-1;
+        //return invalid range if both are within the passed bounds
+        if(newStart > newEnd) return new int[]{-1, -1};
+        return new int[]{newStart, newEnd};
     }
     public int getEstimatedInfluence() {
         if(!isRangeDefined()) return -1;
@@ -262,7 +291,7 @@ public class VentStatus {
         if(!isIdentified()) return 0;
         return getStabilityInfluence(actualValue);
     }
-    private boolean isBounded() {
+    public boolean isBounded() {
         return actualValue == 100 || actualValue == 0;
     }
 
@@ -277,6 +306,4 @@ public class VentStatus {
     public int getLowerBoundEnd() { return lowerBoundEnd; }
     public int getUpperBoundStart() { return upperBoundStart; }
     public int getUpperBoundEnd() { return upperBoundEnd; }
-    public int getTotalBoundStart() { return totalBoundStart; }
-    public int getTotalBoundEnd() { return totalBoundEnd; }
 }

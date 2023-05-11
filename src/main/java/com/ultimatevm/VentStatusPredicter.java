@@ -11,6 +11,7 @@ public class VentStatusPredicter {
     private VentStatusTimeline timeline;
     private StatusState displayState;
     private boolean hasDoneFinalLog;
+    private int numTicksNoMove;
 
 
     public VentStatusPredicter() {
@@ -29,9 +30,6 @@ public class VentStatusPredicter {
     }
     public void updateVentStatus(int[] ventStatus, int chambers) {
         processVentChangeState(displayState.updateVentStatus(ventStatus, chambers));
-        if(isMovementUpdateTick()) {
-            displayState.updateVentMovement();
-        }
     }
     public void makeStatusState(int change) {
         timeline.addStabilityUpdateTick(displayState, change);
@@ -78,7 +76,7 @@ public class VentStatusPredicter {
         return builder.toString();
     }
     private void processVentChangeState(int[] changeStates) {
-        int bitState = 0;
+        int bitState = 0, movementBitState = 0;
         for(int i = 0; i < changeStates.length; ++i) {
             if((changeStates[i] & VentChangeStateFlag.IDENTIFIED.bitFlag()) != 0) {
                 bitState |= (1 << i);
@@ -94,12 +92,12 @@ public class VentStatusPredicter {
 
             if((changeStates[i] & VentChangeStateFlag.ONE_CHANGE.bitFlag()) != 0) {
                 bitState |= 128;
-                //TODO: Narrow down display states ranges accordingly
+                movementBitState |= (1 << (i * 2));
             }
 
             if((changeStates[i] & VentChangeStateFlag.TWO_CHANGE.bitFlag()) != 0) {
                 bitState |= 128;
-                //TODO: Narrow down display states ranges accordingly
+                movementBitState |= (2 << (i * 2));
             }
 
             if((changeStates[i] & VentChangeStateFlag.RESET.bitFlag()) != 0){
@@ -108,12 +106,26 @@ public class VentStatusPredicter {
         }
 
         timeline.addInitialState(displayState);
+        //Reset when all vents are set to unidentified
         if((bitState & 512) != 0) {
             if(!getDisplayState().hasDoneVMReset()) log();
             reset();
         }
         if((bitState & VentStatusTimeline.DIRECTION_CHANGED_BIT_MASK) != 0) timeline.addDirectionChangeTick(bitState);
-        if((bitState & 128) != 0) timeline.addMovementTick(displayState);
+
+        //Do an estimated move if a movement update was skips for whatever reason
+        if(movementBitState == 0) {
+            if(++numTicksNoMove == VentStatusTimeline.VENT_MOVE_TICK_TIME) {
+                displayState.updateVentMovement();
+                numTicksNoMove = 0;
+            }
+        }
+
+        if((bitState & 128) != 0) {
+            timeline.addMovementTick(displayState, (movementBitState << 6));
+            updateDisplayState();
+            numTicksNoMove = 0;
+        }
         if((bitState & VentStatusTimeline.IDENTIFIED_BIT_MASK) != 0) {
             timeline.addIdentifiedVentTick(displayState, bitState);
             updateDisplayState();
