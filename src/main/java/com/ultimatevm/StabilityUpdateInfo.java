@@ -11,16 +11,9 @@ public class StabilityUpdateInfo {
     }
     static private int getMaxRNGPossibleSize() { return (numPlayers / 3) + 2;}
 
-    static private boolean isValidResult(StatusState state, int[] missingVentIndices) {
-        for(int i = 0; i < missingVentIndices.length; ++i) {
-            if(!state.getVents()[missingVentIndices[i]].isRangeDefined()) return false;
-        }
-        return true;
-    }
     static public StatusState getPredictionState(StabilityUpdateInfo initialStabUpdate, VentStatusTimeline timeline) {
         if(initialStabUpdate == null) return null;
         StatusState predictionState = new StatusState();
-        int[] missingVentIndices = initialStabUpdate.stabilityUpdateState.getUnidentifiedVentIndices();
         //Iterate until we get a valid uncut range prediction
         int startingRNGMod = initialStabUpdate.RNGUpdateMod;
         for(int i = getMaxRNGPossibleSize() - 1; i >= 0; --i) {
@@ -29,7 +22,7 @@ public class StabilityUpdateInfo {
             initialStabUpdate.calcStabilityChange();
             //Run a prediction with this new mod to see if we get a valid result
             predictionState = timeline.getTimelinePredictionState();
-            if(isValidResult(predictionState, missingVentIndices)) break;
+            if(predictionState.areRangesDefined()) break;
         }
         initialStabUpdate.RNGUpdateMod = startingRNGMod;
         initialStabUpdate.calcStabilityChange();

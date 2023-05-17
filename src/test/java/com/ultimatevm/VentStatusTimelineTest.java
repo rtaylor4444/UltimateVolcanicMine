@@ -7,6 +7,7 @@ import java.util.HashMap;
 
 @Test()
 public class VentStatusTimelineTest {
+    int u = VentStatus.STARTING_VENT_VALUE;
 
     private void advanceTicks(VentStatusTimeline timeline, int numTicks) {
         for(int i = 0; i < numTicks; ++i) timeline.updateTick();
@@ -229,10 +230,117 @@ public class VentStatusTimelineTest {
         Assert.assertTrue(addedState.getVents()[0].isRangeDefined());
     }
 
+    public void addEarthquakeEventTickTest() {
+        //Earthquake event should be added and remove est move
+        VentStatusTimeline MoveStartTimeline = new VentStatusTimeline();
+        advanceTicks(MoveStartTimeline, 10);
+        MoveStartTimeline.addMovementTick(new StatusState(), 0);
+        advanceTicks(MoveStartTimeline, 10);
+        Assert.assertTrue(MoveStartTimeline.addEstimatedMovementTick());
+        MoveStartTimeline.addEarthquakeEventTick();
+        Assert.assertEquals(MoveStartTimeline.getTimeline()[20], (1 << VentStatusTimeline.EARTHQUAKE_EVENT_FLAG));
+    }
+
+    public void addEstimatedMovementTickTest() {
+        VentStatusTimeline MoveStartTimeline = new VentStatusTimeline();
+        int addedEstMoveFlag = (1 << VentStatusTimeline.ESTIMATED_MOVEMENT_FLAG);
+
+        //Should fail since neither a movement or stability update has occured
+        Assert.assertFalse(MoveStartTimeline.addEstimatedMovementTick());
+        Assert.assertNotEquals(MoveStartTimeline.getTimeline()[0], addedEstMoveFlag);
+
+        //Should pass even though no stability update
+        advanceTicks(MoveStartTimeline, 10);
+        MoveStartTimeline.addMovementTick(new StatusState(), 0);
+        advanceTicks(MoveStartTimeline, 10);
+        Assert.assertTrue(MoveStartTimeline.addEstimatedMovementTick());
+        Assert.assertEquals(MoveStartTimeline.getTimeline()[20], addedEstMoveFlag);
+
+        //Should pass even though no movement update
+        VentStatusTimeline StabStartTimeline = new VentStatusTimeline();
+        StatusState state = new StatusState();
+        state.updateVentStatus(new int[]{u, 50, 50}, 0);
+        StabStartTimeline.addStabilityUpdateTick(state, 20);
+        Assert.assertTrue(StabStartTimeline.addEstimatedMovementTick());
+        Assert.assertEquals(StabStartTimeline.getTimeline()[0], (1 << VentStatusTimeline.STABILITY_UPDATE_FLAG) | addedEstMoveFlag);
+
+        //Should fail since an earthquake occured on the same tick
+        advanceTicks(MoveStartTimeline, 10);
+        MoveStartTimeline.addEarthquakeEventTick();
+        Assert.assertFalse(MoveStartTimeline.addEstimatedMovementTick());
+        Assert.assertEquals(MoveStartTimeline.getTimeline()[30], (1 << VentStatusTimeline.EARTHQUAKE_EVENT_FLAG));
+    }
+
+    public void clearMoveSkipEstimatedMoveTest() {
+        int addedEstMoveFlag = (1 << VentStatusTimeline.ESTIMATED_MOVEMENT_FLAG);
+
+        //Movement was skipped here remove the est move
+        VentStatusTimeline MoveStartTimeline1 = new VentStatusTimeline();
+        advanceTicks(MoveStartTimeline1, 10);
+        MoveStartTimeline1.addMovementTick(new StatusState(), 0);
+        advanceTicks(MoveStartTimeline1, 10);
+        Assert.assertTrue(MoveStartTimeline1.addEstimatedMovementTick());
+        Assert.assertEquals(MoveStartTimeline1.getTimeline()[20], addedEstMoveFlag);
+        advanceTicks(MoveStartTimeline1, 10);
+        MoveStartTimeline1.addMovementTick(new StatusState(), 0);
+        Assert.assertEquals(MoveStartTimeline1.getTimeline()[20], 0);
+
+        //Movement was not skipped keep all est moves
+        VentStatusTimeline MoveStartTimeline2 = new VentStatusTimeline();
+        advanceTicks(MoveStartTimeline2, 10);
+        MoveStartTimeline2.addMovementTick(new StatusState(), 0);
+        for(int i = 0; i < 4; ++i) {
+            advanceTicks(MoveStartTimeline2, 10);
+            Assert.assertTrue(MoveStartTimeline2.addEstimatedMovementTick());
+        }
+        advanceTicks(MoveStartTimeline2, 10);
+        MoveStartTimeline2.addMovementTick(new StatusState(), 0);
+
+        int tick = 10;
+        for(int i = 0; i < 4; ++i) {
+            tick += 10;
+            Assert.assertEquals(MoveStartTimeline2.getTimeline()[tick], addedEstMoveFlag);
+        }
+
+
+        //Consec movement edge case; est move should be kept
+        advanceTicks(MoveStartTimeline2, 10);
+        MoveStartTimeline2.addMovementTick(new StatusState(), 0);
+
+        tick = 10;
+        for(int i = 0; i < 4; ++i) {
+            tick += 10;
+            Assert.assertEquals(MoveStartTimeline2.getTimeline()[tick], addedEstMoveFlag);
+        }
+    }
+
+    public void fixPreviousEstimatedMovesTest() {
+        int addedEstMoveFlag = (1 << VentStatusTimeline.ESTIMATED_MOVEMENT_FLAG);
+
+        //Positioning of the est moves should be corrected
+        VentStatusTimeline StabStartTimeline = new VentStatusTimeline();
+        StatusState state = new StatusState();
+        state.updateVentStatus(new int[]{u, 50, 50}, 0);
+        advanceTicks(StabStartTimeline, 22);
+        StabStartTimeline.addStabilityUpdateTick(state, 20);
+        for(int i = 0; i < 3; ++i) {
+            advanceTicks(StabStartTimeline, 10);
+            Assert.assertTrue(StabStartTimeline.addEstimatedMovementTick());
+        }
+        advanceTicks(StabStartTimeline, 5);
+        StabStartTimeline.addMovementTick(new StatusState(), 0);
+        int oldTick = 22, newTick = 27;
+        for(int i = 0; i < 3; ++i) {
+            oldTick += 10;
+            Assert.assertEquals(StabStartTimeline.getTimeline()[oldTick], 0);
+            Assert.assertEquals(StabStartTimeline.getTimeline()[newTick], addedEstMoveFlag);
+            newTick += 10;
+        }
+    }
+
     public void getTimelinePredictionStateIdentifyTest() {
         VentStatusTimeline timeline = new VentStatusTimeline();
         StatusState state = new StatusState();
-        int u = VentStatus.STARTING_VENT_VALUE;
         state.updateVentStatus(new int[]{u,u,u}, 0);
         timeline.addInitialState(state);
 
@@ -270,7 +378,6 @@ public class VentStatusTimelineTest {
     public void getTimelinePredictionStateDirectionTest() {
         VentStatusTimeline timeline = new VentStatusTimeline();
         StatusState state = new StatusState();
-        int u = VentStatus.STARTING_VENT_VALUE;
         state.updateVentStatus(new int[]{u,u,u}, 0);
         timeline.addInitialState(state);
 
@@ -310,7 +417,6 @@ public class VentStatusTimelineTest {
     public void getTimelinePredictionStateMovementTest() {
         VentStatusTimeline timeline = new VentStatusTimeline();
         StatusState state = new StatusState();
-        int u = VentStatus.STARTING_VENT_VALUE;
         state.updateVentStatus(new int[]{50,u,u}, 0);
         timeline.addInitialState(state);
 
@@ -329,7 +435,6 @@ public class VentStatusTimelineTest {
     public void getTimelinePredictionStateStabilityTest() {
         VentStatusTimeline timeline = new VentStatusTimeline();
         StatusState state = new StatusState();
-        int u = VentStatus.STARTING_VENT_VALUE;
         state.updateVentStatus(new int[]{u,75,75}, 0);
         timeline.addInitialState(state);
 
@@ -348,7 +453,6 @@ public class VentStatusTimelineTest {
     public void updatePreviousVentValuesTest() {
         VentStatusTimeline timeline = new VentStatusTimeline();
         StatusState state = new StatusState();
-        int u = VentStatus.STARTING_VENT_VALUE;
         state.updateVentStatus(new int[]{u,u,u}, 0);
         timeline.addInitialState(state);
 
@@ -400,7 +504,6 @@ public class VentStatusTimelineTest {
     public void updatePreviousVentValuesOnMovementTickTest() {
         VentStatusTimeline timeline = new VentStatusTimeline();
         StatusState state = new StatusState();
-        int u = VentStatus.STARTING_VENT_VALUE;
         state.updateVentStatus(new int[]{u,u,u}, 0);
         timeline.addInitialState(state);
 
@@ -433,7 +536,6 @@ public class VentStatusTimelineTest {
     public void updatePreviousVentValuesMissingMovementTest() {
         VentStatusTimeline timeline = new VentStatusTimeline();
         StatusState state = new StatusState();
-        int u = VentStatus.STARTING_VENT_VALUE;
         state.updateVentStatus(new int[]{u,u,u}, 0);
         timeline.addInitialState(state);
 
@@ -483,7 +585,6 @@ public class VentStatusTimelineTest {
     public void updatePreviousVentValuesReverseFailTest() {
         VentStatusTimeline timeline = new VentStatusTimeline();
         StatusState state = new StatusState();
-        int u = VentStatus.STARTING_VENT_VALUE;
         state.updateVentStatus(new int[]{u,u,u}, 7);
         timeline.addInitialState(state);
 
@@ -518,7 +619,6 @@ public class VentStatusTimelineTest {
     public void getCurrentPredictionStateTest() {
         VentStatusTimeline timeline = new VentStatusTimeline();
         StatusState state = new StatusState();
-        int u = VentStatus.STARTING_VENT_VALUE;
         state.updateVentStatus(new int[]{u,u,u}, 0);
         timeline.addInitialState(state);
 
@@ -702,7 +802,6 @@ public class VentStatusTimelineTest {
     public void freezeClippingTest() {
         VentStatusTimeline timeline = new VentStatusTimeline();
         StatusState state = new StatusState();
-        int u = VentStatus.STARTING_VENT_VALUE;
         state.updateVentStatus(new int[]{u,u,u}, 0);
         timeline.addInitialState(state);
 
@@ -734,7 +833,6 @@ public class VentStatusTimelineTest {
     public void sandbox() {
         VentStatusTimeline timeline = new VentStatusTimeline();
         StatusState state = new StatusState();
-        int u = VentStatus.STARTING_VENT_VALUE;
         state.updateVentStatus(new int[]{u,u,u}, 3);
         timeline.addInitialState(state);
 
@@ -799,7 +897,6 @@ public class VentStatusTimelineTest {
     public void sandbox2() {
         VentStatusTimeline timeline = new VentStatusTimeline();
         StatusState state = new StatusState();
-        int u = VentStatus.STARTING_VENT_VALUE;
         state.updateVentStatus(new int[]{u,u,u}, 4);
         timeline.addInitialState(state);
 
@@ -1007,12 +1104,13 @@ public class VentStatusTimelineTest {
 
         //Verify Results - C is a single range
         StatusState predictedState = timeline.getCurrentPredictionState();
+        Assert.assertTrue(predictedState.getVents()[2].isRangeDefined());
+        Assert.assertFalse(predictedState.getVents()[2].isTwoSeperateValues());
     }
 
     public void sandbox3() {
         VentStatusTimeline timeline = new VentStatusTimeline();
         StatusState state = new StatusState();
-        int u = VentStatus.STARTING_VENT_VALUE;
         state.updateVentStatus(new int[]{u,u,u}, 5);
         timeline.addInitialState(state);
 

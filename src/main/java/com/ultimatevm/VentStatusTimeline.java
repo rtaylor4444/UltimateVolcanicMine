@@ -2,8 +2,9 @@ package com.ultimatevm;
 
 import java.io.FileWriter;
 import java.io.IOException;
-import java.util.ArrayList;
+
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.LinkedList;
 
 public class VentStatusTimeline {
@@ -19,6 +20,7 @@ public class VentStatusTimeline {
     public static final int MOVEMENT_UPDATE_FLAG = IDENTIFIED_VENT_FLAG+1;
     public static final int STABILITY_UPDATE_FLAG = MOVEMENT_UPDATE_FLAG+1;
     public static final int EARTHQUAKE_EVENT_FLAG = STABILITY_UPDATE_FLAG+1;
+    public static final int ESTIMATED_MOVEMENT_FLAG = EARTHQUAKE_EVENT_FLAG+1;
 
 
     //Masks
@@ -135,6 +137,42 @@ public class VentStatusTimeline {
             }
         }
     }
+    private void clearMoveSkipEstimatedMove() {
+        int minTick = Math.max(startingTick, currentTick - (int)(VENT_MOVE_TICK_TIME * 2.5f));
+        int prevEstMoveTick = Integer.MIN_VALUE, prevMoveTick = Integer.MIN_VALUE;
+        for(int i = currentTick-1; i >= minTick; --i) {
+            if((timeline[i] & (1 << ESTIMATED_MOVEMENT_FLAG)) != 0) {
+                //exit if consecutive estimated movement (means no skip)
+                if(prevEstMoveTick != Integer.MIN_VALUE) return;
+                prevEstMoveTick = i;
+            }
+            if((timeline[i] & (1 << MOVEMENT_UPDATE_FLAG)) != 0) {
+                //exit if consecutive movement (means no skip)
+                if(prevMoveTick != Integer.MIN_VALUE) return;
+                prevMoveTick = i;
+            }
+        }
+        //Exit if either estimated or actual movement tick are not found
+        if(prevEstMoveTick == Integer.MIN_VALUE || prevMoveTick == Integer.MIN_VALUE) return;
+        //Exit if the previous movement tick is after the estimated one
+        if(prevMoveTick > prevEstMoveTick) return;
+        //remove estimated movement tick was added since a movement tick was skipped
+        timeline[prevEstMoveTick] &= ~(1 << ESTIMATED_MOVEMENT_FLAG);
+    }
+    private void fixPreviousEstimatedMoves() {
+        //If there was no stab update there is no est move to fix
+        if(initialStabInfo == null) return;
+        int updateTick = currentTick % VENT_MOVE_TICK_TIME;
+        for(int i = currentTick-1; i >= startingTick; --i) {
+            //Exit before the first stability update occured
+            //(impossible for there to be any est moves)
+            if(i < initialStabInfo.getTickTimeStamp()) break;
+            //Clear estimated movement flag
+            timeline[i] &= ~(1 << ESTIMATED_MOVEMENT_FLAG);
+            if(i % VENT_MOVE_TICK_TIME == updateTick)
+                addEstimatedMovementTick(i);
+        }
+    }
 
     public void addDirectionChangeTick(int bitState) {
         timeline[currentTick] |= (bitState & DIRECTION_CHANGED_BIT_MASK);
@@ -142,11 +180,15 @@ public class VentStatusTimeline {
     }
     public void addEarthquakeEventTick() {
         timeline[currentTick] |= (1 << EARTHQUAKE_EVENT_FLAG);
+        //Clear estimated movement flag
+        timeline[currentTick] &= ~(1 << ESTIMATED_MOVEMENT_FLAG);
     }
     public void addMovementTick(StatusState currentState, int movementBitState) {
         addNewMovementTickState(currentTick, currentState, movementBitState);
+        clearMoveSkipEstimatedMove();
         //Update previous values on the very first movement update (likely after a vent check)
         if(currentMovementTick == startingTick) {
+            fixPreviousEstimatedMoves();
             updatePreviousVentValues(currentState, currentTick);
         }
         currentMovementTick = currentTick;
@@ -154,39 +196,84 @@ public class VentStatusTimeline {
     public void addStabilityUpdateTick(StatusState currentState, int change) {
         addNewStabilityUpdateTickState(currentTick, currentState, change);
     }
-
+    public boolean addEstimatedMovementTick() {
+        //We can only add estimates if at least 1 movement or stability update occured
+        if(currentMovementTick == startingTick && initialStabInfo == null) return false;
+        return addEstimatedMovementTick(currentTick);
+    }
+    private boolean addEstimatedMovementTick(int tick) {
+        //Estimated movements cannot occur same tick as an earthquake
+        if((timeline[tick] & (1 << EARTHQUAKE_EVENT_FLAG)) != 0)
+            return false;
+        timeline[tick] |= (1 << ESTIMATED_MOVEMENT_FLAG);
+        return true;
+    }
     public StatusState getTimelinePredictionState() {
+        LinkedList<StatusState> possibleStates = new LinkedList<>();
         StatusState predictedState = new StatusState(initialState);
+        possibleStates.push(predictedState);
         for(int i = startingTick+1; i <= currentTick; ++i) {
             if((timeline[i] & (1 << IDENTIFIED_VENT_FLAG)) != 0) {
                 int idFlags = timeline[i] & IDENTIFIED_BIT_MASK;
-                if((idFlags & 1) != 0) {
-                    predictedState.setVentEqualTo(identifiedVentStates[0], 0);
-                }
-                if((idFlags & 2) != 0) {
-                    predictedState.setVentEqualTo(identifiedVentStates[1], 1);
-                }
-                if((idFlags & 4) != 0) {
-                    predictedState.setVentEqualTo(identifiedVentStates[2], 2);
+                Iterator<StatusState> iterator = possibleStates.descendingIterator();
+                while (iterator.hasNext()) {
+                    StatusState curState = iterator.next();
+                    if ((idFlags & 1) != 0) {
+                        curState.setVentEqualTo(identifiedVentStates[0], 0);
+                    }
+                    if ((idFlags & 2) != 0) {
+                        curState.setVentEqualTo(identifiedVentStates[1], 1);
+                    }
+                    if ((idFlags & 4) != 0) {
+                        curState.setVentEqualTo(identifiedVentStates[2], 2);
+                    }
                 }
             }
             if((timeline[i] & (1 << DIRECTION_CHANGED_FLAG)) != 0) {
                 //Change our direction if it occured this tick
-                changeStateDirection(predictedState, i);
+                Iterator<StatusState> iterator = possibleStates.descendingIterator();
+                while (iterator.hasNext()) {
+                    changeStateDirection(iterator.next(), i);
+                }
+            }
+            if((timeline[i] & (1 << ESTIMATED_MOVEMENT_FLAG)) != 0) {
+                StatusState newPossibility = new StatusState(possibleStates.getLast());
+                newPossibility.doFreezeClipping(0);
+                newPossibility.updateVentMovement();
+                possibleStates.addLast(newPossibility);
+                //Set predicted state to the new up to date possibility
+                //Only set if value wasnt freeze clipped
+                if(newPossibility.areRangesDefined()) predictedState = newPossibility;
             }
             if((timeline[i] & (1 << MOVEMENT_UPDATE_FLAG)) != 0) {
-                //Update our estimated vent values
-                syncWithMovementState(predictedState, i);
                 int moveBitState = timeline[i] & MOVEMENT_BIT_MASK;
-                predictedState.doFreezeClipping(moveBitState >> 6);
-                predictedState.updateVentMovement();
+                Iterator<StatusState> iterator = possibleStates.descendingIterator();
+                while (iterator.hasNext()) {
+                    StatusState curState = iterator.next();
+                    curState.doFreezeClipping(moveBitState >> 6);
+                    //Update our estimated vent values
+                    syncWithMovementState(curState, i);
+                    curState.updateVentMovement();
+                }
             }
             if((timeline[i] & (1 << STABILITY_UPDATE_FLAG)) != 0) {
-                //Use stability updates to set/narrow our possible values
-                StabilityUpdateInfo stabilityInfo = tickToStabilityUpdateState.get(i);
-                if(stabilityInfo == initialStabInfo)
-                    predictedState.mergePredictedRangesWith(initialStabInfo.getStabilityUpdateState());
-                else stabilityInfo.updatePredictedState(predictedState);
+                Iterator<StatusState> iterator = possibleStates.descendingIterator();
+                while (iterator.hasNext()) {
+                    StatusState curState = iterator.next();
+                    //Use stability updates to set/narrow our possible values
+                    StabilityUpdateInfo stabilityInfo = tickToStabilityUpdateState.get(i);
+                    if (stabilityInfo == initialStabInfo)
+                        curState.mergePredictedRangesWith(initialStabInfo.getStabilityUpdateState());
+                    else stabilityInfo.updatePredictedState(curState);
+                }
+                //Remove all invalid possibilities - always keep 1 state even if invalid
+                iterator = possibleStates.descendingIterator();
+                while (iterator.hasNext()) {
+                    if(possibleStates.size() == 1) break;
+                    StatusState curState = iterator.next();
+                    if(!curState.areRangesDefined()) iterator.remove();
+                }
+                predictedState = possibleStates.getLast();
             }
         }
         return predictedState;
@@ -313,6 +400,7 @@ public class VentStatusTimeline {
         return true;
     }
 
+
     //Accessors
     public int getCurrentTick() { return currentTick; }
     public int getCurrentStartingTick() {return startingTick;}
@@ -425,6 +513,9 @@ public class VentStatusTimeline {
             if((timeline[i] & (1 << EARTHQUAKE_EVENT_FLAG)) != 0) {
                 logText("On tick: " + i + " there was an earthquake event");
             }
+            if((timeline[i] & (1 << ESTIMATED_MOVEMENT_FLAG)) != 0) {
+                logText("On tick: " + i + " we added estimated movement");
+            }
             if((timeline[i] & (1 << MOVEMENT_UPDATE_FLAG)) != 0) {
                 logText("On tick: " + i + " there was a movement update");
                 StatusState moveState = tickToMovementVentState.get(i);
@@ -432,9 +523,9 @@ public class VentStatusTimeline {
                 if(moveState.isAllVentsIdentified()) {
                     logText("Calculated Stability: " + StatusState.calcStabilityChange(moveState));
                 }
-                syncWithMovementState(predictedState, i);
                 int moveBitState = timeline[i] & MOVEMENT_BIT_MASK;
                 predictedState.doFreezeClipping(moveBitState >> 6);
+                syncWithMovementState(predictedState, i);
                 predictedState.updateVentMovement();
             }
             if((timeline[i] & (1 << STABILITY_UPDATE_FLAG)) != 0) {

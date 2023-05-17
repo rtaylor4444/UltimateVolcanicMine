@@ -173,6 +173,9 @@ public class StatusState {
                         //B cannot freeze unless A is 41-59
                         vents[0].doInnerBoundsClipping(41, 59);
                     } else if(curMove == 1) {
+                        //Skip if B could be bounded
+                        int actualValue = vents[i].getActualValue();
+                        if(actualValue == 1 || actualValue == 99) return;
                         //If B is 41-59 A must be outside of 41-59
                         if(vents[i].isWithinRange(41, 59)) vents[0].doOuterBoundsClipping(41, 59);
                         //Otherwise A must be 41-59 to slow B's movement
@@ -300,4 +303,12 @@ public class StatusState {
     public final VentStatus[] getVents() { return vents; }
     public int getStabilityChange() { return stabilityChange; }
     public int getNumIdentifiedVents() { return numIdentifiedVents; }
+    public boolean areRangesDefined() {
+        //All ranges must be defined for this
+        int[] missingVentIndices = getUnidentifiedVentIndices();
+        for(int i = 0; i < missingVentIndices.length; ++i) {
+            if(!vents[missingVentIndices[i]].isRangeDefined()) return false;
+        }
+        return true;
+    }
 }

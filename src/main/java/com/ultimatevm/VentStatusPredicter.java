@@ -116,7 +116,7 @@ public class VentStatusPredicter {
         //Do an estimated move if a movement update was skips for whatever reason
         if(movementBitState == 0) {
             if(++numTicksNoMove == VentStatusTimeline.VENT_MOVE_TICK_TIME) {
-                displayState.updateVentMovement();
+                if(timeline.addEstimatedMovementTick()) updateDisplayState();
                 numTicksNoMove = 0;
             }
         }

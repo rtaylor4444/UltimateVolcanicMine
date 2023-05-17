@@ -768,6 +768,16 @@ public class StatusStateTest {
         Assert.assertEquals(vent.getUpperBoundStart(), 42);
         Assert.assertEquals(vent.getUpperBoundEnd(), 44);
 
+        //B is bounded with 1 move edge case - dont clip anything
+        state.updateVentStatus(new int[]{u, 1, 50}, 0);
+        vent.setLowerBoundRange(30, 33);
+        vent.setUpperBoundRange(42, 44);
+        state.doFreezeClipping(makeMoveBitState(2, 1, 0));
+        Assert.assertEquals(vent.getLowerBoundStart(), 30);
+        Assert.assertEquals(vent.getLowerBoundEnd(), 33);
+        Assert.assertEquals(vent.getUpperBoundStart(), 42);
+        Assert.assertEquals(vent.getUpperBoundEnd(), 44);
+
         //B is outside 41-59 with 2 move
         vent.setLowerBoundRange(30, 33);
         vent.setUpperBoundRange(42, 44);
