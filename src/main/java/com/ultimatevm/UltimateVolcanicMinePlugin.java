@@ -20,6 +20,7 @@ import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDescriptor;
 import net.runelite.client.ui.overlay.infobox.InfoBoxManager;
 import net.runelite.client.ui.overlay.OverlayManager;
+import net.runelite.client.util.Text;
 import net.runelite.api.widgets.Widget;
 
 @Slf4j
@@ -70,13 +71,11 @@ public class UltimateVolcanicMinePlugin extends Plugin
 	private static final int GAME_OBJ_CHAMBER_UNBLOCKED = 31043;
 	private static final int GAME_OBJ_TAKEN_ROCK = 31046;
 	private static final int GAME_OBJ_ROCK = 31045;
-
-	private static final int VM_GAME_FULL_TIME = 1000;
-	private static final int VM_GAME_RESET_TIME = 500;
 	private static final int VM_EXIT_TIME = 50;
 	private static final int VM_LOBBY_TIME = 50;
+
 	private static final float SECONDS_TO_TICKS = 1.666f;
-	private static final int VENT_MOVE_TICK_TIME = 10;
+
 
 	private VentStatusPredicter ventStatusPredicter = new VentStatusPredicter();
 	private StabilityTracker stabilityTracker = new StabilityTracker();
@@ -87,9 +86,7 @@ public class UltimateVolcanicMinePlugin extends Plugin
 	private CapCounterInfoBox capInfoBox;
 	private int vmGameState = VM_GAME_STATE_NONE;
 	private int ventStatus[] = new int[3];
-	private int varbitsUpdated = 0;
 	private int timeRemainingFromServer, estimatedTimeRemaining;
-	private int ticksPassed, movementUpdateTick;
 	private int eruptionTime, ventWarningTime;
 	private int maxPlayerCount;
 
@@ -119,6 +116,8 @@ public class UltimateVolcanicMinePlugin extends Plugin
 	@Override
 	protected void startUp() throws Exception {
 		VM_notifier = new VMNotifier(config);
+		stabilityTracker.setDisplayCount(config.stabilityUpdateHistoryCount());
+		futureStabilityTracker.setDisplayCount(config.predictedStabilityChangeHistoryCount());
 		capInfoBox = new CapCounterInfoBox(capCounter, this);
 		cappingRockOverlay.setRockTracker(rockTracker);
 		overlayManager.add(cappingRockOverlay);
@@ -152,13 +151,14 @@ public class UltimateVolcanicMinePlugin extends Plugin
 	public void onGameTick(GameTick tick) {
 		if(!isInVM()) {
 			vmGameState = VM_GAME_STATE_NONE;
+			StabilityUpdateInfo.resetPlayers();
 			infoBoxManager.removeInfoBox(capInfoBox);
 			resetGameVariables();
 			return;
 		}
 
 		if(maxPlayerCount > config.expectedTeamSize())
-			VM_notifier.notify(notifier, VMNotifier.NotificationEvents.VM_EXTRA_PLAYER, ticksPassed);
+			VM_notifier.notify(notifier, VMNotifier.NotificationEvents.VM_EXTRA_PLAYER, ventStatusPredicter.getCurrentTick());
 
 		int newTimeRemaining = client.getVarbitValue(VARBIT_TIME_REMAINING);
 		if(newTimeRemaining != timeRemainingFromServer) {
@@ -167,22 +167,25 @@ public class UltimateVolcanicMinePlugin extends Plugin
 
 		if(!hasGameStarted()) return;
 
+		StabilityUpdateInfo.setNumPlayers(client.getVarbitValue(VARBIT_PLAYER_COUNT));
 		rockTracker.updateRockTimers();
 
 		updateVentStatus(client.getVarbitValue(VARBIT_VENT_STATUS_A),
 				client.getVarbitValue(VARBIT_VENT_STATUS_B),
 				client.getVarbitValue(VARBIT_VENT_STATUS_C),
 				client.getVarbitValue(VARBIT_CHAMBER_STATUS));
-		//Update our movement on the same exact tick the vent status changes
-		if(ticksPassed % VENT_MOVE_TICK_TIME == movementUpdateTick) {
-			updateVentMovement();
-
+		//Update our predicted stability change on the same exact tick the vent status changes
+		if(ventStatusPredicter.isMovementUpdateTick()) {
 			//Check if we have to fix vents in the future
 			int futureChange = ventStatusPredicter.getFutureStabilityChange(config.predictedVentFixScenario());
 			if(futureChange != VentStatus.STARTING_VENT_VALUE) {
 				futureStabilityTracker.addChange(futureChange);
-				if (futureStabilityTracker.isFutureStabilityBad(config.predictedStabilityChange()) && estimatedTimeRemaining > 595)
-					VM_notifier.notify(notifier, VMNotifier.NotificationEvents.VM_PREDICTED_VENT_FIX, ticksPassed);
+				if (futureStabilityTracker.isFutureStabilityBad(config.predictedStabilityChange())) {
+					int startTime = 900 - (int)(config.predictedventWarningStartTime() * SECONDS_TO_TICKS);
+					int endTime = 600 + (int)(config.predictedventWarningEndTime() * SECONDS_TO_TICKS);
+					if(estimatedTimeRemaining < startTime && estimatedTimeRemaining > endTime)
+						VM_notifier.notify(notifier, VMNotifier.NotificationEvents.VM_PREDICTED_VENT_FIX, ventStatusPredicter.getCurrentTick());
+				}
 			}
 		}
 
@@ -199,41 +202,52 @@ public class UltimateVolcanicMinePlugin extends Plugin
 
 			//Check if we have to fix vents now
 			if(stabilityTracker.getCurrentChange() < 0 && estimatedTimeRemaining > 595)
-				VM_notifier.notify(notifier, VMNotifier.NotificationEvents.VM_PRE_RESET_VENT_FIX, ticksPassed);
+				VM_notifier.notify(notifier, VMNotifier.NotificationEvents.VM_PRE_RESET_VENT_FIX, ventStatusPredicter.getCurrentTick());
 		}
 
-		//Ensure reset will not happen at start before the server sends the new game time
+		//Ensure reset will not happen at the very start before the server sends the new game time
 		//Reset around 5:00 when the server sends new unidentified vent
-		if(ticksPassed > VMNotifier.NOTIFICATION_START_COOLDOWN_TICKS &&
-				estimatedTimeRemaining <= VM_GAME_RESET_TIME) {
+		if(ventStatusPredicter.getCurrentTick() > VMNotifier.NOTIFICATION_START_COOLDOWN_TICKS &&
+				timeRemainingFromServer <= VentStatusTimeline.VM_GAME_RESET_TIME) {
 			stabilityTracker.resetStabilityHistory();
 			futureStabilityTracker.resetStabilityHistory();
-			ventStatusPredicter.reset();
 		}
 
-		if (estimatedTimeRemaining <= (VM_GAME_RESET_TIME + ventWarningTime))
-			VM_notifier.notify(notifier, VMNotifier.NotificationEvents.VM_RESET, ticksPassed);
+		int currentTick = ventStatusPredicter.getCurrentTick();
+		if (estimatedTimeRemaining <= (VentStatusTimeline.VM_GAME_RESET_TIME + ventWarningTime))
+			VM_notifier.notify(notifier, VMNotifier.NotificationEvents.VM_RESET, currentTick);
 
-		if (estimatedTimeRemaining <= eruptionTime)
-			VM_notifier.notify(notifier, VMNotifier.NotificationEvents.VM_ERUPTION, ticksPassed);
+		if (estimatedTimeRemaining <= eruptionTime) {
+			VM_notifier.notify(notifier, VMNotifier.NotificationEvents.VM_ERUPTION, currentTick);
+		}
 
-		++ticksPassed;
+		ventStatusPredicter.getTimeline().updateTick();
 	}
 
+	@Subscribe
+	public void onChatMessage(ChatMessage event)
+	{
+		if (event.getType() != ChatMessageType.GAMEMESSAGE && event.getType() != ChatMessageType.SPAM)
+			return;
+
+		// Remove colour and line breaks
+		String chatMsg = Text.removeTags(event.getMessage());
+
+		// Mark when an earthquake occurs
+		if (chatMsg.equals("A sudden earthquake strikes the cavern!")) {
+			ventStatusPredicter.markEarthquakeEvent();
+		}
+	}
 	//Helper functions for testing
 	public boolean updateStability(int newStability) {
 		if(stabilityTracker.updateStability(newStability)) {
-			ventStatusPredicter.makeStatusState(client, stabilityTracker.getCurrentChange());
+			ventStatusPredicter.makeStatusState(stabilityTracker.getCurrentChange());
 			return true;
 		}
 		return false;
 	}
 	public void updateVentStatus(int ventA, int ventB, int ventC, int chamberStatus) {
 		ventStatusPredicter.updateVentStatus(new int[]{ventA, ventB, ventC}, chamberStatus);
-	}
-	public void updateVentMovement() {
-		ventStatusPredicter.updateVentMovement();
-		varbitsUpdated = 0;
 	}
 	public final VentStatusPredicter getVentStatusPredicter() { return ventStatusPredicter; }
 
@@ -252,7 +266,7 @@ public class UltimateVolcanicMinePlugin extends Plugin
 		if(event.getVarbitId() == VARBIT_PLAYER_COUNT) {
 			//Skip this check if its time to exit the mine
 			if (estimatedTimeRemaining <= VM_EXIT_TIME) return;
-			VM_notifier.notify(notifier, VMNotifier.NotificationEvents.VM_PLAYER_LEAVE, ticksPassed);
+			VM_notifier.notify(notifier, VMNotifier.NotificationEvents.VM_PLAYER_LEAVE, ventStatusPredicter.getCurrentTick());
 		}
 
 		//Keep track of points for our cap counter
@@ -264,17 +278,6 @@ public class UltimateVolcanicMinePlugin extends Plugin
 				if (capCounter.getTimesCapped() == 1) infoBoxManager.addInfoBox(capInfoBox);
 			}
 		}
-
-		//Do not get the movement update tick until at least 1 vent
-		//is identified
-		if(!ventStatusPredicter.areAnyVentIdentified()) return;
-
-		if(event.getVarbitId() == VARBIT_VENT_STATUS_A) varbitsUpdated |= 1;
-		if(event.getVarbitId() == VARBIT_VENT_STATUS_B) varbitsUpdated |= 2;
-		if(event.getVarbitId() == VARBIT_VENT_STATUS_C) varbitsUpdated |= 4;
-
-		if(varbitsUpdated != 0 && movementUpdateTick == -1)
-			movementUpdateTick = ticksPassed % VENT_MOVE_TICK_TIME;
 	}
 
 	@Subscribe
@@ -314,16 +317,13 @@ public class UltimateVolcanicMinePlugin extends Plugin
 		if(gameObjectId == GAME_OBJ_ROCK) {
 			rockTracker.addRock(event.getGameObject().getWorldLocation());
 		}
-
 	}
 
 	private void resetGameVariables() {
 		VM_notifier.reset();
 		capCounter.initialize();
 		rockTracker.clearRocks();
-		varbitsUpdated = timeRemainingFromServer = 0;
-		estimatedTimeRemaining = ticksPassed = 0;
-		movementUpdateTick = -1;
+		estimatedTimeRemaining = timeRemainingFromServer = 0;
 		maxPlayerCount = 0;
 	}
 	private boolean hasGameStarted() {
@@ -371,7 +371,6 @@ public class UltimateVolcanicMinePlugin extends Plugin
 			}
 		}
 	}
-
 	@Subscribe
 	public void onNpcSpawned(NpcSpawned npcSpawned)
 	{
@@ -397,6 +396,7 @@ public class UltimateVolcanicMinePlugin extends Plugin
 			default:
 				break;
 		}
+
 	}
 	private boolean isInVM()
 	{

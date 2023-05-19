@@ -6,9 +6,11 @@ import java.util.Iterator;
 public class StabilityTracker {
 
     //Constants
-    private static final int STARTING_STABILITY = 50;
+    public static final int STARTING_STABILITY = 50;
     private static final int MAX_STABILITY = 100;
     private static final int MAX_STABILITY_UPDATES = 3;
+    private static final int MIN_STABILITY_CHANGE = -28;
+    private static final int MAX_STABILITY_CHANGE = 24;
 
     private boolean hasResetHistory = false;
     private int currentStability;
@@ -17,13 +19,13 @@ public class StabilityTracker {
 
     public StabilityTracker() {
         initialize();
+        numDisplay = 3;
     }
 
     public void initialize() {
         currentStability = STARTING_STABILITY;
         stabilityHistory.clear();
         hasResetHistory = false;
-        numDisplay = 3;
     }
 
     public void resetStabilityHistory() {
@@ -35,6 +37,8 @@ public class StabilityTracker {
     public boolean updateStability(int newStability) {
         if(currentStability == newStability) return false;
         int change = newStability - currentStability;
+        if(change > MAX_STABILITY_CHANGE || change < MIN_STABILITY_CHANGE) return false;
+
         currentStability = newStability;
 
         addChange(change);
@@ -57,8 +61,9 @@ public class StabilityTracker {
     }
 
     public boolean isFutureStabilityBad(int stabilityThreshold) {
-        int trend = calcTrend();
-        if(trend >= 0) return false;
+        int trend = 0;
+//        int trend = calcTrend();
+//        if(trend >= 0) return false;
         return getCurrentChange() + trend <= stabilityThreshold;
     }
     public String getStabilityText() {
