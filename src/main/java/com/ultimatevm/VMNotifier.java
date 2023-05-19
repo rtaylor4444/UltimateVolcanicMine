@@ -46,6 +46,7 @@ public class VMNotifier {
             notifier.notify("An extra player has joined your team!");
             oneTimeEvents.remove(event);
         }
+
         if(ticksPassed <= NOTIFICATION_START_COOLDOWN_TICKS) return;
 
         switch (event) {
@@ -77,6 +78,9 @@ public class VMNotifier {
                 oneTimeEvents.remove(event);
                 if(!config.predictedVentFixNotifier()) return;
                 notifier.notify("Be alert you might have to fix your vent soon!");
+                break;
+
+            default:
                 break;
 
             default:

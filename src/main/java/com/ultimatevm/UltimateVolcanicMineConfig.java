@@ -69,7 +69,7 @@ public interface UltimateVolcanicMineConfig extends Config
 	)
 	default int predictedStabilityChangeHistoryCount()
 	{
-		return 3;
+		return 1;
 	}
 	@ConfigItem(
 			position = 5,
@@ -175,7 +175,7 @@ public interface UltimateVolcanicMineConfig extends Config
 	)
 	default boolean showBoulderWarning()
 	{
-		return false;
+		return true;
 	}
 	@ConfigItem(
 			position = 6,
@@ -263,6 +263,7 @@ public interface UltimateVolcanicMineConfig extends Config
 	default int predictedventWarningEndTime()
 	{
 		return 30;
+
 	}
 
 	@ConfigSection(
