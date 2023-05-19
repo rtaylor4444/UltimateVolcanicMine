@@ -7,6 +7,7 @@ import java.util.ArrayList;
 
 public class VentStatusPredicter {
     public static final int SLOWEST_VENT_UPDATE_TICK = VentStatusTimeline.VENT_MOVE_TICK_TIME-1;
+    public static final int HIGHEST_STABLE_RNG_PLAYER_COUNT = 8;
 
     private VentStatusTimeline timeline;
     private StatusState displayState;
@@ -132,6 +133,7 @@ public class VentStatusPredicter {
         }
     }
     private void updateDisplayState() {
+        if(StabilityUpdateInfo.getNumPlayers() > HIGHEST_STABLE_RNG_PLAYER_COUNT) return;
         if(displayState.isAllVentsIdentified()) return;
         StatusState predictedState = timeline.getCurrentPredictionState();
         if(predictedState == null) return;

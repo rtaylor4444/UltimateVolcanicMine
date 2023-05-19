@@ -10,7 +10,8 @@ public class SimulationTests {
     int directionBitState, currentTick;
 
     //Helpers
-    private void createPredicter(int dir, int tick) {
+    private void createPredicter(int dir, int tick, int size) {
+        StabilityUpdateInfo.setNumPlayers(size);
         predicter = new VentStatusPredicter();
         ventValues = new int[]{u,u,u};
         ventDirection = new int[]{0,0,0};
@@ -82,7 +83,7 @@ public class SimulationTests {
     }
 
     public void simulateFreezeClipAFreezeThresholdCross() {
-        createPredicter(1, 500);
+        createPredicter(1, 500, 1);
         doEarthquake(505);
         doIdentifyVent(523, u, 66, u);
         doMovementUpdateByValue(530, u, 64, u);
@@ -125,7 +126,7 @@ public class SimulationTests {
     }
 
     public void simulateFreezeClipABoundThresholdCross() {
-        createPredicter(0, 500);
+        createPredicter(0, 500, 1);
         doIdentifyVent(500, u, u, 33);
         doMovementUpdateByValue(509, u, u, 31);
         identifyVent(u, 3, u);
@@ -140,7 +141,7 @@ public class SimulationTests {
     }
 
     public void simulateEstimatedMoveRemoved() {
-        createPredicter(4, 500);
+        createPredicter(4, 500, 1);
         doIdentifyVent(501, u, u, 41);
         doMovementUpdateByValue(509, u, u, 42);
         doMovementUpdateByValue(519, u, u, 43);
@@ -168,7 +169,7 @@ public class SimulationTests {
     }
 
     public void simulateFlickeringA() {
-        createPredicter(6, 0);
+        createPredicter(6, 0, 1);
         doStabilityUpdate(24, 15);
         doIdentifyVent(43, u, 60, u);
         doSameTickMovementStabilityUpdate(49, u, 62, u, 12);
@@ -190,5 +191,23 @@ public class SimulationTests {
 
         StatusState predictedState = predicter.getDisplayState();
         Assert.assertTrue(predictedState.getVents()[0].isRangeDefined());
+    }
+
+    public void simulateSize3_5() {
+//        createPredicter(0, 0, 5);
+//        doStabilityUpdate(24, 14);
+//        doIdentifyVent(33, u, 37, u);
+//        updateVentDirection(2);
+//        doMovementUpdateByValue(39, u, 36, u);
+//        doSameTickMovementStabilityUpdate(49, u, 37, u, 9);
+//        doIdentifyVent(53, 42, u, u);
+//        doEarthquake(54);
+//        doMovementUpdateByValue(59, 41, 38, u);
+//        doMovementUpdateByValue(69, 40, 39, u);
+//        doStabilityUpdate(74, 8);
+//        doDirectionChange(78, 3);
+//        doMovementUpdateByValue(79, 42, 41, u);
+//
+//        StatusState predictedState = predicter.getDisplayState();
     }
 }

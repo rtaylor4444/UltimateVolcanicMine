@@ -149,6 +149,7 @@ public class UltimateVolcanicMinePlugin extends Plugin
 	public void onGameTick(GameTick tick) {
 		if(!isInVM()) {
 			vmGameState = VM_GAME_STATE_NONE;
+			StabilityUpdateInfo.resetPlayers();
 			infoBoxManager.removeInfoBox(capInfoBox);
 			resetGameVariables();
 			return;
@@ -177,8 +178,12 @@ public class UltimateVolcanicMinePlugin extends Plugin
 			int futureChange = ventStatusPredicter.getFutureStabilityChange(config.predictedVentFixScenario());
 			if(futureChange != VentStatus.STARTING_VENT_VALUE) {
 				futureStabilityTracker.addChange(futureChange);
-				if (futureStabilityTracker.isFutureStabilityBad(config.predictedStabilityChange()) && estimatedTimeRemaining > 595)
-					VM_notifier.notify(notifier, VMNotifier.NotificationEvents.VM_PREDICTED_VENT_FIX, ventStatusPredicter.getCurrentTick());
+				if (futureStabilityTracker.isFutureStabilityBad(config.predictedStabilityChange())) {
+					int startTime = 900 - (int)(config.predictedventWarningStartTime() * SECONDS_TO_TICKS);
+					int endTime = 600 + (int)(config.predictedventWarningEndTime() * SECONDS_TO_TICKS);
+					if(estimatedTimeRemaining < startTime && estimatedTimeRemaining > endTime)
+						VM_notifier.notify(notifier, VMNotifier.NotificationEvents.VM_PREDICTED_VENT_FIX, ventStatusPredicter.getCurrentTick());
+				}
 			}
 		}
 

@@ -46,32 +46,35 @@ public class VMNotifier {
             notifier.notify("An extra player has joined your team!");
             oneTimeEvents.remove(event);
         }
-
         if(ticksPassed <= NOTIFICATION_START_COOLDOWN_TICKS) return;
-        oneTimeEvents.remove(event);
 
         switch (event) {
             case VM_PLAYER_LEAVE:
+                oneTimeEvents.remove(event);
                 if(!config.playerLeaveNotifier()) return;
                 notifier.notify("A player has left the mine!");
                 break;
 
             case VM_RESET:
+                oneTimeEvents.remove(event);
                 if(!config.showVentWarning()) return;
                 notifier.notify("The vents will shift in " + config.ventWarningTime() + " seconds!");
                 break;
 
             case VM_ERUPTION:
+                oneTimeEvents.remove(event);
                 if(!config.showEruptionWarning()) return;
                 notifier.notify("The volcano will erupt in " + config.eruptionWarningTime() + " seconds!");
                 break;
 
             case VM_PRE_RESET_VENT_FIX:
+                oneTimeEvents.remove(event);
                 if(!config.ventFixNotifier()) return;
                 notifier.notify("Fix your vent!");
                 break;
 
             case VM_PREDICTED_VENT_FIX:
+                oneTimeEvents.remove(event);
                 if(!config.predictedVentFixNotifier()) return;
                 notifier.notify("Be alert you might have to fix your vent soon!");
                 break;

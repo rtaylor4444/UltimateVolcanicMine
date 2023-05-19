@@ -188,33 +188,41 @@ public interface UltimateVolcanicMineConfig extends Config
 	{
 		return true;
 	}
+
+	@ConfigSection(
+			name = "Predicted Pre Reset Fix",
+			description = "Options for customizing your predicted vent fix",
+			position = 2,
+			closedByDefault = false
+	)
+	String preresetfix = "predicted pre reset fix";
 	@ConfigItem(
-			position = 7,
+			position = 0,
 			keyName = "predictedVentFixNotifier",
 			name = "Predicted Vent Fix notifier",
 			description = "Notifies when predicted stability change drops below a specific amount",
-			section = notifications
+			section = preresetfix
 	)
 	default boolean predictedVentFixNotifier()
 	{
-		return true;
+		return false;
 	}
 	@ConfigItem(
 			keyName = "predictedVentFixScenario",
 			name = "Prediction Scenario",
 			description = "Uses best or worst case scenario when predicting fixes or stability changes",
-			position = 8,
-			section = notifications
+			position = 1,
+			section = preresetfix
 	)
 	default PredictionScenario predictedVentFixScenario() {
 		return PredictionScenario.WORST_CASE;
 	}
 	@ConfigItem(
 			keyName = "predictedStabilityChange",
-			name = "Predicted Stability Change",
+			name = "Stability Change",
 			description = "The estimated change before a recommended vent fix",
-			position = 9,
-			section = notifications
+			position = 2,
+			section = preresetfix
 	)
 	@Range(
 			max = 13,
@@ -222,7 +230,39 @@ public interface UltimateVolcanicMineConfig extends Config
 	)
 	default int predictedStabilityChange()
 	{
-		return 1;
+		return 12;
+	}
+	@ConfigItem(
+			keyName = "predictedventWarningStartTime",
+			name = "Warning Start Time",
+			description = "Number of seconds after 9:00 to suggest a vent fix",
+			position = 3,
+			section = preresetfix
+	)
+	@Range(
+			max = 60,
+			min = 1
+	)
+	@Units(Units.SECONDS)
+	default int predictedventWarningStartTime()
+	{
+		return 15;
+	}
+	@ConfigItem(
+			keyName = "predictedventWarningEndTime",
+			name = "Warning End Time",
+			description = "Number of seconds before 6:00 to suggest a vent fix",
+			position = 4,
+			section = preresetfix
+	)
+	@Range(
+			max = 60,
+			min = 1
+	)
+	@Units(Units.SECONDS)
+	default int predictedventWarningEndTime()
+	{
+		return 30;
 	}
 
 	@ConfigSection(
