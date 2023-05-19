@@ -82,9 +82,6 @@ public class VMNotifier {
 
             default:
                 break;
-
-            default:
-                break;
         }
     }
 }
