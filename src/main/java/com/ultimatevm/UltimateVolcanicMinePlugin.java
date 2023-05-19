@@ -142,6 +142,8 @@ public class UltimateVolcanicMinePlugin extends Plugin
 			stabilityTracker.initialize();
 			ventStatusPredicter.initialize();
 			futureStabilityTracker.initialize();
+			stabilityTracker.setDisplayCount(config.stabilityUpdateHistoryCount());
+			futureStabilityTracker.setDisplayCount(config.predictedStabilityChangeHistoryCount());
 			resetGameVariables();
 		}
 	}
