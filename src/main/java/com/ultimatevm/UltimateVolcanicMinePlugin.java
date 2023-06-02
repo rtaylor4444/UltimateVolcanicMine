@@ -165,7 +165,6 @@ public class UltimateVolcanicMinePlugin extends Plugin
 		if(!hasGameStarted()) return;
 
 		StabilityUpdateInfo.setNumPlayers(client.getVarbitValue(VARBIT_PLAYER_COUNT));
-//		checkRocks();
 		timedObjectTracker.updateRockTimers();
 
 		updateVentStatus(client.getVarbitValue(VARBIT_VENT_STATUS_A),
@@ -217,7 +216,6 @@ public class UltimateVolcanicMinePlugin extends Plugin
 
 		if (estimatedTimeRemaining <= eruptionTime) {
 			VM_notifier.notify(notifier, VMNotifier.NotificationEvents.VM_ERUPTION, currentTick);
-			if(currentTick > 5) ventStatusPredicter.log();
 		}
 
 		ventStatusPredicter.getTimeline().updateTick();
@@ -390,7 +388,6 @@ public class UltimateVolcanicMinePlugin extends Plugin
 		{
 			//If we finish the game early dont trigger player leave event
 			case BOULDER_BREAK_STAGE_5_ID:
-				ventStatusPredicter.log();
 				VM_notifier.removeEvent(VMNotifier.NotificationEvents.VM_PLAYER_LEAVE);
 			case BOULDER_BREAK_STAGE_1_ID:
 			case BOULDER_BREAK_STAGE_2_ID:
