@@ -35,7 +35,7 @@ public class VentStatusTimeline {
     FileWriter logWriter;
 
     private int currentTick, startingTick;
-    private int currentMovementTick;
+    private int currentMovementTick, firstStabilityUpdateTick;
     private int[] timeline;
     private int[] identifiedVentTick;
     private StatusState[] identifiedVentStates;
@@ -58,6 +58,7 @@ public class VentStatusTimeline {
         reset();
     }
     public void reset() {
+        firstStabilityUpdateTick = Integer.MAX_VALUE;
         currentMovementTick = startingTick = currentTick;
         numIdentifiedVents = 0;
         initialState = null;
@@ -166,7 +167,7 @@ public class VentStatusTimeline {
         for(int i = currentTick-1; i >= startingTick; --i) {
             //Exit before the first stability update occured
             //(impossible for there to be any est moves)
-            if(i < initialStabInfo.getTickTimeStamp()) break;
+            if(i < firstStabilityUpdateTick) break;
             //Clear estimated movement flag
             timeline[i] &= ~(1 << ESTIMATED_MOVEMENT_FLAG);
             if(i % VENT_MOVE_TICK_TIME == updateTick)
@@ -211,6 +212,7 @@ public class VentStatusTimeline {
     public StatusState getTimelinePredictionState() {
         LinkedList<StatusState> possibleStates = new LinkedList<>();
         StatusState predictedState = new StatusState(initialState);
+        int previousMovementTick = 0;
         possibleStates.push(predictedState);
         for(int i = startingTick+1; i <= currentTick; ++i) {
             if((timeline[i] & (1 << IDENTIFIED_VENT_FLAG)) != 0) {
@@ -238,7 +240,12 @@ public class VentStatusTimeline {
             }
             if((timeline[i] & (1 << ESTIMATED_MOVEMENT_FLAG)) != 0) {
                 StatusState newPossibility = new StatusState(possibleStates.getLast());
+                //Only set ranges when there is not a simple movement skip
+                if(i - previousMovementTick > VENT_MOVE_TICK_TIME)
+                    newPossibility.setFreezeRanges(0);
+
                 newPossibility.doFreezeClipping(0);
+
                 newPossibility.updateVentMovement();
                 possibleStates.addLast(newPossibility);
                 //Set predicted state to the new up to date possibility
@@ -246,14 +253,18 @@ public class VentStatusTimeline {
                 if(newPossibility.areRangesDefined()) predictedState = newPossibility;
             }
             if((timeline[i] & (1 << MOVEMENT_UPDATE_FLAG)) != 0) {
+                previousMovementTick = i;
                 int moveBitState = timeline[i] & MOVEMENT_BIT_MASK;
+                moveBitState >>= 6;
                 Iterator<StatusState> iterator = possibleStates.descendingIterator();
                 while (iterator.hasNext()) {
                     StatusState curState = iterator.next();
-                    curState.doFreezeClipping(moveBitState >> 6);
+                    curState.setFreezeRanges(moveBitState);
+                    curState.doFreezeClipping(moveBitState);
+
                     //Update our estimated vent values
-                    syncWithMovementState(curState, i);
                     curState.updateVentMovement();
+                    syncWithMovementState(curState, i);
                 }
             }
             if((timeline[i] & (1 << STABILITY_UPDATE_FLAG)) != 0) {
@@ -262,8 +273,10 @@ public class VentStatusTimeline {
                     StatusState curState = iterator.next();
                     //Use stability updates to set/narrow our possible values
                     StabilityUpdateInfo stabilityInfo = tickToStabilityUpdateState.get(i);
-                    if (stabilityInfo == initialStabInfo)
-                        curState.mergePredictedRangesWith(initialStabInfo.getStabilityUpdateState());
+                    if (stabilityInfo == initialStabInfo) {
+                        if(curState.areRangesDefined()) stabilityInfo.updatePredictedState(curState);
+                        else curState.mergePredictedRangesWith(initialStabInfo.getStabilityUpdateState());
+                    }
                     else stabilityInfo.updatePredictedState(curState);
                 }
                 //Remove all invalid possibilities - always keep 1 state even if invalid
@@ -296,11 +309,18 @@ public class VentStatusTimeline {
         setInitialStabilityUpdateInfo(newInfo);
     }
     private void setInitialStabilityUpdateInfo(StabilityUpdateInfo info) {
-        if(!info.isValid()) return;
+        firstStabilityUpdateTick = Math.min(firstStabilityUpdateTick, currentTick);
+        //Skip if no identified vents
+        int infoIdentifiedVentCount = info.getStabilityUpdateState().getNumIdentifiedVents();
+        if(infoIdentifiedVentCount == 0) return;
         if(initialStabInfo != null) {
-            //TODO: account for different number of known vents
-            if(initialStabInfo.getTickTimeStamp() > info.getTickTimeStamp())
-                initialStabInfo = info;
+            int ourIdentifiedVentCount = initialStabInfo.getStabilityUpdateState().getNumIdentifiedVents();
+            if(ourIdentifiedVentCount > infoIdentifiedVentCount) return;
+            else if(ourIdentifiedVentCount < infoIdentifiedVentCount) initialStabInfo = info;
+            else {
+                if (initialStabInfo.getTickTimeStamp() > info.getTickTimeStamp())
+                    initialStabInfo = info;
+            }
         }
         else initialStabInfo = info;
     }

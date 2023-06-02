@@ -173,10 +173,12 @@ public class VentStatusPredicterTest {
         Assert.assertEquals(predicter.getVentStatusText(0, ""), "");
 
         //Identified vents return the default text
+        predicter.initialize();
         predicter.updateVentStatus(new int[]{0, 50, 50}, 7);
         Assert.assertEquals(predicter.getVentStatusText(0, ""), "");
 
         //Only a single value should be displayed
+        predicter.initialize();
         predicter.updateVentStatus(new int[]{VentStatus.STARTING_VENT_VALUE, 51, 51}, 7);
         predicter.getDisplayState().getVents()[0].setLowerBoundRange(50, 50);
         predicter.getDisplayState().getVents()[0].setUpperBoundRange(50, 50);

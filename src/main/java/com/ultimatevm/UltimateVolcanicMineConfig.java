@@ -12,6 +12,11 @@ public interface UltimateVolcanicMineConfig extends Config
 		BEST_CASE
 	}
 
+	enum TimingRenderMode {
+		PROGRESS_PIE,
+		NUMBER
+	}
+
 	@ConfigSection(
 			name = "Display",
 			description = "All the options for how your interface to look",
@@ -31,21 +36,10 @@ public interface UltimateVolcanicMineConfig extends Config
 		return true;
 	}
 	@ConfigItem(
-			position = 2,
-			keyName = "rockTimer",
-			name = "Rock Timer",
-			description = "Shows a respawn timer when a rock is taken",
-			section = display
-	)
-	default boolean rockTimer()
-	{
-		return true;
-	}
-	@ConfigItem(
 			keyName = "stabilityUpdateHistoryCount",
 			name = "Stability Update History",
 			description = "The number of stability updates to track",
-			position = 3,
+			position = 2,
 			section = display
 	)
 	@Range(
@@ -60,7 +54,7 @@ public interface UltimateVolcanicMineConfig extends Config
 			keyName = "predictedStabilityChangeHistoryCount",
 			name = "Predicted Stability Change History",
 			description = "The number of predicted stability changes to track",
-			position = 4,
+			position = 3,
 			section = display
 	)
 	@Range(
@@ -72,7 +66,7 @@ public interface UltimateVolcanicMineConfig extends Config
 		return 3;
 	}
 	@ConfigItem(
-			position = 5,
+			position = 4,
 			keyName = "ventStatusUpdateHistory",
 			name = "Vent Status Update History",
 			description = "Sends a chat message with the vent status for each stability update",
@@ -83,7 +77,7 @@ public interface UltimateVolcanicMineConfig extends Config
 		return false;
 	}
 	@ConfigItem(
-			position = 6,
+			position = 5,
 			keyName = "ventStatusPrediction",
 			name = "Vent Status Prediction",
 			description = "Displays an estimate for a single missing vent",
@@ -95,9 +89,59 @@ public interface UltimateVolcanicMineConfig extends Config
 	}
 
 	@ConfigSection(
+			name = "Timing",
+			description = "Options on how to display timed objects",
+			position = 1,
+			closedByDefault = false
+	)
+	String timing = "timing";
+	@ConfigItem(
+			position = 0,
+			keyName = "rockTimer",
+			name = "Rock Timer",
+			description = "Shows a respawn timer when a rock is taken",
+			section = timing
+	)
+	default boolean rockTimer()
+	{
+		return true;
+	}
+	@ConfigItem(
+			keyName = "rockRenderMode",
+			name = "Rock Render Mode",
+			description = "How the rock respawn timer is rendered",
+			position = 1,
+			section = timing
+	)
+	default TimingRenderMode rockRenderMode() {
+		return TimingRenderMode.PROGRESS_PIE;
+	}
+	@ConfigItem(
+			position = 2,
+			keyName = "platformTimer",
+			name = "Platform Timer",
+			description = "Shows a despawn timer when a platform is made",
+			section = timing
+	)
+	default boolean platformTimer()
+	{
+		return false;
+	}
+	@ConfigItem(
+			keyName = "platformRenderMode",
+			name = "Platform Render Mode",
+			description = "Uses best or worst case scenario when predicting fixes or stability changes",
+			position = 3,
+			section = timing
+	)
+	default TimingRenderMode platformRenderMode() {
+		return TimingRenderMode.NUMBER;
+	}
+
+	@ConfigSection(
 			name = "Notifications",
 			description = "All the options for how you want to customize your notifications",
-			position = 1,
+			position = 2,
 			closedByDefault = false
 	)
 	String notifications = "notifications";
@@ -192,7 +236,7 @@ public interface UltimateVolcanicMineConfig extends Config
 	@ConfigSection(
 			name = "Predicted Pre Reset Fix",
 			description = "Options for customizing your predicted vent fix",
-			position = 2,
+			position = 3,
 			closedByDefault = false
 	)
 	String preresetfix = "predicted pre reset fix";
@@ -268,7 +312,7 @@ public interface UltimateVolcanicMineConfig extends Config
 	@ConfigSection(
 			name = "Team Size Manager",
 			description = "Notifications for any unexpected team size changes",
-			position = 3,
+			position = 4,
 			closedByDefault = false
 	)
 	String teamSize = "team size";

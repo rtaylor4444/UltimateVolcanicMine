@@ -13,7 +13,7 @@ public class StabilityUpdateInfo {
     static private int getMaxRNGPossibleSize() { return (numPlayers / 3) + 2;}
 
     static public StatusState getPredictionState(StabilityUpdateInfo initialStabUpdate, VentStatusTimeline timeline) {
-        if(initialStabUpdate == null) return null;
+        if(initialStabUpdate == null) return timeline.getTimelinePredictionState();
         StatusState predictionState = new StatusState();
         //Iterate until we get a valid uncut range prediction
         int startingRNGMod = initialStabUpdate.RNGUpdateMod;
