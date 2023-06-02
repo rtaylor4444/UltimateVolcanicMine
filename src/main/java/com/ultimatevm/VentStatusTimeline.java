@@ -27,7 +27,6 @@ public class VentStatusTimeline {
     //       |   move    | dir |  id |
     //0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
 
-
     private int currentTick, startingTick;
     private int currentMovementTick, firstStabilityUpdateTick;
     private int[] timeline;
