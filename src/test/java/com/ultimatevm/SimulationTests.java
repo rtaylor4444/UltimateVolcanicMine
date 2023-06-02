@@ -78,7 +78,7 @@ public class SimulationTests {
         ++currentTick;
     }
     private void doEarthquake(int tick) {
-        advanceTicks(tick);
+        advanceTicks(tick-1);
         predicter.markEarthquakeEvent();
     }
 
@@ -191,6 +191,143 @@ public class SimulationTests {
 
         StatusState predictedState = predicter.getDisplayState();
         Assert.assertTrue(predictedState.getVents()[0].isRangeDefined());
+    }
+
+    public void simulateBCSoloStart() {
+        createPredicter(3, 0, 1);
+        doEarthquake(24);
+        doIdentifyVent(44, u, u, 57);
+        doStabilityUpdate(49, 15);
+        doIdentifyVent(69, u, 37, u);
+        doStabilityUpdate(74, 14);
+
+        StatusState predictedState = predicter.getDisplayState();
+        //Ensure freeze setting + stability clipping works properly
+        Assert.assertEquals(predictedState.getVents()[0].getLowerBoundStart(), 60);
+        Assert.assertEquals(predictedState.getVents()[0].getLowerBoundEnd(), 60);
+        Assert.assertEquals(predictedState.getVents()[0].getUpperBoundStart(), 60);
+        Assert.assertEquals(predictedState.getVents()[0].getUpperBoundEnd(), 60);
+    }
+
+    public void simulateAFreezeRangeNoStabilityUpdate() {
+        createPredicter(3, 500, 1);
+        doIdentifyVent(506, u, u, 17);
+        doMovementUpdateByValue(509, u, u, 15);
+        doMovementUpdateByValue(519, u, u, 14);
+        doIdentifyVent(524, u, 42, u);
+        doMovementUpdateByValue(529, u, 43, 13);
+        doMovementUpdateByValue(539, u, 44, 12);
+        doMovementUpdateByValue(549, u, 45, 11);
+        doMovementUpdateByValue(559, u, 46, 10);
+        doEarthquake(669);
+        doEarthquake(699);
+        doMovementUpdateByValue(779, u, 47, 9);
+
+        StatusState predictedState = predicter.getDisplayState();
+        Assert.assertEquals(predictedState.getVents()[0].getLowerBoundStart(), 62);
+        Assert.assertEquals(predictedState.getVents()[0].getLowerBoundEnd(), 62);
+        Assert.assertEquals(predictedState.getVents()[0].getUpperBoundStart(), 62);
+        Assert.assertEquals(predictedState.getVents()[0].getUpperBoundEnd(), 62);
+    }
+
+    public void simulateIncorrectFreezeRangeA() {
+        createPredicter(2, 500, 1);
+        doIdentifyVent(501, u, u, 57);
+        doMovementUpdateByValue(509, u, u, 56);
+        doIdentifyVent(517, u, 42, u);
+        doMovementUpdateByValue(519, u, 43, 56);
+        doStabilityUpdate(524, 16);
+        doMovementUpdateByValue(529, u, 44, 56);
+        doMovementUpdateByValue(539, u, 45, 56);
+        doMovementUpdateByValue(549, u, 46, 56);
+        doEarthquake(579);
+        doEarthquake(654);
+        doEarthquake(669);
+        doMovementUpdateByValue(779, u, 47, 56);
+        doMovementUpdateByValue(789, u, 48, 56);
+
+        StatusState predictedState = predicter.getDisplayState();
+        Assert.assertEquals(predictedState.getVents()[0].getLowerBoundStart(), 36);
+        Assert.assertEquals(predictedState.getVents()[0].getLowerBoundEnd(), 36);
+        Assert.assertEquals(predictedState.getVents()[0].getUpperBoundStart(), 36);
+        Assert.assertEquals(predictedState.getVents()[0].getUpperBoundEnd(), 36);
+    }
+
+    public void simulateIncorrectMovementOrderBug() {
+        createPredicter(3, 0, 1);
+        doEarthquake(24);
+        doIdentifyVent(33, 49, u, u);
+        doMovementUpdateByValue(39, 50, u, u);
+        doSameTickMovementStabilityUpdate(49, 51, u, u, 19);
+        doIdentifyVent(54, u, 41, u);
+        doMovementUpdateByValue(59, 52, 41, u);
+        doMovementUpdateByValue(69, 53, 41, u);
+        doStabilityUpdate(74, 19);
+        doMovementUpdateByValue(79, 54, 41, u);
+        doMovementUpdateByValue(89, 55, 41, u);
+        doMovementUpdateByValue(99, 56, 41, u);
+        doMovementUpdateByValue(109, 57, 41, u);
+        doMovementUpdateByValue(119, 58, 41, u);
+        doMovementUpdateByValue(129, 59, 41, u);
+        doMovementUpdateByValue(139, 60, 41, u);
+        doMovementUpdateByValue(149, 62, 42, u);
+        doMovementUpdateByValue(159, 64, 43, u);
+        doMovementUpdateByValue(169, 66, 44, u);
+        doMovementUpdateByValue(179, 68, 45, u);
+        doMovementUpdateByValue(189, 70, 46, u);
+        doMovementUpdateByValue(199, 72, 47, u);
+        doMovementUpdateByValue(209, 74, 48, u);
+        doMovementUpdateByValue(229, 76, 49, u);
+        doMovementUpdateByValue(239, 78, 50, u);
+        doMovementUpdateByValue(249, 80, 51, u);
+        doMovementUpdateByValue(259, 82, 52, u);
+        doMovementUpdateByValue(269, 84, 53, u);
+        doMovementUpdateByValue(279, 86, 54, u);
+        doMovementUpdateByValue(289, 88, 55, u);
+        doMovementUpdateByValue(299, 90, 56, u);
+        doMovementUpdateByValue(309, 92, 57, u);
+        doMovementUpdateByValue(319, 94, 58, u);
+        doMovementUpdateByValue(329, 96, 59, u);
+        doMovementUpdateByValue(339, 98, 60, u);
+        doMovementUpdateByValue(349, 100, 62, u);
+        doDirectionChange(351, 2);
+        doMovementUpdateByValue(359, 98, 64, u);
+        doMovementUpdateByValue(369, 96, 66, u);
+        doMovementUpdateByValue(379, 94, 68, u);
+        doMovementUpdateByValue(389, 92, 70, u);
+        doMovementUpdateByValue(409, 90, 72, u);
+        doMovementUpdateByValue(419, 88, 74, u);
+        doStabilityUpdate(424, -1);
+        doMovementUpdateByValue(429, 86, 76, u);
+        doMovementUpdateByValue(439, 84, 78, u);
+        doSameTickMovementStabilityUpdate(449, 82, 80, u, -2);
+
+        //C is 26 - only possible answer
+        StatusState predictedState = predicter.getDisplayState();
+        Assert.assertEquals(predictedState.getVents()[2].getLowerBoundStart(), 26);
+        Assert.assertEquals(predictedState.getVents()[2].getLowerBoundEnd(), 26);
+        Assert.assertEquals(predictedState.getVents()[2].getUpperBoundStart(), 26);
+        Assert.assertEquals(predictedState.getVents()[2].getUpperBoundEnd(), 26);
+    }
+
+    public void simulateMovementSkipNonFreezeRangeA() {
+        createPredicter(2, 500, 1);
+        doIdentifyVent(525, u, 48, u);
+        doMovementUpdateByValue(528, u, 49, u);
+        doMovementUpdateByValue(538, u, 50, u);
+        doIdentifyVent(539, u, u, 33);
+        doMovementUpdateByValue(548, u, 51, 32);
+        doMovementUpdateByValue(558, u, 52, 31);
+        doDirectionChange(565, 0);
+        doMovementUpdateByValue(568, u, 51, 30);
+        doMovementUpdateByValue(578, u, 50, 29);
+        doMovementUpdateByValue(588, u, 49, 28);
+        doMovementUpdateByValue(598, u, 48, 27);
+        doDirectionChange(608, 0);
+//        doMovementUpdateByValue(618, u, 47, 26);
+
+        StatusState predictedState = predicter.getDisplayState();
+        Assert.assertFalse(predictedState.getVents()[0].isRangeDefined());
     }
 
     public void simulateSize3_5() {

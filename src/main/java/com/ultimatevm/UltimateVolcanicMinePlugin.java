@@ -4,10 +4,7 @@ import com.google.inject.Provides;
 import javax.inject.Inject;
 import lombok.extern.slf4j.Slf4j;
 
-import net.runelite.api.ChatMessageType;
-import net.runelite.api.Client;
-import net.runelite.api.NPC;
-import net.runelite.api.Player;
+import net.runelite.api.*;
 import net.runelite.api.coords.LocalPoint;
 import net.runelite.api.events.*;
 import net.runelite.api.coords.WorldPoint;
@@ -22,6 +19,8 @@ import net.runelite.client.ui.overlay.infobox.InfoBoxManager;
 import net.runelite.client.ui.overlay.OverlayManager;
 import net.runelite.client.util.Text;
 import net.runelite.api.widgets.Widget;
+
+import java.util.HashMap;
 
 @Slf4j
 @PluginDescriptor(
@@ -45,7 +44,7 @@ public class UltimateVolcanicMinePlugin extends Plugin
 	private OverlayManager overlayManager;
 
 	@Inject
-	private CappingRockOverlay cappingRockOverlay;
+	private TimedObjectOverlay timedObjectOverlay;
 
 	//Constants
 	private static final int PROC_VOLCANIC_MINE_SET_OTHERINFO = 2022;
@@ -82,10 +81,10 @@ public class UltimateVolcanicMinePlugin extends Plugin
 	private StabilityTracker futureStabilityTracker = new StabilityTracker();
 	private VMNotifier VM_notifier;
 	private CapCounter capCounter = new CapCounter();
-	private CappingRockTracker rockTracker = new CappingRockTracker();
+	private TimedObjectTracker timedObjectTracker = new TimedObjectTracker();
 	private CapCounterInfoBox capInfoBox;
+	private HashMap<Integer, Tile> rockTiles = new HashMap<>();
 	private int vmGameState = VM_GAME_STATE_NONE;
-	private int ventStatus[] = new int[3];
 	private int timeRemainingFromServer, estimatedTimeRemaining;
 	private int eruptionTime, ventWarningTime;
 	private int maxPlayerCount;
@@ -109,8 +108,8 @@ public class UltimateVolcanicMinePlugin extends Plugin
 		infoBoxManager.removeInfoBox(capInfoBox);
 		if(config.capCounter() && capCounter.getTimesCapped() >= 1) infoBoxManager.addInfoBox(capInfoBox);
 
-		overlayManager.remove(cappingRockOverlay);
-		if(config.rockTimer()) overlayManager.add(cappingRockOverlay);
+		overlayManager.remove(timedObjectOverlay);
+		if(config.rockTimer() || config.platformTimer()) overlayManager.add(timedObjectOverlay);
 	}
 
 	@Override
@@ -119,8 +118,8 @@ public class UltimateVolcanicMinePlugin extends Plugin
 		stabilityTracker.setDisplayCount(config.stabilityUpdateHistoryCount());
 		futureStabilityTracker.setDisplayCount(config.predictedStabilityChangeHistoryCount());
 		capInfoBox = new CapCounterInfoBox(capCounter, this);
-		cappingRockOverlay.setRockTracker(rockTracker);
-		overlayManager.add(cappingRockOverlay);
+		timedObjectOverlay.setRockTracker(timedObjectTracker);
+		overlayManager.add(timedObjectOverlay);
 		eruptionTime = (int) (config.eruptionWarningTime() * SECONDS_TO_TICKS);
 		ventWarningTime = (int) (config.ventWarningTime() * SECONDS_TO_TICKS);
 	}
@@ -128,7 +127,7 @@ public class UltimateVolcanicMinePlugin extends Plugin
 	@Override
 	protected void shutDown() throws Exception
 	{
-		overlayManager.remove(cappingRockOverlay);
+		overlayManager.remove(timedObjectOverlay);
 		infoBoxManager.removeInfoBox(capInfoBox);
 	}
 
@@ -168,7 +167,7 @@ public class UltimateVolcanicMinePlugin extends Plugin
 		if(!hasGameStarted()) return;
 
 		StabilityUpdateInfo.setNumPlayers(client.getVarbitValue(VARBIT_PLAYER_COUNT));
-		rockTracker.updateRockTimers();
+		timedObjectTracker.updateRockTimers();
 
 		updateVentStatus(client.getVarbitValue(VARBIT_VENT_STATUS_A),
 				client.getVarbitValue(VARBIT_VENT_STATUS_B),
@@ -315,14 +314,14 @@ public class UltimateVolcanicMinePlugin extends Plugin
 	void onGameObjectDespawned(GameObjectDespawned event) {
 		int gameObjectId = event.getGameObject().getId();
 		if(gameObjectId == GAME_OBJ_ROCK) {
-			rockTracker.addRock(event.getGameObject().getWorldLocation());
+			timedObjectTracker.addObject(event.getGameObject().getWorldLocation(), TimedObject.ObjectType.ROCK);
 		}
 	}
 
 	private void resetGameVariables() {
 		VM_notifier.reset();
 		capCounter.initialize();
-		rockTracker.clearRocks();
+		timedObjectTracker.clearRocks();
 		estimatedTimeRemaining = timeRemainingFromServer = 0;
 		maxPlayerCount = 0;
 	}
@@ -338,6 +337,7 @@ public class UltimateVolcanicMinePlugin extends Plugin
 	private static final String BOULDER_WARNING_MESSAGE = "The current boulder stage is complete.";
 	// Constants
 	private static final int PLATFORM_STAGE_3_ID = 31000;
+	private static final int PLATFORM_STAGE_1_ID = 30998;
 	private static final int BOULDER_BREAK_STAGE_1_ID = 7807;
 	private static final int BOULDER_BREAK_STAGE_2_ID = 7809;
 	private static final int BOULDER_BREAK_STAGE_3_ID = 7811;
@@ -358,6 +358,10 @@ public class UltimateVolcanicMinePlugin extends Plugin
 			objectX = event.getGameObject().getWorldLocation().getX();
 			objectY = event.getGameObject().getWorldLocation().getY();
 			capCounter.addCappingPositions(objectX, objectY);
+		}
+
+		if(gameObjectId == PLATFORM_STAGE_1_ID) {
+			timedObjectTracker.addObject(event.getGameObject().getWorldLocation(), TimedObject.ObjectType.PLATFORM);
 		}
 
 		// If warning is enabled and game object spawned is a stage 3 platform

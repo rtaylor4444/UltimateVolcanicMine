@@ -10,7 +10,7 @@ repositories {
 	mavenCentral()
 }
 
-def runeLiteVersion = '1.9.15'
+def runeLiteVersion = '1.10.3'
 
 dependencies {
 	testImplementation 'org.junit.jupiter:junit-jupiter:5.8.1'
