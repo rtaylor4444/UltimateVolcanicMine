@@ -130,12 +130,26 @@ public interface UltimateVolcanicMineConfig extends Config
 	@ConfigItem(
 			keyName = "platformRenderMode",
 			name = "Platform Render Mode",
-			description = "Uses best or worst case scenario when predicting fixes or stability changes",
+			description = "How the platform despawn timer is rendered",
 			position = 3,
 			section = timing
 	)
 	default TimingRenderMode platformRenderMode() {
 		return TimingRenderMode.NUMBER;
+	}
+	@ConfigItem(
+			keyName = "numberThreshold",
+			name = "Platform Number Threshold",
+			description = "Maximum number to display when a platform is up",
+			position = 4,
+			section = timing
+	)
+	@Range(
+			max = 150,
+			min = 0
+	)
+	default int numberThreshold() {
+		return 25;
 	}
 
 	@ConfigSection(
