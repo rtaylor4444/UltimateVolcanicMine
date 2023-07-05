@@ -130,12 +130,26 @@ public interface UltimateVolcanicMineConfig extends Config
 	@ConfigItem(
 			keyName = "platformRenderMode",
 			name = "Platform Render Mode",
-			description = "Uses best or worst case scenario when predicting fixes or stability changes",
+			description = "How the platform despawn timer is rendered",
 			position = 3,
 			section = timing
 	)
 	default TimingRenderMode platformRenderMode() {
 		return TimingRenderMode.NUMBER;
+	}
+	@ConfigItem(
+			keyName = "numberThreshold",
+			name = "Platform Number Threshold",
+			description = "Maximum number to display when a platform is up",
+			position = 4,
+			section = timing
+	)
+	@Range(
+			max = 150,
+			min = 0
+	)
+	default int numberThreshold() {
+		return 25;
 	}
 
 	@ConfigSection(
@@ -311,10 +325,82 @@ public interface UltimateVolcanicMineConfig extends Config
 	}
 
 	@ConfigSection(
+			name = "Pickaxe Protection",
+			description = "Options for customizing your predicted vent fix",
+			position = 4,
+			closedByDefault = true
+	)
+	String pickaxeprotection = "pickaxe protection";
+	@ConfigItem(
+			position = 0,
+			keyName = "pickaxeDespawnProtection",
+			name = "Pickaxe Despawn notifier",
+			description = "Notifies when your pickaxe is about to despawn soon",
+			section = pickaxeprotection
+	)
+	default boolean pickaxeDespawnProtection()
+	{
+		return true;
+	}
+	@ConfigItem(
+			keyName = "pickaxeDespawnProtectionStartTime",
+			name = "Pickaxe Despawn Start Time",
+			description = "Notifies x seconds after you drop your pickaxe",
+			position = 1,
+			section = pickaxeprotection
+	)
+	@Range(
+			max = 100,
+			min = 1
+	)
+	@Units(Units.SECONDS)
+	default int pickaxeDespawnProtectionStartTime()
+	{
+		return 75;
+	}
+	@ConfigItem(
+			position = 2,
+			keyName = "boulderFinishPickaxeLeaveProtection",
+			name = "Boulder Finish Pickaxe Leave notifier",
+			description = "Notifies if your pickaxe is still on the ground after finishing the boulder",
+			section = pickaxeprotection
+	)
+	default boolean boulderFinishPickaxeLeaveProtection()
+	{
+		return true;
+	}
+	@ConfigItem(
+			position = 3,
+			keyName = "lowStabilityPickaxeLeaveProtection",
+			name = "Low Stability Pickaxe Leave notifier",
+			description = "Notifies if your pickaxe is still on the ground if stability gets low",
+			section = pickaxeprotection
+	)
+	default boolean lowStabilityPickaxeLeaveProtection()
+	{
+		return true;
+	}
+	@ConfigItem(
+			keyName = "pickaxeLeaveStabilityAmount",
+			name = "Pickaxe Leave Stability Amount",
+			description = "Notifies once stability is x amount or lower if pick is on the floor",
+			position = 4,
+			section = pickaxeprotection
+	)
+	@Range(
+			max = 100,
+			min = 1
+	)
+	default int pickaxeLeaveStabilityAmount()
+	{
+		return 35;
+	}
+
+	@ConfigSection(
 			name = "Team Size Manager",
 			description = "Notifications for any unexpected team size changes",
-			position = 4,
-			closedByDefault = false
+			position = 5,
+			closedByDefault = true
 	)
 	String teamSize = "team size";
 	@ConfigItem(

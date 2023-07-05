@@ -42,8 +42,10 @@ public class TimedObjectOverlay extends Overlay {
         progressPieComponent.render(graphics);
     }
     private void renderNumber(Graphics2D graphics, final Point canvasLocation, final TimedObject obj) {
+        int currentTicks = (int)obj.getTimeLeft();
+        if(currentTicks > config.numberThreshold()) return;
         final TextComponent textComponent = new TextComponent();
-        textComponent.setText(Integer.toString((int)obj.getTimeLeft()));
+        textComponent.setText(Integer.toString(currentTicks));
         textComponent.setFont(new Font("Arial Bold", Font.BOLD, 16));
         textComponent.setPosition(new java.awt.Point(canvasLocation.getX()-10, canvasLocation.getY()));
         textComponent.setColor(obj.getStateColor());

@@ -1,8 +1,5 @@
 package com.ultimatevm;
 
-import java.io.FileWriter;
-import java.io.IOException;
-
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.LinkedList;
@@ -428,4 +425,5 @@ public class VentStatusTimeline {
 
     //Modifiers
     public void updateTick() { ++currentTick; }
+
 }
