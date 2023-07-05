@@ -46,6 +46,7 @@ public class VMNotifier {
             notifier.notify("An extra player has joined your team!");
             oneTimeEvents.remove(event);
         }
+
         if(ticksPassed <= NOTIFICATION_START_COOLDOWN_TICKS) return;
 
         switch (event) {

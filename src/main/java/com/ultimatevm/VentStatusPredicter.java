@@ -11,7 +11,6 @@ public class VentStatusPredicter {
 
     private VentStatusTimeline timeline;
     private StatusState displayState;
-    private boolean hasDoneFinalLog;
     private int numTicksNoMove;
 
 
@@ -21,7 +20,6 @@ public class VentStatusPredicter {
     public void initialize() {
         timeline = new VentStatusTimeline();
         displayState = new StatusState();
-        hasDoneFinalLog = false;
     }
     public void reset() {
         if(!displayState.hasDoneVMReset()) {
@@ -109,7 +107,6 @@ public class VentStatusPredicter {
         timeline.addInitialState(displayState);
         //Reset when all vents are set to unidentified
         if((bitState & 512) != 0) {
-            if(!getDisplayState().hasDoneVMReset()) log();
             reset();
         }
         if((bitState & VentStatusTimeline.DIRECTION_CHANGED_BIT_MASK) != 0) timeline.addDirectionChangeTick(bitState);
@@ -189,9 +186,4 @@ public class VentStatusPredicter {
     public final VentStatusTimeline getTimeline() { return timeline; }
     public final int getCurrentTick() { return timeline.getCurrentTick(); }
     public boolean isMovementUpdateTick() { return getCurrentTick() % VentStatusTimeline.VENT_MOVE_TICK_TIME == SLOWEST_VENT_UPDATE_TICK;}
-    public void log() {
-        if(hasDoneFinalLog) return;
-        timeline.log();
-        if(displayState.hasDoneVMReset()) hasDoneFinalLog = true;
-    }
 }
