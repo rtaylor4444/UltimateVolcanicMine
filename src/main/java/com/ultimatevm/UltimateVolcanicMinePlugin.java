@@ -83,11 +83,12 @@ public class UltimateVolcanicMinePlugin extends Plugin
 	private CapCounter capCounter = new CapCounter();
 	private TimedObjectTracker timedObjectTracker = new TimedObjectTracker();
 	private CapCounterInfoBox capInfoBox;
+    private PickaxeProtector pickaxeProtector;
 	private HashMap<Integer, Tile> rockTiles = new HashMap<>();
 	private int vmGameState = VM_GAME_STATE_NONE;
 	private int timeRemainingFromServer, estimatedTimeRemaining;
 	private int eruptionTime, ventWarningTime;
-	private int maxPlayerCount;
+	private int maxPlayerCount, ticksSinceLobbyStart;
 
 
 	@Provides
@@ -115,6 +116,7 @@ public class UltimateVolcanicMinePlugin extends Plugin
 	@Override
 	protected void startUp() throws Exception {
 		VM_notifier = new VMNotifier(config);
+        pickaxeProtector = new PickaxeProtector(client);
 		stabilityTracker.setDisplayCount(config.stabilityUpdateHistoryCount());
 		futureStabilityTracker.setDisplayCount(config.predictedStabilityChangeHistoryCount());
 		capInfoBox = new CapCounterInfoBox(capCounter, this);
@@ -164,7 +166,17 @@ public class UltimateVolcanicMinePlugin extends Plugin
 			estimatedTimeRemaining = timeRemainingFromServer = newTimeRemaining;
 		} else --estimatedTimeRemaining;
 
-		if(!hasGameStarted()) return;
+        pickaxeProtector.getStartingPickaxes();
+        if(pickaxeProtector.isPickaxeDropped()) pickaxeProtector.incrementTicksDropped();
+		else pickaxeProtector.resetTicksDropped();
+		if(config.pickaxeDespawnProtection()) {
+			int requiredDroppedTicks = (int)(config.pickaxeDespawnProtectionStartTime() * SECONDS_TO_TICKS);
+			if(requiredDroppedTicks <= pickaxeProtector.getNumTicksPickaxeDropped())
+				VM_notifier.notify(notifier, VMNotifier.NotificationEvents.VM_PICKAXE_DESPAWN, ticksSinceLobbyStart);
+		}
+		++ticksSinceLobbyStart;
+
+        if(!hasGameStarted()) return;
 
 		StabilityUpdateInfo.setNumPlayers(client.getVarbitValue(VARBIT_PLAYER_COUNT));
 		timedObjectTracker.updateRockTimers();
@@ -197,6 +209,7 @@ public class UltimateVolcanicMinePlugin extends Plugin
 				widget = client.getWidget(WidgetID.VOLCANIC_MINE_GROUP_ID, HUD_VENT_C_PERCENTAGE);
 				client.addChatMessage(ChatMessageType.GAMEMESSAGE, "CyanWarrior4: ", ventStatusPredicter.getVentStatusText(2, widget.getText()), null);
 				client.addChatMessage(ChatMessageType.GAMEMESSAGE, "CyanWarrior4: ", "Stability Update: " + stabilityTracker.getCurrentChange(), null);
+				client.addChatMessage(ChatMessageType.GAMEMESSAGE, "CyanWarrior4: ", "Time: " + estimatedTimeRemaining, null);
 			}
 
 			//Check if we have to fix vents now
@@ -239,6 +252,11 @@ public class UltimateVolcanicMinePlugin extends Plugin
 	}
 	//Helper functions for testing
 	public boolean updateStability(int newStability) {
+		if(config.lowStabilityPickaxeLeaveProtection()) {
+			if (newStability <= config.pickaxeLeaveStabilityAmount() && pickaxeProtector.isPickaxeDropped())
+				VM_notifier.notify(notifier, VMNotifier.NotificationEvents.VM_PICKAXE_LOW_STABILITY, ventStatusPredicter.getCurrentTick());
+		}
+
 		if(stabilityTracker.updateStability(newStability)) {
 			ventStatusPredicter.makeStatusState(stabilityTracker.getCurrentChange());
 			return true;
@@ -322,8 +340,9 @@ public class UltimateVolcanicMinePlugin extends Plugin
 		VM_notifier.reset();
 		capCounter.initialize();
 		timedObjectTracker.clearRocks();
+        pickaxeProtector.resetStartingPickaxes();
 		estimatedTimeRemaining = timeRemainingFromServer = 0;
-		maxPlayerCount = 0;
+		ticksSinceLobbyStart = maxPlayerCount = 0;
 	}
 	private boolean hasGameStarted() {
 		if(vmGameState >= VM_GAME_STATE_IN_GAME) return true;
@@ -388,8 +407,10 @@ public class UltimateVolcanicMinePlugin extends Plugin
 		NPC npc = npcSpawned.getNpc();
 		switch(npc.getId())
 		{
-			//If we finish the game early dont trigger player leave event
 			case BOULDER_BREAK_STAGE_5_ID:
+				if(config.boulderFinishPickaxeLeaveProtection() && pickaxeProtector.isPickaxeDropped())
+					VM_notifier.notify(notifier, VMNotifier.NotificationEvents.VM_PICKAXE_BOULDER_COMPLETE, ventStatusPredicter.getCurrentTick());
+				//If we finish the game early dont trigger player leave event
 				VM_notifier.removeEvent(VMNotifier.NotificationEvents.VM_PLAYER_LEAVE);
 			case BOULDER_BREAK_STAGE_1_ID:
 			case BOULDER_BREAK_STAGE_2_ID:
