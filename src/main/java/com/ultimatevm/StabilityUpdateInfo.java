@@ -10,7 +10,7 @@ public class StabilityUpdateInfo {
     static public int getMinRNGVariation() {
         return -numPlayers / 3;
     }
-    static private int getMaxRNGPossibleSize() { return (numPlayers / 3) + 2;}
+    static public int getMaxRNGPossibleSize() { return (numPlayers / 3) + 2;}
 
     static public StatusState getPredictionState(StabilityUpdateInfo initialStabUpdate, VentStatusTimeline timeline) {
         if(initialStabUpdate == null) return timeline.getTimelinePredictionState();
@@ -89,8 +89,10 @@ public class StabilityUpdateInfo {
         verifyByInvalidPoints();
         calcStabilityChange();
     }
-    public void updatePredictedState(StatusState predictedState) {
-        predictedState.setOverlappingRangesWith(getAllPossiblePredictedValuesState());
+    public void updatePredictedState(StatusState predictedState, StabilityUpdateInfo prevStabInfo, int initalRNGMod) {
+        if(prevStabInfo == null || stabilityUpdateState.getNumIdentifiedVents() == prevStabInfo.getStabilityUpdateState().getNumIdentifiedVents())
+            predictedState.setOverlappingRangesWith(getAllPossiblePredictedValuesState());
+        else predictedState.setOverlappingRangesWith(getPossiblePredictedValuesState(initalRNGMod));
     }
     public StatusState getAllPossiblePredictedValuesState() {
         StatusState mergedPossiblities = new StatusState(stabilityUpdateState);
@@ -100,6 +102,11 @@ public class StabilityUpdateInfo {
             mergedPossiblities.mergePredictedRangesWith(testState);
         }
         return mergedPossiblities;
+    }
+    public StatusState getPossiblePredictedValuesState(int rngMod) {
+        StatusState possibleState = new StatusState(stabilityUpdateState);
+        possibleState.calcPredictedVentValues(initialChange - rngMod);
+        return possibleState;
     }
     private void checkVerification() {
         int numBitsOn = 0;

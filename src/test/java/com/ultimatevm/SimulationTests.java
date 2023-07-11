@@ -81,6 +81,12 @@ public class SimulationTests {
         advanceTicks(tick-1);
         predicter.markEarthquakeEvent();
     }
+    private void doReset() {
+        advanceTicks(500);
+        predicter.reset();
+        predicter.getTimeline().updateTick();
+        ++currentTick;
+    }
 
     public void simulateFreezeClipAFreezeThresholdCross() {
         createPredicter(1, 500, 1);
@@ -346,5 +352,50 @@ public class SimulationTests {
 //        doMovementUpdateByValue(79, 42, 41, u);
 //
 //        StatusState predictedState = predicter.getDisplayState();
+    }
+
+    public void simulateDoubleToSingleVentPrediction() {
+        createPredicter(1, 0, 1);
+        doStabilityUpdate(24, 16);
+        doIdentifyVent(34, 46, u, u);
+        doMovementUpdateByValue(39, 47, u, u);
+        doSameTickMovementStabilityUpdate(49, 48, u, u, 17);
+        doMovementUpdateByValue(59, 49, u, u);
+        doIdentifyVent(65, u, 59, u);
+        doMovementUpdateByValue(69, 50, 59, u);
+        doStabilityUpdate(74, 17);
+
+        StatusState predictedState = predicter.getDisplayState();
+        Assert.assertEquals(predictedState.getVents()[2].getLowerBoundStart(), 35);
+        Assert.assertEquals(predictedState.getVents()[2].getLowerBoundEnd(), 37);
+        Assert.assertEquals(predictedState.getVents()[2].getUpperBoundStart(), 63);
+        Assert.assertEquals(predictedState.getVents()[2].getUpperBoundEnd(), 65);
+    }
+
+    public void simulate0ToNegativeHalfSpace() {
+        createPredicter(1, 0, 1);
+        doStabilityUpdate(24, 19);
+        doIdentifyVent(34, 46, u, u);
+        doMovementUpdateByValue(39, 47, u, u);
+        doSameTickMovementStabilityUpdate(49, 48, u, u, 19);
+        doIdentifyVent(55, u, 43, u);
+        doMovementUpdateByValue(59, 49, 43, u);
+
+        //Post reset
+        doReset();
+        doIdentifyVent(502, 64, u, u);
+        doMovementUpdateByValue(506, 62, u, u);
+        doMovementUpdateByValue(516, 60, u, u);
+        doMovementUpdateByValue(526, 58, u, u);
+        doMovementUpdateByValue(536, 57, u, u);
+        doMovementUpdateByValue(546, 56, u, u);
+        doMovementUpdateByValue(556, 55, u, u);
+        doMovementUpdateByValue(566, 54, u, u);
+        doStabilityUpdate(571, -2);
+        doEarthquake(576);
+        doMovementUpdateByValue(586, 53, u, u);
+        doMovementUpdateByValue(596, 52, u, u);
+
+        StatusState predictedState = predicter.getDisplayState();
     }
 }

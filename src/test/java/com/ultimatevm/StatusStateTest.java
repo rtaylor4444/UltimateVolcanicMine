@@ -5,6 +5,7 @@ import org.testng.Assert;
 
 @Test()
 public class StatusStateTest {
+    private int u = VentStatus.STARTING_VENT_VALUE;
     private int makeMoveBitState(int aMove, int bMove, int cMove) {
         return aMove | (bMove << 2) | (cMove << 4);
     }
@@ -540,6 +541,94 @@ public class StatusStateTest {
         Assert.assertEquals(vents[0].getUpperBoundEnd(), u);
     }
 
+    public void calcDoubleVentValueTest() {
+        //Max calc test
+        StatusState state = new StatusState();
+        state.updateVentStatus(new int[]{u, 50, u}, 7);
+        final VentStatus[] vents = state.getVents();
+        Assert.assertTrue(state.calcPredictedVentValues(23));
+        Assert.assertEquals(state.getStabilityChange(), 23);
+        Assert.assertEquals(vents[0].getLowerBoundStart(), 47);
+        Assert.assertEquals(vents[0].getLowerBoundEnd(), 53);
+        Assert.assertEquals(vents[0].getUpperBoundStart(), 47);
+        Assert.assertEquals(vents[0].getUpperBoundEnd(), 53);
+        Assert.assertEquals(vents[2].getLowerBoundStart(), 47);
+        Assert.assertEquals(vents[2].getLowerBoundEnd(), 53);
+        Assert.assertEquals(vents[2].getUpperBoundStart(), 47);
+        Assert.assertEquals(vents[2].getUpperBoundEnd(), 53);
+
+        //Max calc test - increased range size
+        state.updateVentStatus(new int[]{u, 50, u}, 7);
+        final VentStatus[] vents2 = state.getVents();
+        Assert.assertTrue(state.calcPredictedVentValues(22));
+        Assert.assertEquals(state.getStabilityChange(), 22);
+        Assert.assertEquals(vents2[0].getLowerBoundStart(), 44);
+        Assert.assertEquals(vents2[0].getLowerBoundEnd(), 56);
+        Assert.assertEquals(vents2[0].getUpperBoundStart(), 44);
+        Assert.assertEquals(vents2[0].getUpperBoundEnd(), 56);
+        Assert.assertEquals(vents2[2].getLowerBoundStart(), 44);
+        Assert.assertEquals(vents2[2].getLowerBoundEnd(), 56);
+        Assert.assertEquals(vents2[2].getUpperBoundStart(), 44);
+        Assert.assertEquals(vents2[2].getUpperBoundEnd(), 56);
+
+        //Double range test
+        state.updateVentStatus(new int[]{u, 50, u}, 7);
+        final VentStatus[] vents3 = state.getVents();
+        Assert.assertTrue(state.calcPredictedVentValues(6));
+        Assert.assertEquals(state.getStabilityChange(), 6);
+        Assert.assertEquals(vents3[0].getLowerBoundStart(), 0);
+        Assert.assertEquals(vents3[0].getLowerBoundEnd(), 46);
+        Assert.assertEquals(vents3[0].getUpperBoundStart(), 54);
+        Assert.assertEquals(vents3[0].getUpperBoundEnd(), 100);
+        Assert.assertEquals(vents3[2].getLowerBoundStart(), 0);
+        Assert.assertEquals(vents3[2].getLowerBoundEnd(), 46);
+        Assert.assertEquals(vents3[2].getUpperBoundStart(), 54);
+        Assert.assertEquals(vents3[2].getUpperBoundEnd(), 100);
+
+        //Min calc test
+        state.updateVentStatus(new int[]{u, 50, u}, 7);
+        final VentStatus[] vents4 = state.getVents();
+        Assert.assertTrue(state.calcPredictedVentValues(-9));
+        Assert.assertEquals(state.getStabilityChange(), -9);
+        Assert.assertEquals(vents4[0].getLowerBoundStart(), 0);
+        Assert.assertEquals(vents4[0].getLowerBoundEnd(), 0);
+        Assert.assertEquals(vents4[0].getUpperBoundStart(), 100);
+        Assert.assertEquals(vents4[0].getUpperBoundEnd(), 100);
+        Assert.assertEquals(vents4[2].getLowerBoundStart(), 0);
+        Assert.assertEquals(vents4[2].getLowerBoundEnd(), 0);
+        Assert.assertEquals(vents4[2].getUpperBoundStart(), 100);
+        Assert.assertEquals(vents4[2].getUpperBoundEnd(), 100);
+    }
+
+    public void calcDoubleVentValueInvalidTest() {
+        //Max calc test
+        StatusState state = new StatusState();
+        state.updateVentStatus(new int[]{u, 50, u}, 7);
+        final VentStatus[] vents = state.getVents();
+        Assert.assertFalse(state.calcPredictedVentValues(24));
+        Assert.assertEquals(vents[0].getLowerBoundStart(), u);
+        Assert.assertEquals(vents[0].getLowerBoundEnd(), u);
+        Assert.assertEquals(vents[0].getUpperBoundStart(), u);
+        Assert.assertEquals(vents[0].getUpperBoundEnd(), u);
+        Assert.assertEquals(vents[2].getLowerBoundStart(), u);
+        Assert.assertEquals(vents[2].getLowerBoundEnd(), u);
+        Assert.assertEquals(vents[2].getUpperBoundStart(), u);
+        Assert.assertEquals(vents[2].getUpperBoundEnd(), u);
+
+        //Min calc test
+        state.updateVentStatus(new int[]{u, 0, u}, 7);
+        final VentStatus[] vents2 = state.getVents();
+        Assert.assertFalse(state.calcPredictedVentValues(-27));
+        Assert.assertEquals(vents2[0].getLowerBoundStart(), u);
+        Assert.assertEquals(vents2[0].getLowerBoundEnd(), u);
+        Assert.assertEquals(vents2[0].getUpperBoundStart(), u);
+        Assert.assertEquals(vents2[0].getUpperBoundEnd(), u);
+        Assert.assertEquals(vents2[2].getLowerBoundStart(), u);
+        Assert.assertEquals(vents2[2].getLowerBoundEnd(), u);
+        Assert.assertEquals(vents2[2].getUpperBoundStart(), u);
+        Assert.assertEquals(vents2[2].getUpperBoundEnd(), u);
+    }
+
     public void mergePredictedRangesWithTest() {
         StatusState state = new StatusState();
         StatusState toMerge = new StatusState();
@@ -906,6 +995,87 @@ public class StatusStateTest {
         Assert.assertEquals(ventB.getUpperBoundEnd(), 33);
     }
 
+    public void doHalfSpaceClippingNoDirectionChangeTest() {
+        StatusState state = new StatusState();
+        final VentStatus[] vents = state.getVents();
+        vents[0].setLowerBoundRange(0, 100);
+        vents[0].setUpperBoundRange(0, 100);
+        vents[1].setLowerBoundRange(0, 100);
+        vents[1].setUpperBoundRange(0, 100);
+        vents[2].setLowerBoundRange(0, 100);
+        vents[2].setUpperBoundRange(0, 100);
+
+        //A Clipping test - moving upward
+        vents[0].update(u, 1);
+        //Only clip A - negative point contribution
+        state.doHalfSpaceClipping(1, 0, 0);
+        Assert.assertEquals(vents[0].getLowerBoundStart(), 47);
+        Assert.assertEquals(vents[0].getLowerBoundEnd(), 100);
+        Assert.assertEquals(vents[0].getUpperBoundStart(), 47);
+        Assert.assertEquals(vents[0].getUpperBoundEnd(), 100);
+        Assert.assertEquals(vents[1].getLowerBoundStart(), 0);
+        Assert.assertEquals(vents[1].getLowerBoundEnd(), 100);
+        Assert.assertEquals(vents[1].getUpperBoundStart(), 0);
+        Assert.assertEquals(vents[1].getUpperBoundEnd(), 100);
+        Assert.assertEquals(vents[2].getLowerBoundStart(), 0);
+        Assert.assertEquals(vents[2].getLowerBoundEnd(), 100);
+        Assert.assertEquals(vents[2].getUpperBoundStart(), 0);
+        Assert.assertEquals(vents[2].getUpperBoundEnd(), 100);
+
+        //Only clip A - positive point contribution
+        vents[0].setLowerBoundRange(0, 100);
+        vents[0].setUpperBoundRange(0, 100);
+        state.doHalfSpaceClipping(1, 0, 1);
+        Assert.assertEquals(vents[0].getLowerBoundStart(), 0);
+        Assert.assertEquals(vents[0].getLowerBoundEnd(), 53);
+        Assert.assertEquals(vents[0].getUpperBoundStart(), 0);
+        Assert.assertEquals(vents[0].getUpperBoundEnd(), 53);
+        Assert.assertEquals(vents[1].getLowerBoundStart(), 0);
+        Assert.assertEquals(vents[1].getLowerBoundEnd(), 100);
+        Assert.assertEquals(vents[1].getUpperBoundStart(), 0);
+        Assert.assertEquals(vents[1].getUpperBoundEnd(), 100);
+        Assert.assertEquals(vents[2].getLowerBoundStart(), 0);
+        Assert.assertEquals(vents[2].getLowerBoundEnd(), 100);
+        Assert.assertEquals(vents[2].getUpperBoundStart(), 0);
+        Assert.assertEquals(vents[2].getUpperBoundEnd(), 100);
+
+        //A Clipping test - moving downward
+        vents[0].update(u, -1);
+        vents[0].setLowerBoundRange(0, 100);
+        vents[0].setUpperBoundRange(0, 100);
+        //Only clip A - negative point contribution
+        state.doHalfSpaceClipping(1, 0, 0);
+        Assert.assertEquals(vents[0].getLowerBoundStart(), 0);
+        Assert.assertEquals(vents[0].getLowerBoundEnd(), 53);
+        Assert.assertEquals(vents[0].getUpperBoundStart(), 0);
+        Assert.assertEquals(vents[0].getUpperBoundEnd(), 53);
+        Assert.assertEquals(vents[1].getLowerBoundStart(), 0);
+        Assert.assertEquals(vents[1].getLowerBoundEnd(), 100);
+        Assert.assertEquals(vents[1].getUpperBoundStart(), 0);
+        Assert.assertEquals(vents[1].getUpperBoundEnd(), 100);
+        Assert.assertEquals(vents[2].getLowerBoundStart(), 0);
+        Assert.assertEquals(vents[2].getLowerBoundEnd(), 100);
+        Assert.assertEquals(vents[2].getUpperBoundStart(), 0);
+        Assert.assertEquals(vents[2].getUpperBoundEnd(), 100);
+
+        vents[0].setLowerBoundRange(0, 100);
+        vents[0].setUpperBoundRange(0, 100);
+        //Only clip A - positive point contribution
+        state.doHalfSpaceClipping(1, 0, 1);
+        Assert.assertEquals(vents[0].getLowerBoundStart(), 47);
+        Assert.assertEquals(vents[0].getLowerBoundEnd(), 100);
+        Assert.assertEquals(vents[0].getUpperBoundStart(), 47);
+        Assert.assertEquals(vents[0].getUpperBoundEnd(), 100);
+        Assert.assertEquals(vents[1].getLowerBoundStart(), 0);
+        Assert.assertEquals(vents[1].getLowerBoundEnd(), 100);
+        Assert.assertEquals(vents[1].getUpperBoundStart(), 0);
+        Assert.assertEquals(vents[1].getUpperBoundEnd(), 100);
+        Assert.assertEquals(vents[2].getLowerBoundStart(), 0);
+        Assert.assertEquals(vents[2].getLowerBoundEnd(), 100);
+        Assert.assertEquals(vents[2].getUpperBoundStart(), 0);
+        Assert.assertEquals(vents[2].getUpperBoundEnd(), 100);
+    }
+
     public void reverseMovementKnownBitTest() {
         StatusState state = new StatusState();
         final VentStatus[] vents = state.getVents();
@@ -1033,46 +1203,5 @@ public class StatusStateTest {
         int stab = calcStabReverse(A, B, C);
         int stab2 = calcStabReverseRound(A, B, C);
     }
-/*
-    public void calcDoubleVentValueTest() {
-        VentStatusPredicter predicter = new VentStatusPredicter();
-        predicter.updateVentStatus(new int[]{VentStatus.STARTING_VENT_VALUE, 50, VentStatus.STARTING_VENT_VALUE}, 7);
-        final VentStatus[] vents = predicter.getCurrentVents();
-        predicter.calcDoubleVentValue(new VentStatus[]{vents[0], vents[2]}, 20);
-        Assert.assertEquals(vents[0].getLowerBoundStart(), 35);
-        Assert.assertEquals(vents[0].getLowerBoundEnd(), 65);
-        Assert.assertEquals(vents[0].getUpperBoundStart(), 35);
-        Assert.assertEquals(vents[0].getUpperBoundEnd(), 65);
-        Assert.assertEquals(vents[2].getLowerBoundStart(), 35);
-        Assert.assertEquals(vents[2].getLowerBoundEnd(), 65);
-        Assert.assertEquals(vents[2].getUpperBoundStart(), 35);
-        Assert.assertEquals(vents[2].getUpperBoundEnd(), 65);
 
-        predicter = new VentStatusPredicter();
-        predicter.updateVentStatus(new int[]{VentStatus.STARTING_VENT_VALUE, 50, VentStatus.STARTING_VENT_VALUE}, 7);
-        final VentStatus[] vents2 = predicter.getCurrentVents();
-        predicter.calcDoubleVentValue(new VentStatus[]{vents2[0], vents2[2]}, 0);
-        Assert.assertEquals(vents2[0].getLowerBoundStart(), 0);
-        Assert.assertEquals(vents2[0].getLowerBoundEnd(), 25);
-        Assert.assertEquals(vents2[0].getUpperBoundStart(), 75);
-        Assert.assertEquals(vents2[0].getUpperBoundEnd(), 100);
-        Assert.assertEquals(vents2[2].getLowerBoundStart(), 0);
-        Assert.assertEquals(vents2[2].getLowerBoundEnd(), 25);
-        Assert.assertEquals(vents2[2].getUpperBoundStart(), 75);
-        Assert.assertEquals(vents2[2].getUpperBoundEnd(), 100);
-
-        predicter = new VentStatusPredicter();
-        predicter.updateVentStatus(new int[]{VentStatus.STARTING_VENT_VALUE, 50, VentStatus.STARTING_VENT_VALUE}, 7);
-        final VentStatus[] vents3 = predicter.getCurrentVents();
-        predicter.calcDoubleVentValue(new VentStatus[]{vents3[0], vents3[2]}, -5);
-        Assert.assertEquals(vents3[0].getLowerBoundStart(), 0);
-        Assert.assertEquals(vents3[0].getLowerBoundEnd(), 10);
-        Assert.assertEquals(vents3[0].getUpperBoundStart(), 90);
-        Assert.assertEquals(vents3[0].getUpperBoundEnd(), 100);
-        Assert.assertEquals(vents3[2].getLowerBoundStart(), 0);
-        Assert.assertEquals(vents3[2].getLowerBoundEnd(), 10);
-        Assert.assertEquals(vents3[2].getUpperBoundStart(), 90);
-        Assert.assertEquals(vents3[2].getUpperBoundEnd(), 100);
-    }
- */
 }

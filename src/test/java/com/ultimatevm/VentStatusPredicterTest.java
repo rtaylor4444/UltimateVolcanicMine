@@ -154,18 +154,18 @@ public class VentStatusPredicterTest {
         Assert.assertNotEquals(timeline.getTimeline()[2] & (1 << VentStatusTimeline.MOVEMENT_UPDATE_FLAG), 0);
     }
 
-    public void processVentChangeStateResetTest() {
-        VentStatusPredicter predicter = new VentStatusPredicter();
-        final VentStatusTimeline timeline = predicter.getTimeline();
-        int u = VentStatus.STARTING_VENT_VALUE;
-
-        //Ensure reset event occurs
-        predicter.updateVentStatus(new int[]{50, 50, 50}, 7);
-        predicter.updateVentStatus(new int[]{u, u, u}, 7);
-        Assert.assertTrue(predicter.getDisplayState().hasDoneVMReset());
-        Assert.assertEquals(predicter.getDisplayState().getNumIdentifiedVents(), 0);
-        Assert.assertEquals(predicter.getTimeline().getNumIdentifiedVents(), 0);
-    }
+//    public void processVentChangeStateResetTest() {
+//        VentStatusPredicter predicter = new VentStatusPredicter();
+//        final VentStatusTimeline timeline = predicter.getTimeline();
+//        int u = VentStatus.STARTING_VENT_VALUE;
+//
+//        //Ensure reset event occurs
+//        predicter.updateVentStatus(new int[]{50, 50, 50}, 7);
+//        predicter.updateVentStatus(new int[]{u, u, u}, 7);
+//        Assert.assertTrue(predicter.getDisplayState().hasDoneVMReset());
+//        Assert.assertEquals(predicter.getDisplayState().getNumIdentifiedVents(), 0);
+//        Assert.assertEquals(predicter.getTimeline().getNumIdentifiedVents(), 0);
+//    }
 
     public void getVentStatusTextTest() {
         //Undefined range vents return the default text

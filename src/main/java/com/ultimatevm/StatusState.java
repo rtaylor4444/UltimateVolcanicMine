@@ -290,6 +290,28 @@ public class StatusState {
         }
         hasReset = true;
     }
+    public void doHalfSpaceClipping(int ventsToClip, int directionState, int clipInfo) {
+        for(int i = 0; i < NUM_VENTS; ++i) {
+            if(vents[i].isIdentified()) continue;
+            if((ventsToClip & (1 << i)) == 0) continue;
+
+            //Determine proper direction
+            int ventDirection = vents[i].getDirection();
+            if((directionState & (1 << i)) == 0) ventDirection *= -1;
+
+            boolean downwardClip = ((clipInfo & (1 << i)) != 0);
+            //Vent percent is moving down
+            if(ventDirection < 0) {
+                if(downwardClip) vents[i].doInnerBoundsClipping(0, 53);
+                else vents[i].doInnerBoundsClipping(47, 100);
+            }
+            //Vent percent is moving up
+            else if(ventDirection > 0) {
+                if(downwardClip) vents[i].doInnerBoundsClipping(47, 100);
+                else vents[i].doInnerBoundsClipping(0, 53);
+            }
+        }
+    }
     public int[] getUnidentifiedVentIndices() {
         int curIndex = 0;
         int[] indices = new int[NUM_VENTS - numIdentifiedVents];
@@ -304,6 +326,7 @@ public class StatusState {
         if(isAllVentsIdentified()) return false;
         if(!isEnoughVentsIdentified()) return false;
         int[] indices = getUnidentifiedVentIndices();
+        if(numIdentifiedVents == 1) return calcDoubleVentValue(new VentStatus[]{vents[indices[0]], vents[indices[1]]}, change);
         return calcSingleVentValue(vents[indices[0]], change);
     }
 
@@ -339,22 +362,67 @@ public class StatusState {
         vent.setUpperBoundRange(upperBoundStart, upperBoundEnd);
         return true;
     }
-    private void calcDoubleVentValue(VentStatus[] vents, int change) {
+    private boolean calcDoubleVentValue(VentStatus[] vents, int change) {
         int partialVentUpdate = getIdentifiedVentTotalValue();
-        int missingVentUpdate = getTotalVentUpdate(change) - partialVentUpdate;
-        int maxDistance = Math.min(MAX_VENT_VALUE - PERFECT_VENT_VALUE, missingVentUpdate);
-        int minDistance = Math.max(0, missingVentUpdate - PERFECT_VENT_VALUE);
+        int pointsNeeded = getTotalVentUpdate(change) - partialVentUpdate;
+        //Exit if the value we need is out of range - stability change is invalid
+        if(pointsNeeded < 0 || pointsNeeded > (int)VENT_STABILITY_WEIGHT * 2) return false;
 
-        int lowerBoundStart = PERFECT_VENT_VALUE - maxDistance;
-        int lowerBoundEnd = PERFECT_VENT_VALUE - minDistance;
-        int upperBoundStart = PERFECT_VENT_VALUE + minDistance;
-        int upperBoundEnd = PERFECT_VENT_VALUE + maxDistance;
+        int totalLowerBoundStart = STARTING_VENT_VALUE;
+        int totalLowerBoundEnd = STARTING_VENT_VALUE;
+        int totalUpperBoundStart = STARTING_VENT_VALUE;
+        int totalUpperBoundEnd = STARTING_VENT_VALUE;
 
+        //Try all of the possible double vent combos
+        for(int takenPoints = 0; takenPoints <= (int)VENT_STABILITY_WEIGHT; ++takenPoints) {
+            int remainingPoints = pointsNeeded - takenPoints;
+            if(remainingPoints < 0 || remainingPoints > (int)VENT_STABILITY_WEIGHT) continue;
+            float missingInversePercent = 1.0f - (takenPoints / VENT_STABILITY_WEIGHT);
+            int missingVentUpdate = (int)Math.ceil(PERFECT_VENT_VALUE * missingInversePercent);
+
+            int maxDistance = Math.min(MAX_VENT_VALUE - PERFECT_VENT_VALUE, missingVentUpdate);
+            int minDistance = Math.max(0, missingVentUpdate - PERFECT_VENT_VALUE);
+
+            int lowerBoundStart = (PERFECT_VENT_VALUE - TRUNCATION_POSSIBILITIES) - maxDistance;
+            int lowerBoundEnd = (PERFECT_VENT_VALUE + TRUNCATION_POSSIBILITIES) - minDistance;
+            int upperBoundStart = (PERFECT_VENT_VALUE - TRUNCATION_POSSIBILITIES) + minDistance;
+            int upperBoundEnd = (PERFECT_VENT_VALUE + TRUNCATION_POSSIBILITIES) + maxDistance;
+
+            //Get full possible range values
+            while(lowerBoundStart < lowerBoundEnd) {
+                int newChange1 = calcStabilityChange(partialVentUpdate + remainingPoints + getStabilityInfluence(lowerBoundStart));
+                int newChange2 = calcStabilityChange(partialVentUpdate + remainingPoints + getStabilityInfluence(lowerBoundEnd));
+                if(newChange1 == change && newChange2 == change) break;
+
+                if(newChange1 != change) {
+                    ++lowerBoundStart; --upperBoundEnd;
+                }
+                if(newChange2 != change) {
+                    --lowerBoundEnd; ++upperBoundStart;
+                }
+            }
+
+            //Update our total bounds
+            if(totalLowerBoundStart == STARTING_VENT_VALUE) totalLowerBoundStart = lowerBoundStart;
+            else totalLowerBoundStart = Math.min(totalLowerBoundStart, lowerBoundStart);
+
+            if(totalLowerBoundEnd == STARTING_VENT_VALUE) totalLowerBoundEnd = lowerBoundEnd;
+            else totalLowerBoundEnd = Math.max(totalLowerBoundEnd, lowerBoundEnd);
+
+            if(totalUpperBoundStart == STARTING_VENT_VALUE) totalUpperBoundStart = upperBoundStart;
+            else totalUpperBoundStart = Math.min(totalUpperBoundStart, upperBoundStart);
+
+            if(totalUpperBoundEnd == STARTING_VENT_VALUE) totalUpperBoundEnd = upperBoundEnd;
+            else totalUpperBoundEnd = Math.max(totalUpperBoundEnd, upperBoundEnd);
+        }
+
+        //Set both vents accordingly
         for(int i = 0; i < vents.length; ++i) {
             vents[i].clearRanges();
-            vents[i].setLowerBoundRange(lowerBoundStart, lowerBoundEnd);
-            vents[i].setUpperBoundRange(upperBoundStart, upperBoundEnd);
+            vents[i].setLowerBoundRange(totalLowerBoundStart, totalLowerBoundEnd);
+            vents[i].setUpperBoundRange(totalUpperBoundStart, totalUpperBoundEnd);
         }
+        return true;
     }
     private int getDirectionFromChambers(int index, int chambers) { return (chambers & (1 << index)) != 0 ? 1 : -1;}
     private int getIdentifiedVentTotalValue() {
@@ -367,7 +435,7 @@ public class StatusState {
 
     //Accessors
     public boolean hasDoneVMReset() { return hasReset; }
-    public boolean isEnoughVentsIdentified() { return numIdentifiedVents > 1; }
+    public boolean isEnoughVentsIdentified() { return numIdentifiedVents > 0; }
     public boolean isAllVentsIdentified() { return numIdentifiedVents == NUM_VENTS; }
     public final VentStatus[] getVents() { return vents; }
     public int getStabilityChange() { return stabilityChange; }

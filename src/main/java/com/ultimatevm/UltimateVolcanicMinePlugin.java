@@ -231,9 +231,14 @@ public class UltimateVolcanicMinePlugin extends Plugin
 
 		if (estimatedTimeRemaining <= eruptionTime) {
 			VM_notifier.notify(notifier, VMNotifier.NotificationEvents.VM_ERUPTION, currentTick);
+			if(currentTick > 5) ventStatusPredicter.log();
 		}
 
 		ventStatusPredicter.getTimeline().updateTick();
+		if(ventStatusPredicter.getCurrentTick() > VentStatusTimeline.VM_GAME_RESET_TIME) {
+			if(!ventStatusPredicter.getDisplayState().hasDoneVMReset()) ventStatusPredicter.log();
+			ventStatusPredicter.reset();
+		}
 	}
 
 	@Subscribe
@@ -408,6 +413,7 @@ public class UltimateVolcanicMinePlugin extends Plugin
 		switch(npc.getId())
 		{
 			case BOULDER_BREAK_STAGE_5_ID:
+				ventStatusPredicter.log();
 				if(config.boulderFinishPickaxeLeaveProtection() && pickaxeProtector.isPickaxeDropped())
 					VM_notifier.notify(notifier, VMNotifier.NotificationEvents.VM_PICKAXE_BOULDER_COMPLETE, ventStatusPredicter.getCurrentTick());
 				//If we finish the game early dont trigger player leave event
