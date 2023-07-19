@@ -72,7 +72,9 @@ public class VentStatusTimelineTest {
         timeline.updateTick();
 
         //Stored states, events and ticks should remain the same
+        Assert.assertFalse(timeline.isHasReset());
         timeline.reset();
+        Assert.assertTrue(timeline.isHasReset());
         Assert.assertEquals(timeline.getCurrentTick(), 1);
         Assert.assertEquals(timeline.getCurrentStartingTick(), 1);
         Assert.assertNull(timeline.getInitialState());
@@ -830,6 +832,207 @@ public class VentStatusTimelineTest {
         Assert.assertTrue(predictedState.getVents()[0].isRangeDefined());
     }
 
+    public void checkHalfSpaceInvalidKnownVentsTest() {
+        //1-0 known vents mismatch - Half space should not be done
+        VentStatusTimeline timeline = new VentStatusTimeline();
+        StatusState state = new StatusState();
+        state.updateVentStatus(new int[]{u,u,u}, 0);
+        timeline.addInitialState(state);
+        advanceTicks(timeline, 25);
+        timeline.addStabilityUpdateTick(state, 21);
+        advanceTicks(timeline, 12);
+        state.updateVentStatus(new int[]{u,52,u}, 0);
+        timeline.addIdentifiedVentTick(state, 2);
+        advanceTicks(timeline, 13);
+        timeline.addStabilityUpdateTick(state, 23);
+
+        final int[] timelineEvents = timeline.getTimeline();
+        Assert.assertEquals((timelineEvents[50] & (1 << VentStatusTimeline.HALF_SPACE_COMPLETED_FLAG)), 0);
+    }
+
+    public void getPointContributionInvalidDirectionChangeTest() {
+        //A direction check
+        VentStatusTimeline timeline = new VentStatusTimeline();
+        StatusState state = new StatusState();
+        state.updateVentStatus(new int[]{u,51,u}, 0);
+        timeline.addInitialState(state);
+        advanceTicks(timeline, 25);
+        timeline.addStabilityUpdateTick(state, 21);
+        //A's direction was changed
+        advanceTicks(timeline, 8);
+        timeline.addDirectionChangeTick(1 << 3);
+        advanceTicks(timeline, 17);
+        timeline.addStabilityUpdateTick(state, 23);
+
+        //Should fail since a direction change occured!
+        final int[] timelineEvents = timeline.getTimeline();
+        Assert.assertEquals((timelineEvents[50] & (1 << VentStatusTimeline.HALF_SPACE_COMPLETED_FLAG)), 0);
+
+
+        //C direction test
+        VentStatusTimeline timeline2 = new VentStatusTimeline();
+        timeline2.addInitialState(state);
+        advanceTicks(timeline2, 25);
+        timeline2.addStabilityUpdateTick(state, 21);
+        //C's direction was changed
+        advanceTicks(timeline2, 8);
+        timeline2.addDirectionChangeTick(4 << 3);
+        advanceTicks(timeline2, 17);
+        timeline2.addStabilityUpdateTick(state, 23);
+
+        //Should fail since a direction change occured!
+        final int[] timelineEvents2 = timeline2.getTimeline();
+        Assert.assertEquals((timelineEvents2[50] & (1 << VentStatusTimeline.HALF_SPACE_COMPLETED_FLAG)), 0);
+    }
+
+    public void completeHalfSpaceInvalidStabilityChangeDiffTest() {
+        VentStatusTimeline timeline = new VentStatusTimeline();
+        StatusState state = new StatusState();
+        state.updateVentStatus(new int[]{u,51,u}, 0);
+        timeline.addInitialState(state);
+        advanceTicks(timeline, 25);
+        timeline.addStabilityUpdateTick(state, 21);
+        advanceTicks(timeline, 25);
+        timeline.addStabilityUpdateTick(state, 22);
+
+        //Should fail since stability hasnt changed enough!
+        final int[] timelineEvents = timeline.getTimeline();
+        Assert.assertEquals((timelineEvents[50] & (1 << VentStatusTimeline.HALF_SPACE_COMPLETED_FLAG)), 0);
+    }
+
+    public void completeHalfSpaceTest() {
+        VentStatusTimeline timeline = new VentStatusTimeline();
+        StatusState state = new StatusState();
+        state.updateVentStatus(new int[]{u,51,u}, 0);
+        timeline.addInitialState(state);
+        advanceTicks(timeline, 25);
+        timeline.addStabilityUpdateTick(state, 21);
+        advanceTicks(timeline, 25);
+        timeline.addStabilityUpdateTick(state, 22);
+        //B's direction was changed
+        advanceTicks(timeline, 8);
+        timeline.addDirectionChangeTick(2 << 3);
+        advanceTicks(timeline, 17);
+        timeline.addStabilityUpdateTick(state, 23);
+
+        //Half space should succeed here
+        final int[] timelineEvents = timeline.getTimeline();
+        Assert.assertTrue((timelineEvents[75] & (1 << VentStatusTimeline.HALF_SPACE_COMPLETED_FLAG)) != 0);
+        //A vent should be clipped properly
+        StatusState predictedState = timeline.getCurrentPredictionState();
+        Assert.assertEquals(predictedState.getVents()[0].getLowerBoundStart(), 47);
+        Assert.assertEquals(predictedState.getVents()[0].getUpperBoundStart(), 47);
+        Assert.assertEquals(predictedState.getVents()[0].getLowerBoundEnd(), 56);
+        Assert.assertEquals(predictedState.getVents()[0].getUpperBoundEnd(), 56);
+    }
+
+    public void halfSpaceClippingTest() {
+        VentStatusTimeline timeline = new VentStatusTimeline();
+        StatusState startingState = new StatusState();
+        startingState.updateVentStatus(new int[]{0,u,u}, 1);
+
+        //Assume both B and C are 25%
+        //Both B and C are fixed
+        timeline.initialize();
+        StatusState state = new StatusState(startingState);
+        timeline.addInitialState(state);
+        advanceTicks(timeline, 10);
+        state.updateVentStatus(new int[]{2,u,u}, 1);
+        timeline.addMovementTick(state, makeMoveBitState(2, 0, 0));
+        advanceTicks(timeline, 10);
+        state.updateVentStatus(new int[]{4,u,u}, 1);
+        timeline.addMovementTick(state, makeMoveBitState(2, 0, 0));
+        advanceTicks(timeline, 5);
+        timeline.addStabilityUpdateTick(state, -7);
+        advanceTicks(timeline, 5);
+        state.updateVentStatus(new int[]{6,u,u}, 1);
+        timeline.addMovementTick(state, makeMoveBitState(2, 0, 0));
+        advanceTicks(timeline, 10);
+        state.updateVentStatus(new int[]{8,u,u}, 1);
+        timeline.addMovementTick(state, makeMoveBitState(2, 0, 0));
+        advanceTicks(timeline, 10);
+        state.updateVentStatus(new int[]{10,u,u}, 1);
+        timeline.addMovementTick(state, makeMoveBitState(2, 0, 0));
+        timeline.addStabilityUpdateTick(state, -1);
+
+        StatusState predictedState = timeline.getCurrentPredictionState();
+        Assert.assertEquals(predictedState.getVents()[1].getLowerBoundStart(), 47);
+        Assert.assertEquals(predictedState.getVents()[1].getUpperBoundStart(), 47);
+        Assert.assertEquals(predictedState.getVents()[1].getLowerBoundEnd(), 93);
+        Assert.assertEquals(predictedState.getVents()[1].getUpperBoundEnd(), 93);
+        Assert.assertEquals(predictedState.getVents()[2].getLowerBoundStart(), 47);
+        Assert.assertEquals(predictedState.getVents()[2].getUpperBoundStart(), 47);
+        Assert.assertEquals(predictedState.getVents()[2].getLowerBoundEnd(), 93);
+        Assert.assertEquals(predictedState.getVents()[2].getUpperBoundEnd(), 93);
+
+
+        //Both B and C are not fixed
+        timeline.initialize();
+        state = new StatusState(startingState);
+        timeline.addInitialState(state);
+        advanceTicks(timeline, 10);
+        state.updateVentStatus(new int[]{2,u,u}, 1);
+        timeline.addMovementTick(state, makeMoveBitState(2, 0, 0));
+        advanceTicks(timeline, 10);
+        state.updateVentStatus(new int[]{4,u,u}, 1);
+        timeline.addMovementTick(state, makeMoveBitState(2, 0, 0));
+        advanceTicks(timeline, 5);
+        timeline.addStabilityUpdateTick(state, -7);
+        advanceTicks(timeline, 5);
+        state.updateVentStatus(new int[]{6,u,u}, 1);
+        timeline.addMovementTick(state, makeMoveBitState(2, 0, 0));
+        advanceTicks(timeline, 10);
+        state.updateVentStatus(new int[]{8,u,u}, 1);
+        timeline.addMovementTick(state, makeMoveBitState(2, 0, 0));
+        advanceTicks(timeline, 10);
+        state.updateVentStatus(new int[]{10,u,u}, 1);
+        timeline.addMovementTick(state, makeMoveBitState(2, 0, 0));
+        timeline.addStabilityUpdateTick(state, -9);
+
+        predictedState = timeline.getCurrentPredictionState();
+        Assert.assertEquals(predictedState.getVents()[1].getLowerBoundStart(), 0);
+        Assert.assertEquals(predictedState.getVents()[1].getUpperBoundStart(), 0);
+        Assert.assertEquals(predictedState.getVents()[1].getLowerBoundEnd(), 37);
+        Assert.assertEquals(predictedState.getVents()[1].getUpperBoundEnd(), 37);
+        Assert.assertEquals(predictedState.getVents()[2].getLowerBoundStart(), 0);
+        Assert.assertEquals(predictedState.getVents()[2].getUpperBoundStart(), 0);
+        Assert.assertEquals(predictedState.getVents()[2].getLowerBoundEnd(), 37);
+        Assert.assertEquals(predictedState.getVents()[2].getUpperBoundEnd(), 37);
+
+
+        //Either B or C are fixed the other one isnt
+        timeline.initialize();
+        state = new StatusState(startingState);
+        timeline.addInitialState(state);
+        advanceTicks(timeline, 10);
+        state.updateVentStatus(new int[]{2,u,u}, 1);
+        timeline.addMovementTick(state, makeMoveBitState(2, 0, 0));
+        advanceTicks(timeline, 10);
+        state.updateVentStatus(new int[]{4,u,u}, 1);
+        timeline.addMovementTick(state, makeMoveBitState(2, 0, 0));
+        advanceTicks(timeline, 5);
+        timeline.addStabilityUpdateTick(state, -7);
+        advanceTicks(timeline, 5);
+        state.updateVentStatus(new int[]{6,u,u}, 1);
+        timeline.addMovementTick(state, makeMoveBitState(2, 0, 0));
+        advanceTicks(timeline, 10);
+        state.updateVentStatus(new int[]{8,u,u}, 1);
+        timeline.addMovementTick(state, makeMoveBitState(2, 0, 0));
+        advanceTicks(timeline, 10);
+        state.updateVentStatus(new int[]{10,u,u}, 1);
+        timeline.addMovementTick(state, makeMoveBitState(2, 0, 0));
+        timeline.addStabilityUpdateTick(state, -5);
+
+        predictedState = timeline.getCurrentPredictionState();
+        Assert.assertEquals(predictedState.getVents()[1].getLowerBoundStart(), 0);
+        Assert.assertEquals(predictedState.getVents()[1].getUpperBoundStart(), 0);
+        Assert.assertEquals(predictedState.getVents()[1].getLowerBoundEnd(), 94);
+        Assert.assertEquals(predictedState.getVents()[1].getUpperBoundEnd(), 94);
+        Assert.assertEquals(predictedState.getVents()[2].getLowerBoundStart(), 0);
+        Assert.assertEquals(predictedState.getVents()[2].getUpperBoundStart(), 0);
+        Assert.assertEquals(predictedState.getVents()[2].getLowerBoundEnd(), 97);
+        Assert.assertEquals(predictedState.getVents()[2].getUpperBoundEnd(), 97);
+    }
 
 
     public void sandbox() {

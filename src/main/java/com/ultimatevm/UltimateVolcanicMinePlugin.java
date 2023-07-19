@@ -236,7 +236,7 @@ public class UltimateVolcanicMinePlugin extends Plugin
 
 		ventStatusPredicter.getTimeline().updateTick();
 		if(ventStatusPredicter.getCurrentTick() > VentStatusTimeline.VM_GAME_RESET_TIME) {
-			if(!ventStatusPredicter.getDisplayState().hasDoneVMReset()) ventStatusPredicter.log();
+			if(!ventStatusPredicter.getTimeline().isHasReset()) ventStatusPredicter.log();
 			ventStatusPredicter.reset();
 		}
 	}

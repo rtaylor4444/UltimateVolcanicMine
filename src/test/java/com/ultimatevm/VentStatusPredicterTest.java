@@ -7,6 +7,8 @@ import org.testng.Assert;
 @Test()
 public class VentStatusPredicterTest {
 
+    int u = VentStatus.STARTING_VENT_VALUE;
+
     public void constructorTest() {
         VentStatusPredicter predicter = new VentStatusPredicter();
         Assert.assertNotNull(predicter.getDisplayState());
@@ -36,14 +38,12 @@ public class VentStatusPredicterTest {
 
         //Ensure reset is done properly
         predicter.reset();
-        Assert.assertTrue(predicter.getDisplayState().hasDoneVMReset());
-        Assert.assertEquals(predicter.getDisplayState().getNumIdentifiedVents(), 0);
         Assert.assertEquals(predicter.getTimeline().getNumIdentifiedVents(), 0);
 
         //Reset should not work the second time
+        predicter.updateVentStatus(new int[]{u, u, u}, 7);
         predicter.updateVentStatus(new int[]{50, 50, 50}, 7);
         predicter.reset();
-        Assert.assertEquals(predicter.getDisplayState().getNumIdentifiedVents(), 3);
         Assert.assertEquals(predicter.getTimeline().getNumIdentifiedVents(), 3);
     }
 
@@ -154,18 +154,19 @@ public class VentStatusPredicterTest {
         Assert.assertNotEquals(timeline.getTimeline()[2] & (1 << VentStatusTimeline.MOVEMENT_UPDATE_FLAG), 0);
     }
 
-//    public void processVentChangeStateResetTest() {
-//        VentStatusPredicter predicter = new VentStatusPredicter();
-//        final VentStatusTimeline timeline = predicter.getTimeline();
-//        int u = VentStatus.STARTING_VENT_VALUE;
-//
-//        //Ensure reset event occurs
-//        predicter.updateVentStatus(new int[]{50, 50, 50}, 7);
-//        predicter.updateVentStatus(new int[]{u, u, u}, 7);
-//        Assert.assertTrue(predicter.getDisplayState().hasDoneVMReset());
-//        Assert.assertEquals(predicter.getDisplayState().getNumIdentifiedVents(), 0);
-//        Assert.assertEquals(predicter.getTimeline().getNumIdentifiedVents(), 0);
-//    }
+    public void processVentChangeStateResetTest() {
+        VentStatusPredicter predicter = new VentStatusPredicter();
+        final VentStatusTimeline timeline = predicter.getTimeline();
+        int u = VentStatus.STARTING_VENT_VALUE;
+
+        //Ensure reset event occurs
+        predicter.updateVentStatus(new int[]{50, 50, 50}, 7);
+        predicter.updateVentStatus(new int[]{u, u, u}, 7);
+        Assert.assertTrue(predicter.getDisplayState().hasDoneVMReset());
+        Assert.assertEquals(predicter.getDisplayState().getNumIdentifiedVents(), 0);
+        //Timeline should remain unaffected
+        Assert.assertEquals(predicter.getTimeline().getNumIdentifiedVents(), 3);
+    }
 
     public void getVentStatusTextTest() {
         //Undefined range vents return the default text

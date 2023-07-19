@@ -995,7 +995,82 @@ public class StatusStateTest {
         Assert.assertEquals(ventB.getUpperBoundEnd(), 33);
     }
 
-    public void doHalfSpaceClippingNoDirectionChangeTest() {
+    public void clipPredictedStabilityMismatchInvalidTest() {
+        StatusState state = new StatusState();
+        state.updateVentStatus(new int[]{24, 76, u}, 6);
+        final VentStatus ventC = state.getVents()[2];
+
+        //Single value range do nothing
+        ventC.setUpperBoundRange(79, 79);
+        ventC.setLowerBoundRange(79, 79);
+        state.clipPredictedStabilityMismatch(StabilityUpdateInfo.getMinRNGVariation()-1);
+        Assert.assertEquals(ventC.getLowerBoundStart(), 79);
+        Assert.assertEquals(ventC.getLowerBoundEnd(), 79);
+        Assert.assertEquals(ventC.getUpperBoundStart(), 79);
+        Assert.assertEquals(ventC.getUpperBoundEnd(), 79);
+
+        //Both changes are above stability amount do nothing
+        ventC.setUpperBoundRange(53, 53);
+        ventC.setLowerBoundRange(47, 47);
+        state.clipPredictedStabilityMismatch(StabilityUpdateInfo.getMinRNGVariation()-1);
+        Assert.assertEquals(ventC.getLowerBoundStart(), 47);
+        Assert.assertEquals(ventC.getLowerBoundEnd(), 47);
+        Assert.assertEquals(ventC.getUpperBoundStart(), 53);
+        Assert.assertEquals(ventC.getUpperBoundEnd(), 53);
+
+        //Both changes are negative but match no clipping
+        ventC.setUpperBoundRange(79, 79);
+        ventC.setLowerBoundRange(21, 21);
+        state.clipPredictedStabilityMismatch(StabilityUpdateInfo.getMinRNGVariation()-1);
+        Assert.assertEquals(ventC.getLowerBoundStart(), 21);
+        Assert.assertEquals(ventC.getLowerBoundEnd(), 21);
+        Assert.assertEquals(ventC.getUpperBoundStart(), 79);
+        Assert.assertEquals(ventC.getUpperBoundEnd(), 79);
+    }
+
+    public void clipPredictedStabilityMismatchTest() {
+        StatusState state = new StatusState();
+        state.updateVentStatus(new int[]{24, 76, u}, 6);
+        final VentStatus ventC = state.getVents()[2];
+
+        //Upper bound partial clipping
+        ventC.setUpperBoundRange(77, 79);
+        ventC.setLowerBoundRange(47, 49);
+        state.clipPredictedStabilityMismatch(StabilityUpdateInfo.getMinRNGVariation()-1);
+        Assert.assertEquals(ventC.getLowerBoundStart(), 47);
+        Assert.assertEquals(ventC.getLowerBoundEnd(), 49);
+        Assert.assertEquals(ventC.getUpperBoundStart(), 77);
+        Assert.assertEquals(ventC.getUpperBoundEnd(), 78);
+
+        //Upper bound full clipping
+        ventC.setUpperBoundRange(79, 79);
+        ventC.setLowerBoundRange(47, 49);
+        state.clipPredictedStabilityMismatch(StabilityUpdateInfo.getMinRNGVariation()-1);
+        Assert.assertEquals(ventC.getLowerBoundStart(), 47);
+        Assert.assertEquals(ventC.getLowerBoundEnd(), 49);
+        Assert.assertEquals(ventC.getUpperBoundStart(), 47);
+        Assert.assertEquals(ventC.getUpperBoundEnd(), 49);
+
+        //Lower bound partial clipping
+        ventC.setUpperBoundRange(51, 53);
+        ventC.setLowerBoundRange(21, 23);
+        state.clipPredictedStabilityMismatch(StabilityUpdateInfo.getMinRNGVariation()-1);
+        Assert.assertEquals(ventC.getLowerBoundStart(), 22);
+        Assert.assertEquals(ventC.getLowerBoundEnd(), 23);
+        Assert.assertEquals(ventC.getUpperBoundStart(), 51);
+        Assert.assertEquals(ventC.getUpperBoundEnd(), 53);
+
+        //Lower bound full clipping
+        ventC.setUpperBoundRange(51, 53);
+        ventC.setLowerBoundRange(21, 21);
+        state.clipPredictedStabilityMismatch(StabilityUpdateInfo.getMinRNGVariation()-1);
+        Assert.assertEquals(ventC.getLowerBoundStart(), 51);
+        Assert.assertEquals(ventC.getLowerBoundEnd(), 53);
+        Assert.assertEquals(ventC.getUpperBoundStart(), 51);
+        Assert.assertEquals(ventC.getUpperBoundEnd(), 53);
+    }
+
+    public void doHalfSpaceClippingChangeTest() {
         StatusState state = new StatusState();
         final VentStatus[] vents = state.getVents();
         vents[0].setLowerBoundRange(0, 100);
@@ -1008,7 +1083,7 @@ public class StatusStateTest {
         //A Clipping test - moving upward
         vents[0].update(u, 1);
         //Only clip A - negative point contribution
-        state.doHalfSpaceClipping(1, 0, 0);
+        state.doHalfSpaceClipping(1, 1);
         Assert.assertEquals(vents[0].getLowerBoundStart(), 47);
         Assert.assertEquals(vents[0].getLowerBoundEnd(), 100);
         Assert.assertEquals(vents[0].getUpperBoundStart(), 47);
@@ -1025,7 +1100,7 @@ public class StatusStateTest {
         //Only clip A - positive point contribution
         vents[0].setLowerBoundRange(0, 100);
         vents[0].setUpperBoundRange(0, 100);
-        state.doHalfSpaceClipping(1, 0, 1);
+        state.doHalfSpaceClipping(1, 0);
         Assert.assertEquals(vents[0].getLowerBoundStart(), 0);
         Assert.assertEquals(vents[0].getLowerBoundEnd(), 53);
         Assert.assertEquals(vents[0].getUpperBoundStart(), 0);
@@ -1044,7 +1119,7 @@ public class StatusStateTest {
         vents[0].setLowerBoundRange(0, 100);
         vents[0].setUpperBoundRange(0, 100);
         //Only clip A - negative point contribution
-        state.doHalfSpaceClipping(1, 0, 0);
+        state.doHalfSpaceClipping(1, 1);
         Assert.assertEquals(vents[0].getLowerBoundStart(), 0);
         Assert.assertEquals(vents[0].getLowerBoundEnd(), 53);
         Assert.assertEquals(vents[0].getUpperBoundStart(), 0);
@@ -1061,7 +1136,7 @@ public class StatusStateTest {
         vents[0].setLowerBoundRange(0, 100);
         vents[0].setUpperBoundRange(0, 100);
         //Only clip A - positive point contribution
-        state.doHalfSpaceClipping(1, 0, 1);
+        state.doHalfSpaceClipping(1, 0);
         Assert.assertEquals(vents[0].getLowerBoundStart(), 47);
         Assert.assertEquals(vents[0].getLowerBoundEnd(), 100);
         Assert.assertEquals(vents[0].getUpperBoundStart(), 47);

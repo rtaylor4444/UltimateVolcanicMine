@@ -32,10 +32,9 @@ public class VentStatusTimeline {
     //0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
 
     public static final int HALF_SPACE_VENTS_BIT_MASK = 7 << HALF_SPACE_COMPLETED_FLAG+1;
-    public static final int HALF_SPACE_DIRECTION_STATE_BIT_MASK = 7 << HALF_SPACE_COMPLETED_FLAG+4;
-    public static final int HALF_SPACE_CLIP_BIT_MASK = 7 << HALF_SPACE_COMPLETED_FLAG+7;
-    //clip | dir |vents| space completed?
-    //0 0 0 0 0 0 0 0 0  0
+    public static final int HALF_SPACE_CLIP_BIT_MASK = 7 << HALF_SPACE_COMPLETED_FLAG+4;
+    //clip |vents| space completed?
+    //0 0 0 0 0 0  0
 
     private static final String FILE_PATH =
             "C:\\Users\\cyanw\\IdeaProjects\\UltimateVolcanicMine\\src\\main\\resources\\game_log.txt";
@@ -47,6 +46,7 @@ public class VentStatusTimeline {
     private int[] identifiedVentTick;
     private StatusState[] identifiedVentStates;
     private int numIdentifiedVents;
+    private boolean hasReset = false;
     StatusState initialState;
     StabilityUpdateInfo initialStabInfo;
     HashMap<Integer, StatusState> tickToMovementVentState;
@@ -63,8 +63,11 @@ public class VentStatusTimeline {
         tickToMovementVentState = new HashMap<>();
         tickToStabilityUpdateState = new HashMap<>();
         reset();
+        hasReset = false;
     }
     public void reset() {
+        if(hasReset) return;
+        hasReset = true;
         firstStabilityUpdateTick = Integer.MAX_VALUE;
         currentMovementTick = startingTick = currentTick;
         numIdentifiedVents = 0;
@@ -216,11 +219,41 @@ public class VentStatusTimeline {
         timeline[tick] |= (1 << ESTIMATED_MOVEMENT_FLAG);
         return true;
     }
+    private void checkHalfSpace(int tick) {
+        if(!tickToStabilityUpdateState.containsKey(tick)) return;
+        //Do this only if one vent is known
+        int numKnownVents = tickToStabilityUpdateState.get(tick).getStabilityUpdateState().getNumIdentifiedVents();
+        if(numKnownVents != 1) return;
+
+        //Find a valid previous change
+        int currentChange = tickToStabilityUpdateState.get(tick).getInitialChange();
+        int endingTick = Math.max(tick - (STABILITY_UPDATE_TICK_TIME*2),startingTick);
+        for(int i = tick - STABILITY_UPDATE_TICK_TIME; i >= endingTick; i -= STABILITY_UPDATE_TICK_TIME) {
+            if(!tickToStabilityUpdateState.containsKey(i)) continue;
+
+            int change = tickToStabilityUpdateState.get(i).getInitialChange();
+            int prevKnownVents = tickToStabilityUpdateState.get(i).getStabilityUpdateState().getNumIdentifiedVents();
+
+            //Ensure these two updates have the same number of known vents
+            if(numKnownVents != prevKnownVents)
+                continue;
+
+            //Determine each vents contribution and direction changes
+            int[] pointChange = new int[StatusState.NUM_VENTS];
+            int[] moveChange = new int[StatusState.NUM_VENTS+1];
+            if(!getPointContribution(i, tick, pointChange, moveChange))
+                break;
+
+            int timeframeSize = (tick - i) / STABILITY_UPDATE_TICK_TIME;
+            if(completeHalfSpace(tick, timeframeSize,currentChange - change, pointChange, moveChange))
+                break;
+        }
+    }
     public StatusState getTimelinePredictionState() {
         LinkedList<StatusState> possibleStates = new LinkedList<>();
         StabilityUpdateInfo prevStabInfo = null;
         StatusState predictedState = new StatusState(initialState);
-        int previousMovementTick = 0;
+        int previousMovementTick = startingTick, numTicksNegativePredictedStability = 0;
         possibleStates.push(predictedState);
         for(int i = startingTick+1; i <= currentTick; ++i) {
             if((timeline[i] & (1 << IDENTIFIED_VENT_FLAG)) != 0) {
@@ -259,6 +292,9 @@ public class VentStatusTimeline {
                 //Set predicted state to the new up to date possibility
                 //Only set if value wasnt freeze clipped
                 if(newPossibility.areRangesDefined()) predictedState = newPossibility;
+                //If two consecutive movements are skipped just update the predicted state
+                if(i - previousMovementTick > VENT_MOVE_TICK_TIME*2)
+                    predictedState = newPossibility;
             }
             if((timeline[i] & (1 << MOVEMENT_UPDATE_FLAG)) != 0) {
                 previousMovementTick = i;
@@ -284,15 +320,14 @@ public class VentStatusTimeline {
                     //Use stability updates to set/narrow our possible values
                     if (stabilityInfo == initialStabInfo) {
                         if(curState.areRangesDefined()) stabilityInfo.updatePredictedState(curState, prevStabInfo, initalRNGMod);
-                        else curState.mergePredictedRangesWith(initialStabInfo.getStabilityUpdateState());
+                        else curState.alignPredictedRangesWith(initialStabInfo.getStabilityUpdateState());
                     }
                     else stabilityInfo.updatePredictedState(curState, prevStabInfo, initalRNGMod);
 
                     if((timeline[i] & (1 << HALF_SPACE_COMPLETED_FLAG)) != 0) {
                         int ventsToClip = (timeline[i] & HALF_SPACE_VENTS_BIT_MASK) >> (HALF_SPACE_COMPLETED_FLAG+1);
-                        int directionState = (timeline[i] & HALF_SPACE_DIRECTION_STATE_BIT_MASK) >> (HALF_SPACE_COMPLETED_FLAG+4);
-                        int clipInfo = (timeline[i] & HALF_SPACE_CLIP_BIT_MASK) >> (HALF_SPACE_COMPLETED_FLAG+7);
-                        curState.doHalfSpaceClipping(ventsToClip, directionState, clipInfo);
+                        int clipInfo = (timeline[i] & HALF_SPACE_CLIP_BIT_MASK) >> (HALF_SPACE_COMPLETED_FLAG+4);
+                        curState.doHalfSpaceClipping(ventsToClip, clipInfo);
                     }
                 }
                 //Remove all invalid possibilities - always keep 1 state even if invalid
@@ -304,6 +339,29 @@ public class VentStatusTimeline {
                 }
                 predictedState = possibleStates.getLast();
                 prevStabInfo = stabilityInfo;
+                numTicksNegativePredictedStability = 0;
+            }
+
+            int predictedChange = predictedState.getFutureStabilityChange(UltimateVolcanicMineConfig.PredictionScenario.WORST_CASE);
+            if(predictedChange < StabilityUpdateInfo.getMinRNGVariation()-1)
+                ++numTicksNegativePredictedStability;
+            else numTicksNegativePredictedStability = 0;
+
+            //Attempt to clip invalid predicted ranges
+            //This scenario occurs when stability stays 100% for extended time
+            if(prevStabInfo != null) {
+                if (numTicksNegativePredictedStability < STABILITY_UPDATE_TICK_TIME * 2) continue;
+
+                int ticksSinceLastUpdate = i - prevStabInfo.getTickTimeStamp();
+                if (ticksSinceLastUpdate < STABILITY_UPDATE_TICK_TIME * 2) continue;
+
+                //Check and see if we meet requirements to display
+                //a predicted stability change
+                Iterator<StatusState> iterator = possibleStates.descendingIterator();
+                while (iterator.hasNext()) {
+                    StatusState curState = iterator.next();
+                    curState.clipPredictedStabilityMismatch(StabilityUpdateInfo.getMinRNGVariation() - 1);
+                }
             }
         }
         return predictedState;
@@ -324,7 +382,7 @@ public class VentStatusTimeline {
         tickToStabilityUpdateState.put(currentTick, newInfo);
         timeline[tick] |= (1 << STABILITY_UPDATE_FLAG);
         setInitialStabilityUpdateInfo(newInfo);
-        checkHalfSpace(currentTick);
+//        checkHalfSpace(currentTick);
     }
     private void setInitialStabilityUpdateInfo(StabilityUpdateInfo info) {
         firstStabilityUpdateTick = Math.min(firstStabilityUpdateTick, currentTick);
@@ -430,15 +488,12 @@ public class VentStatusTimeline {
         }
         return true;
     }
-
-    private int getPointContribution(int startTick, int endTick, int[] pointChange, int[] moveChange) {
-        StatusState startState = null;
-        if(tickToStabilityUpdateState.get(startTick) != null)
-            startState = tickToStabilityUpdateState.get(startTick).getStabilityUpdateState();
-        else
-            startState = tickToStabilityUpdateState.get(endTick).getStabilityUpdateState();
+    private boolean getPointContribution(int startTick, int endTick, int[] pointChange, int[] moveChange) {
+        //Exit if starting stability update doesnt exist
+        if(!tickToStabilityUpdateState.containsKey(startTick)) return false;
 
         //Get our starting points
+        StatusState startState = tickToStabilityUpdateState.get(startTick).getStabilityUpdateState();
         int[] startingPoints = new int[StatusState.NUM_VENTS], endingPoints = new int[StatusState.NUM_VENTS];
         for(int i = 0; i < StatusState.NUM_VENTS; ++i) {
             if(!startState.getVents()[i].isIdentified())
@@ -447,15 +502,14 @@ public class VentStatusTimeline {
         }
 
         int directionState = 0, numMovementUpdates = 0;
-        int estDirChangeA = 0, estDirChangeB = 0, estDirChangeC = 0;
         for(int i = startTick; i <= endTick; ++i) {
             //Keep track of directional state to ensure proper half space clipping
             if((timeline[i] & (1 << DIRECTION_CHANGED_FLAG)) != 0) {
                 int directionFlags = timeline[i] & DIRECTION_CHANGED_BIT_MASK;
                 directionFlags >>= 3;
-                if((directionFlags & 1) != 0) directionState ^= 1;
-                if((directionFlags & 2) != 0) directionState ^= 2;
-                if((directionFlags & 4) != 0) directionState ^= 4;
+                if((directionFlags & 1) != 0) directionState |= 1;
+                if((directionFlags & 2) != 0) directionState |= 2;
+                if((directionFlags & 4) != 0) directionState |= 4;
             }
 
             //Update ending points
@@ -467,13 +521,7 @@ public class VentStatusTimeline {
                     else endingPoints[j] = VentStatus.getStabilityInfluence(moveState.getVents()[j].getActualValue());
                 }
                 //Keep track of how long each vent have been facing a specific direction
-                moveChange[3] = ++numMovementUpdates;
-                if((directionState & 1) != 0) moveChange[0] = --estDirChangeA;
-                else moveChange[0] = ++estDirChangeA;
-                if((directionState & 2) != 0) moveChange[1] = --estDirChangeB;
-                else moveChange[1] = ++estDirChangeB;
-                if((directionState & 4) != 0) moveChange[2] = --estDirChangeC;
-                else moveChange[2] = ++estDirChangeC;
+                moveChange[0] = ++numMovementUpdates;
             }
         }
 
@@ -485,10 +533,11 @@ public class VentStatusTimeline {
                 directionState &= ~(1 << i);
             }
         }
-        return directionState;
+        return directionState == 0;
     }
-    private boolean completeHalfSpace(int tick, int changeDiff, int directionState, int[] pointChange, int[] moveChange) {
-        if(Math.abs(changeDiff) >= StabilityUpdateInfo.getMaxRNGPossibleSize())
+    private boolean completeHalfSpace(int tick, int timeframeSize, int changeDiff, int[] pointChange, int[] moveChange) {
+        //Make sure change cannot be influenced by rng
+        if(Math.abs(changeDiff) < StabilityUpdateInfo.getMaxRNGPossibleSize())
             return false;
 
         //Get influence of the two missing vents
@@ -500,17 +549,17 @@ public class VentStatusTimeline {
             changeDiff -= pointChange[i];
             knownVentIndex = i;
         }
+        int missingVentFlag = 7 & ~(1 << knownVentIndex);
 
         //No movement check
-        if(moveChange[3] == 0) {
+        if(moveChange[0] == 0) {
             //For B this is only possible if A is 41-59; just clip A
             if(knownVentIndex == 1) {
                 if(changeDiff < 0) {
                     //1 placed for downward clipping trend
-                    timeline[tick] |= (1 << HALF_SPACE_COMPLETED_FLAG+7);
+                    timeline[tick] |= (1 << HALF_SPACE_COMPLETED_FLAG+4);
                 }
                 //0s placed for clipping for upward trend
-                timeline[tick] |= (directionState << HALF_SPACE_COMPLETED_FLAG+4);
                 timeline[tick] |= (1 << HALF_SPACE_COMPLETED_FLAG+1);
                 timeline[tick] |= (1 << HALF_SPACE_COMPLETED_FLAG);
                 return true;
@@ -520,58 +569,21 @@ public class VentStatusTimeline {
             return false;
         } else {
             //Both missing vents must have increased or decreased change
-            if(Math.abs(changeDiff) <= 1) return false;
-            int missingVentFlag = ~(1 << knownVentIndex);
+            if(Math.abs(changeDiff) <= timeframeSize) return false;
+
             if(changeDiff < 0) {
                 //1 placed for downward clipping trend
-                timeline[tick] |= (missingVentFlag << HALF_SPACE_COMPLETED_FLAG+7);
+                timeline[tick] |= (missingVentFlag << HALF_SPACE_COMPLETED_FLAG+4);
             }
             //0s placed for clipping for upward trend
-            timeline[tick] |= (directionState << HALF_SPACE_COMPLETED_FLAG+4);
             timeline[tick] |= (missingVentFlag << HALF_SPACE_COMPLETED_FLAG+1);
             timeline[tick] |= (1 << HALF_SPACE_COMPLETED_FLAG);
         }
         return true;
     }
-    private void checkHalfSpace(int tick) {
-        if(!tickToStabilityUpdateState.containsKey(tick)) return;
-        //Do this only if one vent is known
-        int numKnownVents = tickToStabilityUpdateState.get(tick).getStabilityUpdateState().getNumIdentifiedVents();
-        if(numKnownVents != 1) return;
-
-        //Find a valid previous change
-        int currentChange = tickToStabilityUpdateState.get(tick).getInitialChange();
-        int endingTick = Math.max(tick - (STABILITY_UPDATE_TICK_TIME*2),startingTick);
-        int consecStabilitySkips = 0;
-        for(int i = tick - STABILITY_UPDATE_TICK_TIME; i >= endingTick; i -= STABILITY_UPDATE_TICK_TIME) {
-            int change = StabilityUpdateInfo.getMaxRNGPossibleSize();
-            int prevKnownVents = 1;
-            if(!tickToStabilityUpdateState.containsKey(i)) {
-                //If we skip two stability updates in a row there must
-                //be a positive change at 100% stability
-                if(++consecStabilitySkips == 1) continue;
-            }
-            else {
-                change = tickToStabilityUpdateState.get(i).getInitialChange();
-                prevKnownVents = tickToStabilityUpdateState.get(i).getStabilityUpdateState().getNumIdentifiedVents();
-            }
-
-            //Ensure these two updates have the same number of known vents
-            if(numKnownVents != prevKnownVents)
-                continue;
-
-            //Determine each vents contribution and direction changes
-            int[] pointChange = new int[StatusState.NUM_VENTS];
-            int[] moveChange = new int[StatusState.NUM_VENTS+1];
-            int directionState = getPointContribution(i, tick, pointChange, moveChange);
-
-            if(completeHalfSpace(tick,currentChange - change, directionState, pointChange, moveChange))
-                break;
-        }
-    }
-
 
     //Accessors
+    public boolean isHasReset() { return hasReset; }
     public int getCurrentTick() { return currentTick; }
     public int getCurrentStartingTick() {return startingTick;}
     public int getNumIdentifiedVents() { return numIdentifiedVents; }
@@ -706,9 +718,8 @@ public class VentStatusTimeline {
                 prevStabInfo = stabilityInfo;
                 if((timeline[i] & (1 << HALF_SPACE_COMPLETED_FLAG)) != 0) {
                     int ventsToClip = (timeline[i] & HALF_SPACE_VENTS_BIT_MASK) >> (HALF_SPACE_COMPLETED_FLAG+1);
-                    int directionState = (timeline[i] & HALF_SPACE_DIRECTION_STATE_BIT_MASK) >> (HALF_SPACE_COMPLETED_FLAG+4);
-                    int clipInfo = (timeline[i] & HALF_SPACE_CLIP_BIT_MASK) >> (HALF_SPACE_COMPLETED_FLAG+7);
-                    predictedState.doHalfSpaceClipping(ventsToClip, directionState, clipInfo);
+                    int clipInfo = (timeline[i] & HALF_SPACE_CLIP_BIT_MASK) >> (HALF_SPACE_COMPLETED_FLAG+4);
+                    predictedState.doHalfSpaceClipping(ventsToClip, clipInfo);
                     logText("On tick: " + i + " half space clipping occurred");
                 }
             }
