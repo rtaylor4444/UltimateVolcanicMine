@@ -107,7 +107,8 @@ public class StatusState {
             overlapVentWith(i, state.vents[i]);
         }
     }
-    public void doFreezeClipping(int moveBitState) {
+    public boolean doFreezeClipping(int moveBitState) {
+        int clippedValueState = 0;
         for(int i = 0; i < NUM_VENTS; ++i) {
             int curMove = moveBitState & (3 << (i * 2));
             curMove = (curMove >> (i * 2));
@@ -118,6 +119,8 @@ public class StatusState {
                 case 'B':
                     //Skip if not identified movement wont be accurate
                     if(!vents[i].isIdentified()) continue;
+                    //Skip if A does not have defined ranges
+                    if(!vents[0].isRangeDefined()) continue;
                     if(curMove == 0) {
                         //Skip if bounded
                         if(vents[i].isBounded()) continue;
@@ -126,7 +129,7 @@ public class StatusState {
                     } else if(curMove == 1) {
                         //Skip if B could be bounded
                         int actualValue = vents[i].getActualValue();
-                        if(actualValue == 1 || actualValue == 99) return;
+                        if(actualValue == 1 || actualValue == 99) continue;
                         //If B is 41-59 A must be outside of 41-59
                         if(vents[i].isWithinRange(41, 59)) vents[0].doOuterBoundsClipping(41, 59);
                         //Otherwise A must be 41-59 to slow B's movement
@@ -135,10 +138,16 @@ public class StatusState {
                         //B cannot have full movement unless A is not 41-59
                         vents[0].doOuterBoundsClipping(41, 59);
                     }
+                    //If A no longer has a valid range that means it was clipped
+                    if(!vents[0].isRangeDefined()) clippedValueState |= 1;
                     break;
                 case 'C':
                     //Skip if not identified movement wont be accurate
                     if(!vents[i].isIdentified()) continue;
+                    //Skip if neither A or B have defined ranges
+                    boolean isADefined = vents[0].isRangeDefined();
+                    boolean isBDefined = vents[1].isRangeDefined();
+                    if(!isADefined && !isBDefined) continue;
                     if(curMove == 0) {
                         //Skip if bounded
                         if(vents[i].isBounded()) continue;
@@ -160,9 +169,14 @@ public class StatusState {
                         vents[0].doOuterBoundsClipping(41, 59);
                         vents[1].doOuterBoundsClipping(41, 59);
                     }
+                    //If A no longer has a valid range that means it was clipped
+                    if(isADefined && !vents[0].isRangeDefined()) clippedValueState |= 1;
+                    //If B no longer has a valid range that means it was clipped
+                    if(isBDefined && !vents[1].isRangeDefined()) clippedValueState |= 2;
                     break;
             }
         }
+        return clippedValueState != 0;
     }
     public void setFreezeRanges(int moveBitState) {
         for(int i = 0; i < NUM_VENTS; ++i) {

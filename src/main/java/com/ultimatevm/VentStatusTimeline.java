@@ -285,7 +285,8 @@ public class VentStatusTimeline {
                 if(i - previousMovementTick > VENT_MOVE_TICK_TIME)
                     newPossibility.setFreezeRanges(0);
 
-                newPossibility.doFreezeClipping(0);
+                boolean isValueClipped = newPossibility.doFreezeClipping(0);
+                if(isValueClipped) continue;
 
                 newPossibility.updateVentMovement();
                 possibleStates.addLast(newPossibility);
@@ -304,12 +305,18 @@ public class VentStatusTimeline {
                 while (iterator.hasNext()) {
                     StatusState curState = iterator.next();
                     curState.setFreezeRanges(moveBitState);
-                    curState.doFreezeClipping(moveBitState);
+                    //Remove possibility if a value was clipped
+                    boolean isValueClipped = curState.doFreezeClipping(moveBitState);
+                    if(possibleStates.size() > 1 && isValueClipped) {
+                        iterator.remove();
+                        continue;
+                    }
 
                     //Update our estimated vent values
                     curState.updateVentMovement();
                     syncWithMovementState(curState, i);
                 }
+                predictedState = possibleStates.getLast();
             }
             if((timeline[i] & (1 << STABILITY_UPDATE_FLAG)) != 0) {
                 Iterator<StatusState> iterator = possibleStates.descendingIterator();
@@ -330,13 +337,8 @@ public class VentStatusTimeline {
                         curState.doHalfSpaceClipping(ventsToClip, clipInfo);
                     }
                 }
-                //Remove all invalid possibilities - always keep 1 state even if invalid
-                iterator = possibleStates.descendingIterator();
-                while (iterator.hasNext()) {
-                    if(possibleStates.size() == 1) break;
-                    StatusState curState = iterator.next();
-                    if(!curState.areRangesDefined()) iterator.remove();
-                }
+
+                removeInvalidPossibilities(possibleStates);
                 predictedState = possibleStates.getLast();
                 prevStabInfo = stabilityInfo;
                 numTicksNegativePredictedStability = 0;
@@ -487,6 +489,15 @@ public class VentStatusTimeline {
             //Typically do not care unless its known and bounded
         }
         return true;
+    }
+    private void removeInvalidPossibilities(LinkedList<StatusState> possibleStates) {
+        //Remove all invalid possibilities - always keep 1 state even if invalid
+        Iterator<StatusState> iterator = possibleStates.descendingIterator();
+        while (iterator.hasNext()) {
+            if(possibleStates.size() == 1) break;
+            StatusState curState = iterator.next();
+            if(!curState.areRangesDefined()) iterator.remove();
+        }
     }
     private boolean getPointContribution(int startTick, int endTick, int[] pointChange, int[] moveChange) {
         //Exit if starting stability update doesnt exist

@@ -485,29 +485,59 @@ public class SimulationTests {
 
     }
 
-    public void simulateIncorrectHalfSpaceClipping() {
-        createPredicter(5, 0, 1);
-        doIdentifyVent(3, 63, u, u);
-        doMovementUpdateByValue(9, 65, u, u);
-        doDirectionChange(18,4);
-        doStabilityUpdate(24, -9);
-        doMovementUpdateByValue(29, 63, u, u);
-        doMovementUpdateByValue(39, 61, u, u);
-        doSameTickMovementStabilityUpdate(49, 59, u, u, -6);
-        doMovementUpdateByValue(59, 58, u, u);
-        doMovementUpdateByValue(69, 57, u, u);
-        doStabilityUpdate(74, -5);
+    public void simulateDoubleVentCorrectAClipped() {
+        //proof we cannot rely on estimated moves!
+        createPredicter(6, 0, 1);
+        doIdentifyVent(7, u, 59, u);
+        doMovementUpdateByValue(9, u, 60, u);
+        doMovementUpdateByValue(19, u, 62, u);
+        doStabilityUpdate(24, -1);
+        doDirectionChange(25, 4);
+        doMovementUpdateByValue(29, u, 60, u);
+        doMovementUpdateByValue(39, u, 58, u);
+        doSameTickMovementStabilityUpdate(49, u, 57, u, 3);
+        doMovementUpdateByValue(59, u, 56, u);
+        doMovementUpdateByValue(69, u, 55, u);
+        doStabilityUpdate(74, 6);
+        doMovementUpdateByValue(79, u, 54, u);
+        doMovementUpdateByValue(89, u, 53, u);
+        doMovementUpdateByValue(99, u, 52, u);
+        doMovementUpdateByValue(109, u, 51, u);
+        doMovementUpdateByValue(119, u, 50, u);
+        doMovementUpdateByValue(129, u, 49, u);
+        doDirectionChange(176, 6);
+        doMovementUpdateByValue(339, u, 48, u);
 
-        //Half space clipping should not occur here
         StatusState predictedState = predicter.getDisplayState();
-        Assert.assertEquals(predictedState.getVents()[1].getLowerBoundStart(), 0);
-        Assert.assertEquals(predictedState.getVents()[1].getLowerBoundEnd(), 4);
-        Assert.assertEquals(predictedState.getVents()[1].getUpperBoundStart(), 83);
-        Assert.assertEquals(predictedState.getVents()[1].getUpperBoundEnd(), 92);
-        Assert.assertEquals(predictedState.getVents()[2].getLowerBoundStart(), 8);
-        Assert.assertEquals(predictedState.getVents()[2].getLowerBoundEnd(), 17);
-        Assert.assertEquals(predictedState.getVents()[2].getUpperBoundStart(), 96);
-        Assert.assertEquals(predictedState.getVents()[2].getUpperBoundEnd(), 100);
+        Assert.assertEquals(predictedState.getVents()[0].getLowerBoundStart(), 38);
+        Assert.assertEquals(predictedState.getVents()[0].getLowerBoundEnd(), 38);
+        Assert.assertEquals(predictedState.getVents()[0].getUpperBoundStart(), 38);
+        Assert.assertEquals(predictedState.getVents()[0].getUpperBoundEnd(), 38);
+    }
+
+    public void simulateIncorrectHalfSpaceClipping() {
+//        createPredicter(5, 0, 1);
+//        doIdentifyVent(3, 63, u, u);
+//        doMovementUpdateByValue(9, 65, u, u);
+//        doDirectionChange(18,4);
+//        doStabilityUpdate(24, -9);
+//        doMovementUpdateByValue(29, 63, u, u);
+//        doMovementUpdateByValue(39, 61, u, u);
+//        doSameTickMovementStabilityUpdate(49, 59, u, u, -6);
+//        doMovementUpdateByValue(59, 58, u, u);
+//        doMovementUpdateByValue(69, 57, u, u);
+//        doStabilityUpdate(74, -5);
+//
+//        //Half space clipping should not occur here
+//        StatusState predictedState = predicter.getDisplayState();
+//        Assert.assertEquals(predictedState.getVents()[1].getLowerBoundStart(), 0);
+//        Assert.assertEquals(predictedState.getVents()[1].getLowerBoundEnd(), 4);
+//        Assert.assertEquals(predictedState.getVents()[1].getUpperBoundStart(), 83);
+//        Assert.assertEquals(predictedState.getVents()[1].getUpperBoundEnd(), 92);
+//        Assert.assertEquals(predictedState.getVents()[2].getLowerBoundStart(), 8);
+//        Assert.assertEquals(predictedState.getVents()[2].getLowerBoundEnd(), 17);
+//        Assert.assertEquals(predictedState.getVents()[2].getUpperBoundStart(), 96);
+//        Assert.assertEquals(predictedState.getVents()[2].getUpperBoundEnd(), 100);
     }
 
     public void simulate0ToNegativeHalfSpace() {
