@@ -11,7 +11,6 @@ public class VentStatusPredicter {
 
     private VentStatusTimeline timeline;
     private StatusState displayState;
-    private boolean hasDoneFinalLog;
     private int numTicksNoMove, cooldownEndTick;
 
 
@@ -21,7 +20,6 @@ public class VentStatusPredicter {
     public void initialize() {
         timeline = new VentStatusTimeline();
         displayState = new StatusState();
-        hasDoneFinalLog = false;
         cooldownEndTick = 0;
     }
     public void reset() {
@@ -153,9 +151,4 @@ public class VentStatusPredicter {
     public final VentStatusTimeline getTimeline() { return timeline; }
     public final int getCurrentTick() { return timeline.getCurrentTick(); }
     public boolean isMovementUpdateTick() { return getCurrentTick() % VentStatusTimeline.VENT_MOVE_TICK_TIME == SLOWEST_VENT_UPDATE_TICK;}
-    public void log() {
-        if(hasDoneFinalLog) return;
-        timeline.log();
-        if(timeline.isHasReset()) hasDoneFinalLog = true;
-    }
 }
