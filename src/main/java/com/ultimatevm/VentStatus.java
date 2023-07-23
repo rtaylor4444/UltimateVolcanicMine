@@ -8,6 +8,7 @@ public class VentStatus {
     public static final float VENT_STABILITY_WEIGHT = 16.0f;
     public static int BASE_MOVE_RATE = 2;
 
+
     public enum VentChangeStateFlag {
         IDENTIFIED (1),
         NO_CHANGE (2),
@@ -173,6 +174,8 @@ public class VentStatus {
     public void doOuterBoundsClipping(int start, int end) {
         if(isIdentified()) return;
         if(!isRangeDefined()) return;
+        if(doOuterBoundsSingleRangeClipping(start, end)) return;
+
         int[] lower = getOutsideLowerBoundRange(start, end);
         int[] upper = getOutsideUpperBoundRange(start, end);
         boolean isLowerBoundClipped = (lower[0] == -1 && lower[1] == -1);
@@ -193,6 +196,42 @@ public class VentStatus {
             setUpperBoundRange(upper[0], upper[1]);
             setLowerBoundRange(lower[0], lower[1]);
         }
+    }
+    private boolean doOuterBoundsSingleRangeClipping(int start, int end) {
+        if(isTwoSeperateValues()) return false;
+
+        //Range to clip is out of our bounds
+        int upperBoundEnd = getUpperBoundEnd();
+        int lowerBoundStart = getLowerBoundStart();
+        if(start > upperBoundEnd) return false;
+        if(end < lowerBoundStart) return false;
+
+        //Our current range fits inside of our range to clip
+        clearRanges();
+        if(start <= lowerBoundStart && end >= upperBoundEnd)
+            return true;
+
+        //Range to clip doesnt break the single range
+        int maxStart = Math.max(start-1, lowerBoundStart);
+        int minEnd = Math.min(end+1, upperBoundEnd);
+        if(start <= lowerBoundStart || end >= upperBoundEnd) {
+            //Lower end of our range is clipped
+            if(start <= lowerBoundStart) {
+                setUpperBoundRange(minEnd, upperBoundEnd);
+                setLowerBoundRange(minEnd, upperBoundEnd);
+            }
+            //Upper end of our range is clipped
+            if(end >= upperBoundEnd) {
+                setUpperBoundRange(lowerBoundStart, maxStart);
+                setLowerBoundRange(lowerBoundStart, maxStart);
+            }
+        }
+        //Range to clip is inside of our current range
+        else {
+            setUpperBoundRange(minEnd, upperBoundEnd);
+            setLowerBoundRange(lowerBoundStart, maxStart);
+        }
+        return true;
     }
     public void flipDirection() {
         movementDirection *= -1;

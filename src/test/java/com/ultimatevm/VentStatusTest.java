@@ -5,7 +5,7 @@ import org.testng.Assert;
 
 @Test()
 public class VentStatusTest {
-
+    int u = VentStatus.STARTING_VENT_VALUE;
     @Test()
     public void constructorTest() {
         VentStatus vent = new VentStatus('A');
@@ -566,7 +566,6 @@ public class VentStatusTest {
 
     public void doInnerBoundsClippingTest() {
         //Only test case is 41-59
-        int u = VentStatus.STARTING_VENT_VALUE;
         VentStatus vent = new VentStatus('A');
 
         //Both are out of bounds
@@ -608,7 +607,6 @@ public class VentStatusTest {
 
     public void doOuterBoundsClippingTest() {
         //Only test case is 41-59
-        int u = VentStatus.STARTING_VENT_VALUE;
         VentStatus vent = new VentStatus('A');
 
         //Both are out of bounds
@@ -646,6 +644,83 @@ public class VentStatusTest {
         Assert.assertEquals(vent.getLowerBoundEnd(), u);
         Assert.assertEquals(vent.getUpperBoundStart(), u);
         Assert.assertEquals(vent.getUpperBoundEnd(), u);
+    }
+
+    public void doOuterBoundsSingleRangeClippingTest() {
+        //Only test case is 41-59
+        VentStatus vent = new VentStatus('A');
+
+        //Range is lower than our clipping
+        vent.setLowerBoundRange(38, 40);
+        vent.setUpperBoundRange(38, 40);
+        vent.doOuterBoundsClipping(41, 59);
+        Assert.assertEquals(vent.getLowerBoundStart(), 38);
+        Assert.assertEquals(vent.getLowerBoundEnd(), 40);
+        Assert.assertEquals(vent.getUpperBoundStart(), 38);
+        Assert.assertEquals(vent.getUpperBoundEnd(), 40);
+
+        //Range is higher than our clipping
+        vent.setLowerBoundRange(60, 62);
+        vent.setUpperBoundRange(60, 62);
+        vent.doOuterBoundsClipping(41, 59);
+        Assert.assertEquals(vent.getLowerBoundStart(), 60);
+        Assert.assertEquals(vent.getLowerBoundEnd(), 62);
+        Assert.assertEquals(vent.getUpperBoundStart(), 60);
+        Assert.assertEquals(vent.getUpperBoundEnd(), 62);
+
+        //Range is inside of clipping
+        vent.setLowerBoundRange(41, 59);
+        vent.setUpperBoundRange(41, 59);
+        vent.doOuterBoundsClipping(41, 59);
+        Assert.assertEquals(vent.getLowerBoundStart(), u);
+        Assert.assertEquals(vent.getLowerBoundEnd(), u);
+        Assert.assertEquals(vent.getUpperBoundStart(), u);
+        Assert.assertEquals(vent.getUpperBoundEnd(), u);
+
+        //Lower end range clipping - single value
+        vent.setLowerBoundRange(41, 60);
+        vent.setUpperBoundRange(41, 60);
+        vent.doOuterBoundsClipping(41, 59);
+        Assert.assertEquals(vent.getLowerBoundStart(), 60);
+        Assert.assertEquals(vent.getLowerBoundEnd(), 60);
+        Assert.assertEquals(vent.getUpperBoundStart(), 60);
+        Assert.assertEquals(vent.getUpperBoundEnd(), 60);
+
+        //Lower end range clipping - range
+        vent.setLowerBoundRange(41, 62);
+        vent.setUpperBoundRange(41, 62);
+        vent.doOuterBoundsClipping(41, 59);
+        Assert.assertEquals(vent.getLowerBoundStart(), 60);
+        Assert.assertEquals(vent.getLowerBoundEnd(), 62);
+        Assert.assertEquals(vent.getUpperBoundStart(), 60);
+        Assert.assertEquals(vent.getUpperBoundEnd(), 62);
+
+        //Upper end range clipping - single value
+        vent.setLowerBoundRange(40, 59);
+        vent.setUpperBoundRange(40, 59);
+        vent.doOuterBoundsClipping(41, 59);
+        Assert.assertEquals(vent.getLowerBoundStart(), 40);
+        Assert.assertEquals(vent.getLowerBoundEnd(), 40);
+        Assert.assertEquals(vent.getUpperBoundStart(), 40);
+        Assert.assertEquals(vent.getUpperBoundEnd(), 40);
+
+        //Upper end range clipping - range
+        vent.setLowerBoundRange(38, 59);
+        vent.setUpperBoundRange(38, 59);
+        vent.doOuterBoundsClipping(41, 59);
+        Assert.assertEquals(vent.getLowerBoundStart(), 38);
+        Assert.assertEquals(vent.getLowerBoundEnd(), 40);
+        Assert.assertEquals(vent.getUpperBoundStart(), 38);
+        Assert.assertEquals(vent.getUpperBoundEnd(), 40);
+
+        //Breaking single range
+        vent.setLowerBoundRange(38, 62);
+        vent.setUpperBoundRange(38, 62);
+        vent.doOuterBoundsClipping(41, 59);
+        Assert.assertEquals(vent.getLowerBoundStart(), 38);
+        Assert.assertEquals(vent.getLowerBoundEnd(), 40);
+        Assert.assertEquals(vent.getUpperBoundStart(), 60);
+        Assert.assertEquals(vent.getUpperBoundEnd(), 62);
     }
 
     public void getReversedInfluenceATest() {

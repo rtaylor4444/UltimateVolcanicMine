@@ -81,6 +81,12 @@ public class SimulationTests {
         advanceTicks(tick-1);
         predicter.markEarthquakeEvent();
     }
+    private void doReset() {
+        advanceTicks(500);
+        predicter.reset();
+        predicter.getTimeline().updateTick();
+        ++currentTick;
+    }
 
     public void simulateFreezeClipAFreezeThresholdCross() {
         createPredicter(1, 500, 1);
@@ -330,6 +336,63 @@ public class SimulationTests {
         Assert.assertFalse(predictedState.getVents()[0].isRangeDefined());
     }
 
+    public void simulateIncorrectPredictedStability() {
+        createPredicter(7, 0, 1);
+        doStabilityUpdate(23, 18);
+        doIdentifyVent(36, 62, u, u);
+        doSameTickMovementStabilityUpdate(48, 64, u, u, 15);
+        doDirectionChange(53, 6);
+        doMovementUpdateByValue(58, 62, u, u);
+        doMovementUpdateByValue(68, 60, u, u);
+        doStabilityUpdate(73, 16);
+        doMovementUpdateByValue(78, 58, u, u);
+        doIdentifyVent(82, u, 58, u);
+        doMovementUpdateByValue(88, 57, 58, u);
+        doMovementUpdateByValue(98, 56, 58, u);
+        doMovementUpdateByValue(108, 55, 58, u);
+        doMovementUpdateByValue(118, 54, 58, u);
+        doMovementUpdateByValue(128, 53, 58, u);
+        doMovementUpdateByValue(138, 52, 58, u);
+        doMovementUpdateByValue(148, 51, 58, u);
+        doEarthquake(158);
+        doMovementUpdateByValue(168, 50, 58, u);
+        doMovementUpdateByValue(178, 49, 58, u);
+        doMovementUpdateByValue(188, 48, 58, u);
+        doMovementUpdateByValue(198, 47, 58, u);
+        doMovementUpdateByValue(208, 46, 58, u);
+        doMovementUpdateByValue(218, 45, 58, u);
+        doMovementUpdateByValue(228, 44, 58, u);
+        doMovementUpdateByValue(238, 43, 58, u);
+        doMovementUpdateByValue(248, 42, 58, u);
+        doMovementUpdateByValue(258, 41, 58, u);
+        doMovementUpdateByValue(268, 40, 58, u);
+        doMovementUpdateByValue(278, 38, 59, u);
+        doMovementUpdateByValue(288, 36, 60, u);
+        doMovementUpdateByValue(298, 34, 62, u);
+        doMovementUpdateByValue(308, 32, 64, u);
+        doMovementUpdateByValue(318, 30, 66, u);
+        doMovementUpdateByValue(328, 28, 68, u);
+        doMovementUpdateByValue(338, 26, 70, u);
+        doMovementUpdateByValue(348, 24, 72, u);
+        doMovementUpdateByValue(358, 22, 74, u);
+        doDirectionChange(360, 7);
+        doEarthquake(368);
+        //Negative Updates start here
+        doMovementUpdateByValue(378, 24, 76, u);
+        doMovementUpdateByValue(388, 26, 78, u);
+        doMovementUpdateByValue(398, 28, 80, u);
+        doMovementUpdateByValue(408, 30, 82, u);
+        doMovementUpdateByValue(418, 32, 84, u);
+        doMovementUpdateByValue(428, 34, 86, u);
+
+        int predictedUpdate = predicter.getFutureStabilityChange(UltimateVolcanicMineConfig.PredictionScenario.WORST_CASE);
+        StatusState predictedState = predicter.getDisplayState();
+        Assert.assertEquals(predictedState.getVents()[2].getLowerBoundStart(), 54);
+        Assert.assertEquals(predictedState.getVents()[2].getLowerBoundEnd(), 54);
+        Assert.assertEquals(predictedState.getVents()[2].getUpperBoundStart(), 54);
+        Assert.assertEquals(predictedState.getVents()[2].getUpperBoundEnd(), 54);
+    }
+
     public void simulateSize3_5() {
 //        createPredicter(0, 0, 5);
 //        doStabilityUpdate(24, 14);
@@ -344,6 +407,162 @@ public class SimulationTests {
 //        doStabilityUpdate(74, 8);
 //        doDirectionChange(78, 3);
 //        doMovementUpdateByValue(79, 42, 41, u);
+//
+//        StatusState predictedState = predicter.getDisplayState();
+    }
+
+    public void simulateA4159NotAppear() {
+        createPredicter(0, 0, 1);
+        doIdentifyVent(15, u, 65, u);
+        doMovementUpdateByValue(20, u, 63, u);
+        doMovementUpdateByValue(30, u, 61, u);
+        doMovementUpdateByValue(40, u, 59, u);
+        doMovementUpdateByValue(50, u, 58, u);
+        doMovementUpdateByValue(60, u, 57, u);
+        doMovementUpdateByValue(70, u, 56, u);
+        doDirectionChange(88, 2);
+        doMovementUpdateByValue(90, u, 57, u);
+        doDirectionChange(93, 0);
+        doMovementUpdateByValue(100, u, 56, u);
+        doEarthquake(110);
+        doMovementUpdateByValue(120, u, 55, u);
+        doMovementUpdateByValue(130, u, 54, u);
+        doEarthquake(140);
+        doMovementUpdateByValue(150, u, 53, u);
+        doDirectionChange(186, 2);
+
+        StatusState predictedState = predicter.getDisplayState();
+        Assert.assertEquals(predictedState.getVents()[0].getLowerBoundStart(), 40);
+        Assert.assertEquals(predictedState.getVents()[0].getLowerBoundEnd(), 57);
+        Assert.assertEquals(predictedState.getVents()[0].getUpperBoundStart(), 40);
+        Assert.assertEquals(predictedState.getVents()[0].getUpperBoundEnd(), 57);
+    }
+
+    public void simulateDoubleToSingleVentPrediction() {
+        createPredicter(1, 0, 1);
+        doStabilityUpdate(24, 16);
+        doIdentifyVent(34, 46, u, u);
+        doMovementUpdateByValue(39, 47, u, u);
+        doSameTickMovementStabilityUpdate(49, 48, u, u, 17);
+        doMovementUpdateByValue(59, 49, u, u);
+        doIdentifyVent(65, u, 59, u);
+        doMovementUpdateByValue(69, 50, 59, u);
+        doStabilityUpdate(74, 17);
+
+        StatusState predictedState = predicter.getDisplayState();
+        Assert.assertEquals(predictedState.getVents()[2].getLowerBoundStart(), 35);
+        Assert.assertEquals(predictedState.getVents()[2].getLowerBoundEnd(), 37);
+        Assert.assertEquals(predictedState.getVents()[2].getUpperBoundStart(), 63);
+        Assert.assertEquals(predictedState.getVents()[2].getUpperBoundEnd(), 65);
+    }
+
+    public void simulateOverwrittenADoubleVent() {
+        createPredicter(6, 0, 1);
+        doMovementUpdateByValue(8, u, 84, u);
+        doDirectionChange(9, 4);
+        doMovementUpdateByValue(18, u, 83, u);
+        doMovementUpdateByValue(28, u, 82, u);
+        doMovementUpdateByValue(38, u, 81, u);
+        doMovementUpdateByValue(48, u, 79, u);
+        doMovementUpdateByValue(58, u, 77, u);
+        doMovementUpdateByValue(68, u, 75, u);
+        doMovementUpdateByValue(78, u, 73, u);
+        doMovementUpdateByValue(88, u, 71, u);
+        doMovementUpdateByValue(98, u, 69, u);
+        doMovementUpdateByValue(108, u, 67, u);
+        doMovementUpdateByValue(118, u, 65, u);
+        doDirectionChange(126, 6);
+        doMovementUpdateByValue(128, u, 67, u);
+        doMovementUpdateByValue(138, u, 69, u);
+        doDirectionChange(141, 4);
+        doSameTickMovementStabilityUpdate(148, u, 67, u, -5);
+
+        StatusState predictedState = predicter.getDisplayState();
+        Assert.assertEquals(predictedState.getVents()[0].getLowerBoundStart(), 18);
+        Assert.assertEquals(predictedState.getVents()[0].getLowerBoundEnd(), 18);
+        Assert.assertEquals(predictedState.getVents()[0].getUpperBoundStart(), 18);
+        Assert.assertEquals(predictedState.getVents()[0].getUpperBoundEnd(), 18);
+
+    }
+
+    public void simulateDoubleVentCorrectAClipped() {
+        //proof we cannot rely on estimated moves!
+        createPredicter(6, 0, 1);
+        doIdentifyVent(7, u, 59, u);
+        doMovementUpdateByValue(9, u, 60, u);
+        doMovementUpdateByValue(19, u, 62, u);
+        doStabilityUpdate(24, -1);
+        doDirectionChange(25, 4);
+        doMovementUpdateByValue(29, u, 60, u);
+        doMovementUpdateByValue(39, u, 58, u);
+        doSameTickMovementStabilityUpdate(49, u, 57, u, 3);
+        doMovementUpdateByValue(59, u, 56, u);
+        doMovementUpdateByValue(69, u, 55, u);
+        doStabilityUpdate(74, 6);
+        doMovementUpdateByValue(79, u, 54, u);
+        doMovementUpdateByValue(89, u, 53, u);
+        doMovementUpdateByValue(99, u, 52, u);
+        doMovementUpdateByValue(109, u, 51, u);
+        doMovementUpdateByValue(119, u, 50, u);
+        doMovementUpdateByValue(129, u, 49, u);
+        doDirectionChange(176, 6);
+        doMovementUpdateByValue(339, u, 48, u);
+
+        StatusState predictedState = predicter.getDisplayState();
+        Assert.assertEquals(predictedState.getVents()[0].getLowerBoundStart(), 38);
+        Assert.assertEquals(predictedState.getVents()[0].getLowerBoundEnd(), 38);
+        Assert.assertEquals(predictedState.getVents()[0].getUpperBoundStart(), 38);
+        Assert.assertEquals(predictedState.getVents()[0].getUpperBoundEnd(), 38);
+    }
+
+    public void simulateIncorrectHalfSpaceClipping() {
+//        createPredicter(5, 0, 1);
+//        doIdentifyVent(3, 63, u, u);
+//        doMovementUpdateByValue(9, 65, u, u);
+//        doDirectionChange(18,4);
+//        doStabilityUpdate(24, -9);
+//        doMovementUpdateByValue(29, 63, u, u);
+//        doMovementUpdateByValue(39, 61, u, u);
+//        doSameTickMovementStabilityUpdate(49, 59, u, u, -6);
+//        doMovementUpdateByValue(59, 58, u, u);
+//        doMovementUpdateByValue(69, 57, u, u);
+//        doStabilityUpdate(74, -5);
+//
+//        //Half space clipping should not occur here
+//        StatusState predictedState = predicter.getDisplayState();
+//        Assert.assertEquals(predictedState.getVents()[1].getLowerBoundStart(), 0);
+//        Assert.assertEquals(predictedState.getVents()[1].getLowerBoundEnd(), 4);
+//        Assert.assertEquals(predictedState.getVents()[1].getUpperBoundStart(), 83);
+//        Assert.assertEquals(predictedState.getVents()[1].getUpperBoundEnd(), 92);
+//        Assert.assertEquals(predictedState.getVents()[2].getLowerBoundStart(), 8);
+//        Assert.assertEquals(predictedState.getVents()[2].getLowerBoundEnd(), 17);
+//        Assert.assertEquals(predictedState.getVents()[2].getUpperBoundStart(), 96);
+//        Assert.assertEquals(predictedState.getVents()[2].getUpperBoundEnd(), 100);
+    }
+
+    public void simulate0ToNegativeHalfSpace() {
+//        createPredicter(1, 0, 1);
+//        doStabilityUpdate(24, 19);
+//        doIdentifyVent(34, 46, u, u);
+//        doMovementUpdateByValue(39, 47, u, u);
+//        doSameTickMovementStabilityUpdate(49, 48, u, u, 19);
+//        doIdentifyVent(55, u, 43, u);
+//        doMovementUpdateByValue(59, 49, 43, u);
+//
+//        //Post reset
+//        doReset();
+//        doIdentifyVent(502, 64, u, u);
+//        doMovementUpdateByValue(506, 62, u, u);
+//        doMovementUpdateByValue(516, 60, u, u);
+//        doMovementUpdateByValue(526, 58, u, u);
+//        doMovementUpdateByValue(536, 57, u, u);
+//        doMovementUpdateByValue(546, 56, u, u);
+//        doMovementUpdateByValue(556, 55, u, u);
+//        doMovementUpdateByValue(566, 54, u, u);
+//        doStabilityUpdate(571, -2);
+//        doEarthquake(576);
+//        doMovementUpdateByValue(586, 53, u, u);
+//        doMovementUpdateByValue(596, 52, u, u);
 //
 //        StatusState predictedState = predicter.getDisplayState();
     }

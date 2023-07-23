@@ -11,7 +11,7 @@ public class VentStatusPredicter {
 
     private VentStatusTimeline timeline;
     private StatusState displayState;
-    private int numTicksNoMove;
+    private int numTicksNoMove, cooldownEndTick;
 
 
     public VentStatusPredicter() {
@@ -20,12 +20,11 @@ public class VentStatusPredicter {
     public void initialize() {
         timeline = new VentStatusTimeline();
         displayState = new StatusState();
+        cooldownEndTick = 0;
     }
     public void reset() {
-        if(!displayState.hasDoneVMReset()) {
-            timeline.reset();
-        }
-        displayState.doVMReset();
+        if(!timeline.isHasReset()) displayState.forceReset();
+        timeline.reset();
     }
     public void updateVentStatus(int[] ventStatus, int chambers) {
         processVentChangeState(displayState.updateVentStatus(ventStatus, chambers));
@@ -107,7 +106,10 @@ public class VentStatusPredicter {
         timeline.addInitialState(displayState);
         //Reset when all vents are set to unidentified
         if((bitState & 512) != 0) {
-            reset();
+            //Wait before updating this value from the timeline
+            if(!displayState.hasDoneVMReset())
+                cooldownEndTick = timeline.getCurrentTick() + SLOWEST_VENT_UPDATE_TICK;
+            displayState.doVMReset();
         }
         if((bitState & VentStatusTimeline.DIRECTION_CHANGED_BIT_MASK) != 0) timeline.addDirectionChangeTick(bitState);
 
@@ -132,6 +134,7 @@ public class VentStatusPredicter {
     private void updateDisplayState() {
         if(StabilityUpdateInfo.getNumPlayers() > HIGHEST_STABLE_RNG_PLAYER_COUNT) return;
         if(displayState.isAllVentsIdentified()) return;
+        if(cooldownEndTick > timeline.getCurrentTick()) return;
         StatusState predictedState = timeline.getCurrentPredictionState();
         if(predictedState == null) return;
         for(int i = 0; i < NUM_VENTS; ++i) {
@@ -142,45 +145,7 @@ public class VentStatusPredicter {
     }
 
     public int getFutureStabilityChange(UltimateVolcanicMineConfig.PredictionScenario scenario) {
-        int totalVentValue = 0;
-        ArrayList<VentStatus> estimatedVents = new ArrayList<>();
-        VentStatus[] vents = getDisplayState().getVents();
-        for(int i = 0; i < NUM_VENTS; ++i) {
-            if(!vents[i].isRangeDefined())
-                return STARTING_VENT_VALUE;
-            if(vents[i].isIdentified())
-                totalVentValue += vents[i].getStabilityInfluence();
-            else
-                estimatedVents.add(vents[i]);
-        }
-
-        int estimatedVentValue = Integer.MAX_VALUE;
-        for(int i = 0; i < estimatedVents.size(); ++i) {
-            VentStatus vent = estimatedVents.get(i);
-            int avgLower = (vent.getLowerBoundEnd() + vent.getLowerBoundStart()) / 2;
-            int avgUpper = (vent.getUpperBoundStart() + vent.getUpperBoundEnd()) / 2;
-            int ventUpdate = 0;
-
-            switch(scenario) {
-                case WORST_CASE:
-                    ventUpdate = Math.min(getStabilityInfluence(avgLower), getStabilityInfluence(avgUpper));
-                    break;
-                case BEST_CASE:
-                    ventUpdate = Math.max(getStabilityInfluence(avgLower), getStabilityInfluence(avgUpper));
-                    break;
-                default:
-                    //Average-case (crap)
-                    ventUpdate = (getStabilityInfluence(avgLower) + getStabilityInfluence(avgUpper)) / 2;
-                    break;
-            }
-
-            if(estimatedVentValue == Integer.MAX_VALUE) estimatedVentValue = ventUpdate;
-            else estimatedVentValue += ventUpdate;
-        }
-
-        if(estimatedVentValue != Integer.MAX_VALUE)
-            totalVentValue += estimatedVentValue;
-        return calcStabilityChange(totalVentValue) + StabilityUpdateInfo.getMinRNGVariation();
+        return displayState.getFutureStabilityChange(scenario);
     }
     public final StatusState getDisplayState() { return displayState; }
     public final VentStatusTimeline getTimeline() { return timeline; }
