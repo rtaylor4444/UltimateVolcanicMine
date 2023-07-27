@@ -82,24 +82,24 @@ public class VentStatusPredicterTest {
         Assert.assertEquals(predicter.getDisplayState().getVents()[0].getUpperBoundEnd(), 53);
 
         //Movement should be updated here
-        for(int i = 0; i < VentStatusTimeline.VENT_MOVE_TICK_TIME; ++i) {
+        for(int i = 0; i < VentStatusTimeline.VENT_MOVE_TICK_TIME*2; ++i) {
             predicter.updateVentStatus(new int[]{u, 50, 50}, 7);
             predicter.getTimeline().updateTick();
         }
-        Assert.assertEquals(predicter.getDisplayState().getVents()[0].getLowerBoundStart(), 48);
-        Assert.assertEquals(predicter.getDisplayState().getVents()[0].getLowerBoundEnd(), 54);
-        Assert.assertEquals(predicter.getDisplayState().getVents()[0].getUpperBoundStart(), 48);
-        Assert.assertEquals(predicter.getDisplayState().getVents()[0].getUpperBoundEnd(), 54);
+        Assert.assertEquals(predicter.getDisplayState().getVents()[0].getLowerBoundStart(), 49);
+        Assert.assertEquals(predicter.getDisplayState().getVents()[0].getLowerBoundEnd(), 55);
+        Assert.assertEquals(predicter.getDisplayState().getVents()[0].getUpperBoundStart(), 49);
+        Assert.assertEquals(predicter.getDisplayState().getVents()[0].getUpperBoundEnd(), 55);
 
         //Movement should not update and values remain the same
         for(int i = 0; i < 5; ++i) {
             predicter.updateVentStatus(new int[]{u, 50, 50}, 7);
             predicter.getTimeline().updateTick();
         }
-        Assert.assertEquals(predicter.getDisplayState().getVents()[0].getLowerBoundStart(), 48);
-        Assert.assertEquals(predicter.getDisplayState().getVents()[0].getLowerBoundEnd(), 54);
-        Assert.assertEquals(predicter.getDisplayState().getVents()[0].getUpperBoundStart(), 48);
-        Assert.assertEquals(predicter.getDisplayState().getVents()[0].getUpperBoundEnd(), 54);
+        Assert.assertEquals(predicter.getDisplayState().getVents()[0].getLowerBoundStart(), 49);
+        Assert.assertEquals(predicter.getDisplayState().getVents()[0].getLowerBoundEnd(), 55);
+        Assert.assertEquals(predicter.getDisplayState().getVents()[0].getUpperBoundStart(), 49);
+        Assert.assertEquals(predicter.getDisplayState().getVents()[0].getUpperBoundEnd(), 55);
     }
 
     public void processVentChangeStateInitialTest() {
