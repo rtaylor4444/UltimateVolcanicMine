@@ -255,7 +255,7 @@ public class VentStatusTimeline {
         StatusState predictedState = new StatusState(initialState);
         int previousMovementTick = startingTick, numTicksNegativePredictedStability = 0;
         possibleStates.push(predictedState);
-        for(int i = startingTick+1; i <= currentTick; ++i) {
+        for(int i = startingTick; i <= currentTick; ++i) {
             if((timeline[i] & (1 << IDENTIFIED_VENT_FLAG)) != 0) {
                 int idFlags = timeline[i] & IDENTIFIED_BIT_MASK;
                 Iterator<StatusState> iterator = possibleStates.descendingIterator();
@@ -272,13 +272,6 @@ public class VentStatusTimeline {
                     }
                 }
             }
-            if((timeline[i] & (1 << DIRECTION_CHANGED_FLAG)) != 0) {
-                //Change our direction if it occured this tick
-                Iterator<StatusState> iterator = possibleStates.descendingIterator();
-                while (iterator.hasNext()) {
-                    changeStateDirection(iterator.next(), i);
-                }
-            }
             if((timeline[i] & (1 << ESTIMATED_MOVEMENT_FLAG)) != 0) {
                 StatusState newPossibility = new StatusState(possibleStates.getLast());
                 //Only set ranges when there is not a simple movement skip
@@ -288,7 +281,7 @@ public class VentStatusTimeline {
                 //Only set if value wasnt freeze clipped
                 boolean isValueClipped = newPossibility.doFreezeClipping(0);
                 if(!isValueClipped) {
-                    newPossibility.updateVentMovement();
+                    handleSameTickDirectionChangeMovement(newPossibility, i);
                     possibleStates.addLast(newPossibility);
                 }
                 //Set predicted state to the new up to date possibility
@@ -312,7 +305,7 @@ public class VentStatusTimeline {
                     }
 
                     //Update our estimated vent values
-                    curState.updateVentMovement();
+                    handleSameTickDirectionChangeMovement(curState, i);
                     syncWithMovementState(curState, i);
                 }
                 predictedState = possibleStates.getLast();
@@ -341,6 +334,13 @@ public class VentStatusTimeline {
                 predictedState = possibleStates.getLast();
                 prevStabInfo = stabilityInfo;
                 numTicksNegativePredictedStability = 0;
+            }
+            if((timeline[i] & (1 << DIRECTION_CHANGED_FLAG)) != 0) {
+                //Change our direction if it occured this tick
+                Iterator<StatusState> iterator = possibleStates.descendingIterator();
+                while (iterator.hasNext()) {
+                    changeStateDirection(iterator.next(), i);
+                }
             }
 
             int predictedChange = predictedState.getFutureStabilityChange(UltimateVolcanicMineConfig.PredictionScenario.WORST_CASE);
@@ -400,6 +400,18 @@ public class VentStatusTimeline {
         if((directionFlags & 1) != 0) state.getVents()[0].flipDirection();
         if((directionFlags & 2) != 0) state.getVents()[1].flipDirection();
         if((directionFlags & 4) != 0) state.getVents()[2].flipDirection();
+    }
+    private void handleSameTickDirectionChangeMovement(StatusState curState, int tick) {
+        if((timeline[tick] & (1 << DIRECTION_CHANGED_FLAG)) != 0) {
+            //It's possible for the directional change to occur both
+            //before and after this movement update; assume both possibilities
+            StatusState newDirState = new StatusState(curState);
+            changeStateDirection(newDirState, tick);
+            newDirState.updateVentMovement();
+            curState.updateVentMovement();
+            curState.mergePredictedRangesWith(newDirState);
+        }
+        else curState.updateVentMovement();
     }
     private void syncWithMovementState(StatusState state, int tick) {
         StatusState moveState = tickToMovementVentState.get(tick);
@@ -676,7 +688,7 @@ public class VentStatusTimeline {
         StatusState predictedState = new StatusState(initialState);
         StabilityUpdateInfo prevStabInfo = null;
         logText("Starting player count was: " + StabilityUpdateInfo.getNumPlayers());
-        for(int i = startingTick+1; i <= currentTick; ++i) {
+        for(int i = startingTick; i <= currentTick; ++i) {
             if((timeline[i] & (1 << IDENTIFIED_VENT_FLAG)) != 0) {
                 int idFlags = timeline[i] & IDENTIFIED_BIT_MASK;
                 if((idFlags & 1) != 0) {
@@ -695,14 +707,6 @@ public class VentStatusTimeline {
                     predictedState.getVents()[2].setEqualTo(identifiedVentStates[2].getVents()[2]);
                 }
             }
-            if((timeline[i] & (1 << DIRECTION_CHANGED_FLAG)) != 0) {
-                int directionFlags = timeline[i] & DIRECTION_CHANGED_BIT_MASK;
-                directionFlags >>= 3;
-                if((directionFlags & 1) != 0) logText("On tick: " + i + " A Vent direction has changed");
-                if((directionFlags & 2) != 0) logText("On tick: " + i + " B Vent direction has changed");
-                if((directionFlags & 4) != 0) logText("On tick: " + i + " C Vent direction has changed");
-                changeStateDirection(predictedState, i);
-            }
             if((timeline[i] & (1 << EARTHQUAKE_EVENT_FLAG)) != 0) {
                 logText("On tick: " + i + " there was an earthquake event");
             }
@@ -718,8 +722,8 @@ public class VentStatusTimeline {
                 }
                 int moveBitState = timeline[i] & MOVEMENT_BIT_MASK;
                 predictedState.doFreezeClipping(moveBitState >> 6);
+                handleSameTickDirectionChangeMovement(predictedState, i);
                 syncWithMovementState(predictedState, i);
-                predictedState.updateVentMovement();
             }
             if((timeline[i] & (1 << STABILITY_UPDATE_FLAG)) != 0) {
                 StabilityUpdateInfo stabilityInfo = tickToStabilityUpdateState.get(i);
@@ -732,6 +736,14 @@ public class VentStatusTimeline {
                     predictedState.doHalfSpaceClipping(ventsToClip, clipInfo);
                     logText("On tick: " + i + " half space clipping occurred");
                 }
+            }
+            if((timeline[i] & (1 << DIRECTION_CHANGED_FLAG)) != 0) {
+                int directionFlags = timeline[i] & DIRECTION_CHANGED_BIT_MASK;
+                directionFlags >>= 3;
+                if((directionFlags & 1) != 0) logText("On tick: " + i + " A Vent direction has changed");
+                if((directionFlags & 2) != 0) logText("On tick: " + i + " B Vent direction has changed");
+                if((directionFlags & 4) != 0) logText("On tick: " + i + " C Vent direction has changed");
+                changeStateDirection(predictedState, i);
             }
         }
     }

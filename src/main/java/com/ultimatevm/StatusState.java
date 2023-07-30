@@ -108,7 +108,6 @@ public class StatusState {
         for(int i = 0; i < NUM_VENTS; ++i) {
             if(vents[i].isIdentified()) continue;
             if(!vents[i].isRangeDefined()) continue;
-            if(!state.vents[i].isRangeDefined()) continue;
             overlapVentWith(i, state.vents[i]);
         }
     }

@@ -5,7 +5,7 @@ import org.testng.Assert;
 
 @Test()
 public class StatusStateTest {
-    private int u = VentStatus.STARTING_VENT_VALUE;
+    private final int u = VentStatus.STARTING_VENT_VALUE;
     private int makeMoveBitState(int aMove, int bMove, int cMove) {
         return aMove | (bMove << 2) | (cMove << 4);
     }
@@ -88,9 +88,7 @@ public class StatusStateTest {
     public void updateVentMovementTest() {
         StatusState state = new StatusState();
         final VentStatus[] vents = state.getVents();
-        state.updateVentStatus(new int[]{VentStatus.STARTING_VENT_VALUE,
-                VentStatus.STARTING_VENT_VALUE,
-                VentStatus.STARTING_VENT_VALUE}, 7);
+        state.updateVentStatus(new int[]{u, u, u}, 7);
 
         vents[0].setUpperBoundRange(50, 50);
         vents[0].setLowerBoundRange(50, 50);
@@ -105,7 +103,6 @@ public class StatusStateTest {
     public void updateVentMovementAInfluenceTest() {
         StatusState state = new StatusState();
         final VentStatus[] vents = state.getVents();
-        int u = VentStatus.STARTING_VENT_VALUE;
         state.updateVentStatus(new int[]{u, 50, 50}, 7);
 
         //A never freezes
@@ -131,7 +128,6 @@ public class StatusStateTest {
     public void updateVentMovementBInfluenceTest() {
         StatusState state = new StatusState();
         final VentStatus[] vents = state.getVents();
-        int u = VentStatus.STARTING_VENT_VALUE;
 
         //B is only influenced by A
         //Unidentified A influence (possible 0, -1 movement inf)
@@ -205,7 +201,6 @@ public class StatusStateTest {
     public void updateVentMovementCInfluenceTest() {
         StatusState state = new StatusState();
         final VentStatus[] vents = state.getVents();
-        int u = VentStatus.STARTING_VENT_VALUE;
 
         //C is influenced by both A and B
         //Unidentified A and B influence (possible 0, -2 movement inf)
@@ -462,7 +457,6 @@ public class StatusStateTest {
 
     public void getUnidentifiedVentIndicesTest() {
         StatusState state = new StatusState();
-        int u = VentStatus.STARTING_VENT_VALUE;
         //All
         state.updateVentStatus(new int[]{u,u,u}, 7);
         Assert.assertEquals(state.getUnidentifiedVentIndices(), new int[]{0,1,2});
@@ -499,7 +493,6 @@ public class StatusStateTest {
         Assert.assertEquals(vents[0].getUpperBoundEnd(), 0);
 
         //No vents are identifed should only update stability change
-        int u = VentStatus.STARTING_VENT_VALUE;
         state = new StatusState();
         state.updateVentStatus(new int[]{u, u, u}, 7);
         state.calcPredictedVentValues(25);
@@ -545,7 +538,6 @@ public class StatusStateTest {
     public void calcSingleVentValueInvalidTest() {
         //Max calc test
         StatusState state = new StatusState();
-        int u = VentStatus.STARTING_VENT_VALUE;
         state.updateVentStatus(new int[]{u, 50, 50}, 7);
         Assert.assertFalse(state.calcPredictedVentValues(24));
         final VentStatus[] vents = state.getVents();
@@ -654,7 +646,6 @@ public class StatusStateTest {
     public void mergePredictedRangesWithTest() {
         StatusState state = new StatusState();
         StatusState toMerge = new StatusState();
-        int u = VentStatus.STARTING_VENT_VALUE;
         toMerge.updateVentStatus(new int[]{50, 50, u}, 7);
         toMerge.getVents()[2].setLowerBoundRange(41, 59);
         toMerge.getVents()[2].setUpperBoundRange(41, 59);
@@ -682,7 +673,6 @@ public class StatusStateTest {
     public void mergePredictedRangesWithInvalidTest() {
         StatusState state = new StatusState();
         StatusState toMerge = new StatusState();
-        int u = VentStatus.STARTING_VENT_VALUE;
         toMerge.updateVentStatus(new int[]{50, 50, u}, 7);
         toMerge.getVents()[2].setLowerBoundRange(41, 59);
         toMerge.getVents()[2].setUpperBoundRange(41, 59);
@@ -711,7 +701,6 @@ public class StatusStateTest {
         StatusState state = new StatusState();
         final VentStatus vent = state.getVents()[2];
         StatusState toOverlap = new StatusState();
-        int u = VentStatus.STARTING_VENT_VALUE;
         toOverlap.updateVentStatus(new int[]{50, 50, u}, 7);
         toOverlap.getVents()[2].setLowerBoundRange(41, 46);
         toOverlap.getVents()[2].setUpperBoundRange(54, 59);
@@ -757,7 +746,6 @@ public class StatusStateTest {
     public void setOverlappingRangesWithInvalidTest() {
         StatusState state = new StatusState();
         StatusState toOverlap = new StatusState();
-        int u = VentStatus.STARTING_VENT_VALUE;
         toOverlap.updateVentStatus(new int[]{50, 50, u}, 7);
         toOverlap.getVents()[2].setLowerBoundRange(41, 59);
         toOverlap.getVents()[2].setUpperBoundRange(41, 59);
@@ -778,23 +766,22 @@ public class StatusStateTest {
         Assert.assertEquals(state.getVents()[2].getUpperBoundStart(), u);
         Assert.assertEquals(state.getVents()[2].getUpperBoundEnd(), u);
 
-        //Undefined ranges to merge means nothing to overlap
+        //Undefined ranges to merge means our range gets cleared
         state.updateVentStatus(new int[]{50, 50, u}, 7);
         state.getVents()[2].setLowerBoundRange(47, 53);
         state.getVents()[2].setUpperBoundRange(47, 53);
         toOverlap.getVents()[2].clearRanges();
         state.setOverlappingRangesWith(toOverlap);
-        Assert.assertEquals(state.getVents()[2].getLowerBoundStart(), 47);
-        Assert.assertEquals(state.getVents()[2].getLowerBoundEnd(), 53);
-        Assert.assertEquals(state.getVents()[2].getUpperBoundStart(), 47);
-        Assert.assertEquals(state.getVents()[2].getUpperBoundEnd(), 53);
+        Assert.assertEquals(state.getVents()[2].getLowerBoundStart(), u);
+        Assert.assertEquals(state.getVents()[2].getLowerBoundEnd(), u);
+        Assert.assertEquals(state.getVents()[2].getUpperBoundStart(), u);
+        Assert.assertEquals(state.getVents()[2].getUpperBoundEnd(), u);
     }
 
     public void setOverlappingRangesWithRangeMismatchTest() {
         StatusState state = new StatusState();
         final VentStatus vent = state.getVents()[2];
         StatusState toOverlap = new StatusState();
-        int u = VentStatus.STARTING_VENT_VALUE;
         toOverlap.updateVentStatus(new int[]{46, 0, u}, 7);
         toOverlap.getVents()[2].setLowerBoundRange(22, 28);
         toOverlap.getVents()[2].setUpperBoundRange(72, 78);
@@ -848,7 +835,6 @@ public class StatusStateTest {
     public void doFreezeClippingBTest() {
         StatusState state = new StatusState();
         final VentStatus vent = state.getVents()[0];
-        int u = VentStatus.STARTING_VENT_VALUE;
         state.updateVentStatus(new int[]{u, 50, 50}, 0);
 
         //B is frozen with 0 move
@@ -912,7 +898,6 @@ public class StatusStateTest {
     public void doFreezeClippingBClippedATest() {
         StatusState state = new StatusState();
         final VentStatus vent = state.getVents()[0];
-        int u = VentStatus.STARTING_VENT_VALUE;
         state.updateVentStatus(new int[]{u, 50, 50}, 0);
 
         //B is outside 41-59 with 2 move - ensure A gets clipped
@@ -929,7 +914,6 @@ public class StatusStateTest {
         StatusState state = new StatusState();
         final VentStatus ventA = state.getVents()[0];
         final VentStatus ventB = state.getVents()[1];
-        int u = VentStatus.STARTING_VENT_VALUE;
 
         //0 move tests
         //C is outside 41-59 with 0 move - both A B 41-59
@@ -1251,7 +1235,6 @@ public class StatusStateTest {
 
     public void reverseMovementResultTest() {
         StatusState state = new StatusState();
-        int u = VentStatus.STARTING_VENT_VALUE;
 
         //A reverse move should fail
         state.updateVentStatus(new int[]{u, u, u}, 0);

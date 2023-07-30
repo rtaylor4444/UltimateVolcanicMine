@@ -1097,6 +1097,10 @@ public class VentStatusTimelineTest {
         timeline.addStabilityUpdateTick(state, 10);
 
         predictedState = timeline.getCurrentPredictionState();
+        Assert.assertEquals(predictedState.getVents()[2].getLowerBoundStart(), 35);
+        Assert.assertEquals(predictedState.getVents()[2].getLowerBoundEnd(), 38);
+        Assert.assertEquals(predictedState.getVents()[2].getUpperBoundStart(), 35);
+        Assert.assertEquals(predictedState.getVents()[2].getUpperBoundEnd(), 38);
     }
 
     public void sandbox2() {
@@ -1508,4 +1512,5 @@ public class VentStatusTimelineTest {
         StatusState predictedState = timeline.getCurrentPredictionState();
         Assert.assertTrue(predictedState.getVents()[2].isRangeDefined());
     }
+
 }

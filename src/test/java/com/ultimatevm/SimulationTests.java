@@ -77,6 +77,14 @@ public class SimulationTests {
         predicter.getTimeline().updateTick();
         ++currentTick;
     }
+    private void doSameTickMovementDirectionUpdate(int tick, int A, int B, int C, int newDir) {
+        advanceTicks(tick-1);
+        identifyVent(A, B, C);
+        updateVentDirection(newDir);
+        predicter.updateVentStatus(ventValues, directionBitState);
+        predicter.getTimeline().updateTick();
+        ++currentTick;
+    }
     private void doEarthquake(int tick) {
         advanceTicks(tick-1);
         predicter.markEarthquakeEvent();
@@ -102,8 +110,7 @@ public class SimulationTests {
         doMovementUpdateByValue(590, u, 55, 20);
         doDirectionChange(595, 3);
         doDirectionChange(599, 1);
-        updateVentDirection(3);
-        doMovementUpdateByValue(600, u, 56, 19);
+        doSameTickMovementDirectionUpdate(600, u, 56, 19, 3);
         doDirectionChange(603, 1);
         doMovementUpdateByValue(610, u, 55, 18);
         doMovementUpdateByValue(620, u, 54, 17);
@@ -139,8 +146,7 @@ public class SimulationTests {
         doMovementUpdateByValue(519, u, 3, 29);
         doStabilityUpdate(524, -4);
         doMovementUpdateByValue(529, u, 1, 27);
-        updateVentDirection(2);
-        doMovementUpdateByValue(539, u, 0, 25);
+        doSameTickMovementDirectionUpdate(539, u, 0, 25, 2);
 
         StatusState predictedState = predicter.getDisplayState();
         Assert.assertTrue(predictedState.getVents()[0].isRangeDefined());
@@ -199,7 +205,7 @@ public class SimulationTests {
         Assert.assertTrue(predictedState.getVents()[0].isRangeDefined());
     }
 
-    public void simulateBCSoloStart() {
+    public void simulateCBSoloStart() {
         createPredicter(3, 0, 1);
         doEarthquake(24);
         doIdentifyVent(44, u, u, 57);
@@ -438,6 +444,17 @@ public class SimulationTests {
         Assert.assertEquals(predictedState.getVents()[0].getUpperBoundEnd(), 57);
     }
 
+    public void simulateMovementIdentifySameTickNoPredictionBug() {
+        createPredicter(3, 0, 1);
+        doIdentifyVent(1, u, u, 83);
+        doMovementUpdateByValue(7, u, u, 82);
+        doMovementUpdateByValue(17, u, 51, 81);
+        doStabilityUpdate(22, 9);
+
+        StatusState predictedState = predicter.getDisplayState();
+        Assert.assertTrue(predictedState.getVents()[0].isRangeDefined());
+    }
+
     public void simulateDoubleToSingleVentPrediction() {
         createPredicter(1, 0, 1);
         doStabilityUpdate(24, 16);
@@ -513,6 +530,92 @@ public class SimulationTests {
         Assert.assertEquals(predictedState.getVents()[0].getLowerBoundEnd(), 38);
         Assert.assertEquals(predictedState.getVents()[0].getUpperBoundStart(), 38);
         Assert.assertEquals(predictedState.getVents()[0].getUpperBoundEnd(), 38);
+    }
+
+    public void simulateDoubleVentTrim() {
+        createPredicter(2, 0, 1);
+        StatusState predictedState = predicter.getDisplayState();
+        doIdentifyVent(2, 75, u, u);
+        doMovementUpdateByValue(10, 77, u, u);
+        doDirectionChange(6, 0);
+        doMovementUpdateByValue(20, 75, u, u);
+        doStabilityUpdate(25, -3);
+        doMovementUpdateByValue(30, 73, u, u);
+        doMovementUpdateByValue(40, 71, u, u);
+        doSameTickMovementStabilityUpdate(50, 69, u, u, -5);
+        doMovementUpdateByValue(60, 67, u, u);
+        doMovementUpdateByValue(70, 65, u, u);
+        doStabilityUpdate(74, -6);
+        doMovementUpdateByValue(79, 63, u, u);
+        doDirectionChange(83, 2);
+        doMovementUpdateByValue(89, 61, u, u);
+        doSameTickMovementStabilityUpdate(99, 59, u, u, -5);
+        //With trimming C was distinguished here
+        doMovementUpdateByValue(109, 58, u, u);
+        doMovementUpdateByValue(119, 57, u, u);
+        doStabilityUpdate(124, -5);
+        doMovementUpdateByValue(129, 56, u, u);
+        doMovementUpdateByValue(139, 55, u, u);
+        doSameTickMovementStabilityUpdate(149, 54, u, u, -4);
+        doMovementUpdateByValue(159, 53, u, u);
+        doMovementUpdateByValue(169, 52, u, u);
+        doStabilityUpdate(174, -4);
+        //Without trimming C was distinguished here
+        doMovementUpdateByValue(179, 51, u, u);
+        doMovementUpdateByValue(189, 50, u, u);
+        doEarthquake(199);
+        doMovementUpdateByValue(209, 49, u, u);
+        doMovementUpdateByValue(219, 48, u, u);
+        doStabilityUpdate(224, -3);
+        //With trimming B was distinguished here
+        //Without trimming B is never distinguished
+    }
+
+    public void simulateSameTickMoveDirectionChangeBug() {
+        createPredicter(1, 0, 1);
+        doIdentifyVent(14, u, 48, u);
+        doMovementUpdateByValue(20, u, 47, u);
+        doDirectionChange(22, 3);
+        doMovementUpdateByValue(30, u, 48, u);
+        doMovementUpdateByValue(40, u, 49, u);
+        doEarthquake(50);
+        doMovementUpdateByValue(60, u, 50, u);
+        doMovementUpdateByValue(70, u, 51, u);
+        doEarthquake(80);
+        doDirectionChange(82, 1);
+        doMovementUpdateByValue(90, u, 50, u);
+        doMovementUpdateByValue(100, u, 49, u);
+        doMovementUpdateByValue(110, u, 48, u);
+        doDirectionChange(114, 3);
+        doMovementUpdateByValue(120, u, 49, u);
+        doStabilityUpdate(125, -3);
+        doMovementUpdateByValue(130, u, 50, u);
+        doMovementUpdateByValue(140, u, 51, u);
+        doSameTickMovementStabilityUpdate(150, u, 52, u, -5);
+        //same tick direction swap and movement - bug is caused here
+        doSameTickMovementDirectionUpdate(160, u, 53, u, 7);
+        doMovementUpdateByValue(170, u, 54, u);
+        doStabilityUpdate(175, -6);
+        doMovementUpdateByValue(180, u, 55, u);
+        doMovementUpdateByValue(190, u, 56, u);
+        doDirectionChange(196, 5);
+        doSameTickMovementStabilityUpdate(200, u, 55, u, -7);
+        doDirectionChange(203, 7);
+        doMovementUpdateByValue(210, u, 56, u);
+        doDirectionChange(211, 5);
+        doEarthquake(215);
+        doMovementUpdateByValue(220, u, 55, u);
+        doStabilityUpdate(225, -8);
+        doMovementUpdateByValue(230, u, 54, u);
+        doMovementUpdateByValue(240, u, 53, u);
+        doSameTickMovementStabilityUpdate(250, u, 52, u, -6);
+
+        //Answer is precisely 9
+        StatusState predictedState = predicter.getDisplayState();
+        Assert.assertEquals(predictedState.getVents()[2].getLowerBoundStart(), 9);
+        Assert.assertEquals(predictedState.getVents()[2].getLowerBoundEnd(), 9);
+        Assert.assertEquals(predictedState.getVents()[2].getUpperBoundStart(), 9);
+        Assert.assertEquals(predictedState.getVents()[2].getUpperBoundEnd(), 9);
     }
 
     public void simulateIncorrectHalfSpaceClipping() {

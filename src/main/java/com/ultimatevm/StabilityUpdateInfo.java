@@ -90,8 +90,10 @@ public class StabilityUpdateInfo {
         calcStabilityChange();
     }
     public void updatePredictedState(StatusState predictedState, StabilityUpdateInfo prevStabInfo, int initalRNGMod) {
-        if(prevStabInfo == null || stabilityUpdateState.getNumIdentifiedVents() == prevStabInfo.getStabilityUpdateState().getNumIdentifiedVents())
+        if(prevStabInfo == null || stabilityUpdateState.getNumIdentifiedVents() == prevStabInfo.getStabilityUpdateState().getNumIdentifiedVents()) {
             predictedState.setOverlappingRangesWith(getAllPossiblePredictedValuesState());
+            trimDoubleVentRanges(predictedState);
+        }
         else predictedState.setOverlappingRangesWith(getPossiblePredictedValuesState(initalRNGMod));
     }
     public StatusState getAllPossiblePredictedValuesState() {
@@ -108,6 +110,7 @@ public class StabilityUpdateInfo {
         possibleState.calcPredictedVentValues(initialChange - rngMod);
         return possibleState;
     }
+
     private void checkVerification() {
         int numBitsOn = 0;
         for(int i = 0; i < getMaxRNGPossibleSize(); ++i) {
@@ -121,6 +124,16 @@ public class StabilityUpdateInfo {
         if(numBitsOn == 1) {
             isVerified = true;
         }
+    }
+    private void trimDoubleVentRanges(StatusState predictedState) {
+        if(predictedState.getNumIdentifiedVents() != 1) return;
+        StatusState mergedTrimmings = new StatusState();
+        for(int i = 0; i < getMaxRNGPossibleSize(); ++i) {
+            StatusState testState = new StatusState(predictedState);
+            testState.trimDoubleVentRanges(initialChange - (1 - i));
+            mergedTrimmings.mergePredictedRangesWith(testState);
+        }
+        predictedState.setOverlappingRangesWith(mergedTrimmings);
     }
 
     //Accessors
