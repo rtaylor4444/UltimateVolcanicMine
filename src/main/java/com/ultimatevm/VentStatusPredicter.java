@@ -154,9 +154,4 @@ public class VentStatusPredicter {
     public final VentStatusTimeline getTimeline() { return timeline; }
     public final int getCurrentTick() { return timeline.getCurrentTick(); }
     public boolean isMovementUpdateTick() { return getCurrentTick() % VentStatusTimeline.VENT_MOVE_TICK_TIME == SLOWEST_VENT_UPDATE_TICK;}
-    public void log() {
-        if(hasDoneFinalLog) return;
-        timeline.log();
-        if(timeline.isHasReset()) hasDoneFinalLog = true;
-    }
 }
