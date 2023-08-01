@@ -618,21 +618,112 @@ public class SimulationTests {
         Assert.assertEquals(predictedState.getVents()[2].getUpperBoundEnd(), 9);
     }
 
+    public void simulateIncorrectPostResetDoubleVentC() {
+        createPredicter(1, 0, 1);
+        StatusState predictedState = predicter.getDisplayState();
+        doIdentifyVent(6, u, u, 30);
+        doMovementUpdateByValue(10, u, u, 28);
+        doDirectionChange(16, 5);
+        doMovementUpdateByValue(20, u, u, 30);
+        doStabilityUpdate(25, 3);
+        doMovementUpdateByValue(30, u, u, 32);
+        doMovementUpdateByValue(40, u, u, 34);
+        doSameTickMovementStabilityUpdate(50, u, u, 36, 4);
+        doMovementUpdateByValue(60, u, u, 38);
+        doMovementUpdateByValue(70, u, u, 39);
+        doStabilityUpdate(75, 5);
+        doEarthquake(80);
+        doMovementUpdateByValue(90, u, u, 40);
+        doSameTickMovementStabilityUpdate(100, u, u, 41, 5);
+        doStabilityUpdate(125, 4);
+        doStabilityUpdate(150, 5);
+        doStabilityUpdate(175, 5);
+        //Incorrect clipping here for some reason
+        doStabilityUpdate(200, 4);
+        doStabilityUpdate(225, 4);
+        doDirectionChange(226, 7);
+        //Bug could be here
+        doEarthquake(230);
+        doDirectionChange(231, 5);
+        doStabilityUpdate(250, 3);
+        doStabilityUpdate(275, 2);
+        doMovementUpdateByValue(280, u, u, 42);
+
+        //B was in fact 38% (identified last minute)
+        Assert.assertEquals(predictedState.getVents()[1].getLowerBoundStart(), 0);
+        Assert.assertEquals(predictedState.getVents()[1].getLowerBoundEnd(), 4);
+        Assert.assertEquals(predictedState.getVents()[1].getUpperBoundStart(), 38);
+        Assert.assertEquals(predictedState.getVents()[1].getUpperBoundEnd(), 38);
+    }
+
+    public void simulate2ndIncorrectPostResetDoubleVentC() {
+        createPredicter(1, 0, 1);
+        StatusState predictedState = predicter.getDisplayState();
+        doIdentifyVent(2, u, u, 11);
+        doMovementUpdateByValue(9, u, u, 9);
+        doDirectionChange(13, 5);
+        doMovementUpdateByValue(19, u, u, 11);
+        doStabilityUpdate(24, -9);
+        doMovementUpdateByValue(29, u, u, 13);
+        doMovementUpdateByValue(39, u, u, 15);
+        doSameTickMovementStabilityUpdate(49, u, u, 17, -11);
+        doMovementUpdateByValue(59, u, u, 19);
+        doDirectionChange(67, 7);
+        doMovementUpdateByValue(69, u, u, 21);
+        doStabilityUpdate(74, -10);
+        doMovementUpdateByValue(79, u, u, 23);
+        doMovementUpdateByValue(89, u, u, 25);
+        doEarthquake(94);
+        doSameTickMovementStabilityUpdate(99, u, u, 27, -9);
+        doMovementUpdateByValue(109, u, u, 29);
+        doMovementUpdateByValue(119, u, u, 31);
+        doStabilityUpdate(124, -8);
+        doMovementUpdateByValue(129, u, u, 33);
+        doMovementUpdateByValue(139, u, u, 35);
+        doSameTickMovementStabilityUpdate(149, u, u, 37, -4);
+        doMovementUpdateByValue(159, u, u, 39);
+        doMovementUpdateByValue(169, u, u, 41);
+        doStabilityUpdate(174, -1);
+        doMovementUpdateByValue(179, u, u, 42);
+        doMovementUpdateByValue(189, u, u, 43);
+        doSameTickMovementStabilityUpdate(199, u, u, 44, 2);
+        doMovementUpdateByValue(209, u, u, 45);
+        doMovementUpdateByValue(219, u, u, 46);
+        doStabilityUpdate(224, 4);
+        doStabilityUpdate(249, 5);
+        doStabilityUpdate(274, 5);
+        doStabilityUpdate(299, 6);
+        doStabilityUpdate(324, 6);
+        doStabilityUpdate(349, 6);
+        doStabilityUpdate(374, 5);
+        doStabilityUpdate(399, 4);
+        doStabilityUpdate(424, 3);
+        doMovementUpdateByValue(429, u, u, 47);
+
+        //B is in fact 62-64%
+        Assert.assertEquals(predictedState.getVents()[1].getLowerBoundStart(), 62);
+        Assert.assertEquals(predictedState.getVents()[1].getLowerBoundEnd(), 64);
+        Assert.assertEquals(predictedState.getVents()[1].getUpperBoundStart(), 100);
+        Assert.assertEquals(predictedState.getVents()[1].getUpperBoundEnd(), 100);
+    }
+
+
+    //Abandoned half-space tests
     public void simulateIncorrectHalfSpaceClipping() {
-//        createPredicter(5, 0, 1);
-//        doIdentifyVent(3, 63, u, u);
-//        doMovementUpdateByValue(9, 65, u, u);
-//        doDirectionChange(18,4);
-//        doStabilityUpdate(24, -9);
-//        doMovementUpdateByValue(29, 63, u, u);
-//        doMovementUpdateByValue(39, 61, u, u);
-//        doSameTickMovementStabilityUpdate(49, 59, u, u, -6);
-//        doMovementUpdateByValue(59, 58, u, u);
-//        doMovementUpdateByValue(69, 57, u, u);
-//        doStabilityUpdate(74, -5);
-//
+        createPredicter(5, 0, 1);
+        doIdentifyVent(3, 63, u, u);
+        doMovementUpdateByValue(9, 65, u, u);
+        doDirectionChange(18,4);
+        doStabilityUpdate(24, -9);
+        doMovementUpdateByValue(29, 63, u, u);
+        doMovementUpdateByValue(39, 61, u, u);
+        doSameTickMovementStabilityUpdate(49, 59, u, u, -6);
+        doMovementUpdateByValue(59, 58, u, u);
+        doMovementUpdateByValue(69, 57, u, u);
+        doStabilityUpdate(74, -5);
+
 //        //Half space clipping should not occur here
-//        StatusState predictedState = predicter.getDisplayState();
+        StatusState predictedState = predicter.getDisplayState();
 //        Assert.assertEquals(predictedState.getVents()[1].getLowerBoundStart(), 0);
 //        Assert.assertEquals(predictedState.getVents()[1].getLowerBoundEnd(), 4);
 //        Assert.assertEquals(predictedState.getVents()[1].getUpperBoundStart(), 83);

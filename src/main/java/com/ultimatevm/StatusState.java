@@ -544,21 +544,34 @@ public class StatusState {
         vents[index].clearRanges();
         if(!isLowerValid && !isUpperValid) return;
 
-        //TODO: For now we assume if both ranges match they are the same
-        //For single range the minimum distance between lower and upper is 6
-        //since our ranges are size 3 its impossible for both to match
+        //All overlaps are valid edge case
+        boolean isBothLowerValid = isLowerUpperValid && isLowerLowerValid;
+        boolean isBothUpperValid = isUpperLowerValid && isUpperUpperValid;
+        if(isBothLowerValid && isBothUpperValid) {
+            vents[index].setLowerBoundRange(lowerLower[0], lowerLower[1]);
+            vents[index].setUpperBoundRange(upperUpper[0], upperUpper[1]);
+            return;
+        }
 
         //Lower bound range overlaps with another range
         if(isLowerValid) {
-            if(isLowerLowerValid) vents[index].setLowerBoundRange(lowerLower[0], lowerLower[1]);
-            else vents[index].setLowerBoundRange(lowerUpper[0], lowerUpper[1]);
+            if(isBothLowerValid) {
+                vents[index].setLowerBoundRange(lowerLower[0], lowerUpper[1]);
+            } else {
+                if (isLowerLowerValid) vents[index].setLowerBoundRange(lowerLower[0], lowerLower[1]);
+                else vents[index].setLowerBoundRange(lowerUpper[0], lowerUpper[1]);
+            }
             //If only lower bound is valid set upper bound range as well
             if(!isUpperValid) vents[index].setUpperBoundRange(vents[index].getLowerBoundStart(), vents[index].getLowerBoundEnd());
         }
         //Upper bound range overlaps with another range
         if(isUpperValid) {
-            if(isUpperUpperValid) vents[index].setUpperBoundRange(upperUpper[0], upperUpper[1]);
-            else vents[index].setUpperBoundRange(upperLower[0], upperLower[1]);
+            if(isBothUpperValid) {
+                vents[index].setUpperBoundRange(upperLower[0], upperUpper[1]);
+            } else {
+                if (isUpperUpperValid) vents[index].setUpperBoundRange(upperUpper[0], upperUpper[1]);
+                else vents[index].setUpperBoundRange(upperLower[0], upperLower[1]);
+            }
             //If only upper bound is valid set lower bound range as well
             if(!isLowerValid) vents[index].setLowerBoundRange(vents[index].getUpperBoundStart(), vents[index].getUpperBoundEnd());
         }

@@ -827,9 +827,54 @@ public class StatusStateTest {
         Assert.assertEquals(vent.getLowerBoundEnd(), 55);
         Assert.assertEquals(vent.getUpperBoundStart(), 52);
         Assert.assertEquals(vent.getUpperBoundEnd(), 55);
+    }
 
-        //Impossible for both a lower upper range match and upper lower range match
-        //at the same time
+    public void setOverlappingRangesLowerUpperBothMatchTest() {
+        StatusState state = new StatusState();
+        final VentStatus vent = state.getVents()[2];
+        StatusState toOverlap = new StatusState();
+        toOverlap.updateVentStatus(new int[]{50, 50, u}, 7);
+        toOverlap.getVents()[2].setLowerBoundRange(0, 46);
+        toOverlap.getVents()[2].setUpperBoundRange(54, 100);
+
+        //Upper range values match both lower and upper overlap
+        vent.setLowerBoundRange(0, 9);
+        vent.setUpperBoundRange(46, 59);
+        state.setOverlappingRangesWith(toOverlap);
+        Assert.assertEquals(vent.getLowerBoundStart(), 0);
+        Assert.assertEquals(vent.getLowerBoundEnd(), 9);
+        Assert.assertEquals(vent.getUpperBoundStart(), 46);
+        Assert.assertEquals(vent.getUpperBoundEnd(), 59);
+
+        //Lower range values match both lower and upper overlap
+        vent.clearRanges();
+        vent.setLowerBoundRange(41, 54);
+        vent.setUpperBoundRange(91, 100);
+        state.setOverlappingRangesWith(toOverlap);
+        Assert.assertEquals(vent.getLowerBoundStart(), 41);
+        Assert.assertEquals(vent.getLowerBoundEnd(), 54);
+        Assert.assertEquals(vent.getUpperBoundStart(), 91);
+        Assert.assertEquals(vent.getUpperBoundEnd(), 100);
+
+        //Both range values match both lower and upper overlap
+        //Our vent has a huge single range
+        vent.clearRanges();
+        vent.setLowerBoundRange(41, 54);
+        vent.setUpperBoundRange(46, 59);
+        state.setOverlappingRangesWith(toOverlap);
+        Assert.assertEquals(vent.getLowerBoundStart(), 41);
+        Assert.assertEquals(vent.getLowerBoundEnd(), 46);
+        Assert.assertEquals(vent.getUpperBoundStart(), 54);
+        Assert.assertEquals(vent.getUpperBoundEnd(), 59);
+
+        //Other vent has a huge single range
+        toOverlap.getVents()[2].setLowerBoundRange(0, 54);
+        toOverlap.getVents()[2].setUpperBoundRange(46, 100);
+        state.setOverlappingRangesWith(toOverlap);
+        Assert.assertEquals(vent.getLowerBoundStart(), 41);
+        Assert.assertEquals(vent.getLowerBoundEnd(), 46);
+        Assert.assertEquals(vent.getUpperBoundStart(), 54);
+        Assert.assertEquals(vent.getUpperBoundEnd(), 59);
     }
 
     public void doFreezeClippingBTest() {

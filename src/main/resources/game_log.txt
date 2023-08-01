@@ -1,0 +1,508 @@
+Starting player count was: 1
+On tick: 10 there was an earthquake event
+On tick: 25 there was an earthquake event
+On tick: 42 C Vent was identified to be 57
+On tick: 50 we added estimated movement
+On tick: 50 there was a stability update of 18
+On tick: 60 we added estimated movement
+On tick: 70 we added estimated movement
+On tick: 71 B Vent was identified to be 59
+On tick: 75 there was a stability update of 19
+On tick: 80 we added estimated movement
+On tick: 90 we added estimated movement
+On tick: 100 we added estimated movement
+On tick: 110 we added estimated movement
+On tick: 120 we added estimated movement
+On tick: 130 we added estimated movement
+On tick: 140 we added estimated movement
+On tick: 150 we added estimated movement
+On tick: 160 we added estimated movement
+On tick: 170 we added estimated movement
+On tick: 180 we added estimated movement
+On tick: 190 we added estimated movement
+On tick: 200 we added estimated movement
+On tick: 210 we added estimated movement
+On tick: 220 there was a movement update
+A: 60%
+Direction 1
+B: 60%
+Direction 1
+C: 57%
+Direction -1
+
+On tick: 230 there was a movement update
+A: 62%
+Direction 1
+B: 62%
+Direction 1
+C: 56%
+Direction -1
+
+On tick: 235 there was an earthquake event
+On tick: 240 there was a movement update
+A: 64%
+Direction 1
+B: 64%
+Direction 1
+C: 55%
+Direction -1
+
+On tick: 250 there was a movement update
+A: 66%
+Direction 1
+B: 66%
+Direction 1
+C: 54%
+Direction -1
+
+On tick: 260 there was a movement update
+A: 68%
+Direction 1
+B: 68%
+Direction 1
+C: 53%
+Direction -1
+
+On tick: 270 there was a movement update
+A: 70%
+Direction 1
+B: 70%
+Direction 1
+C: 52%
+Direction -1
+
+On tick: 280 there was a movement update
+A: 72%
+Direction 1
+B: 72%
+Direction 1
+C: 51%
+Direction -1
+
+On tick: 290 there was a movement update
+A: 74%
+Direction 1
+B: 74%
+Direction 1
+C: 50%
+Direction -1
+
+On tick: 300 there was a movement update
+A: 76%
+Direction 1
+B: 76%
+Direction 1
+C: 49%
+Direction -1
+
+On tick: 310 there was a movement update
+A: 78%
+Direction 1
+B: 78%
+Direction 1
+C: 48%
+Direction -1
+
+On tick: 320 there was a movement update
+A: 80%
+Direction 1
+B: 80%
+Direction 1
+C: 47%
+Direction -1
+
+On tick: 330 there was a movement update
+A: 82%
+Direction 1
+B: 82%
+Direction 1
+C: 46%
+Direction -1
+
+On tick: 350 there was a movement update
+A: 84%
+Direction 1
+B: 84%
+Direction 1
+C: 45%
+Direction -1
+
+On tick: 355 there was an earthquake event
+On tick: 360 there was a movement update
+A: 86%
+Direction 1
+B: 86%
+Direction 1
+C: 44%
+Direction -1
+
+On tick: 370 there was a movement update
+A: 88%
+Direction 1
+B: 88%
+Direction 1
+C: 43%
+Direction -1
+
+On tick: 375 there was a stability update of -3
+On tick: 377 B Vent direction has changed
+On tick: 380 there was a movement update
+A: 90%
+Direction 1
+B: 86%
+Direction -1
+C: 42%
+Direction -1
+
+On tick: 390 there was a movement update
+A: 92%
+Direction 1
+B: 84%
+Direction -1
+C: 41%
+Direction -1
+
+On tick: 400 there was a movement update
+A: 94%
+Direction 1
+B: 82%
+Direction -1
+C: 40%
+Direction -1
+
+On tick: 400 there was a stability update of -4
+On tick: 410 there was a movement update
+A: 96%
+Direction 1
+B: 80%
+Direction -1
+C: 38%
+Direction -1
+
+On tick: 420 there was a movement update
+A: 98%
+Direction 1
+B: 78%
+Direction -1
+C: 36%
+Direction -1
+
+On tick: 425 there was a stability update of -4
+On tick: 430 there was a movement update
+A: 100%
+Direction 1
+B: 76%
+Direction -1
+C: 34%
+Direction -1
+
+On tick: 440 there was a movement update
+A: 100%
+Direction 1
+B: 74%
+Direction -1
+C: 32%
+Direction -1
+
+On tick: 450 there was a movement update
+A: 100%
+Direction 1
+B: 72%
+Direction -1
+C: 30%
+Direction -1
+
+On tick: 450 there was a stability update of -6
+On tick: 460 there was a movement update
+A: 100%
+Direction 1
+B: 70%
+Direction -1
+C: 28%
+Direction -1
+
+On tick: 470 there was a movement update
+A: 100%
+Direction 1
+B: 68%
+Direction -1
+C: 26%
+Direction -1
+
+On tick: 475 there was a stability update of -5
+On tick: 480 there was a movement update
+A: 100%
+Direction 1
+B: 66%
+Direction -1
+C: 24%
+Direction -1
+
+On tick: 490 there was a movement update
+A: 100%
+Direction 1
+B: 64%
+Direction -1
+C: 22%
+Direction -1
+
+On tick: 500 we added estimated movement
+On tick: 500 there was a stability update of -5
+Starting player count was: 1
+On tick: 501 B Vent was identified to be 73
+On tick: 505 there was an earthquake event
+On tick: 510 there was a movement update
+A: 127%
+Direction 1
+B: 71%
+Direction -1
+C: 14%
+Direction -1
+
+On tick: 514 C Vent was identified to be 14
+On tick: 524 there was a stability update of -4
+On tick: 528 B Vent direction has changed
+On tick: 529 there was a movement update
+A: 16-18 82-84
+Direction 1
+B: 73%
+Direction 1
+C: 12%
+Direction -1
+
+On tick: 539 there was a movement update
+A: 18-20 84-86
+Direction 1
+B: 75%
+Direction 1
+C: 10%
+Direction -1
+
+On tick: 549 there was an earthquake event
+On tick: 559 there was a movement update
+A: 20-22 86-88
+Direction 1
+B: 77%
+Direction 1
+C: 8%
+Direction -1
+
+On tick: 569 there was a movement update
+A: 22-24 88-90
+Direction 1
+B: 79%
+Direction 1
+C: 6%
+Direction -1
+
+On tick: 574 there was a stability update of -8
+On tick: 579 there was a movement update
+A: 24-25%
+Direction 1
+B: 81%
+Direction 1
+C: 4%
+Direction -1
+
+On tick: 584 B Vent direction has changed
+On tick: 589 there was a movement update
+A: 26-27%
+Direction 1
+B: 79%
+Direction -1
+C: 2%
+Direction -1
+
+On tick: 594 there was an earthquake event
+On tick: 599 there was a movement update
+A: 28-29%
+Direction 1
+B: 77%
+Direction -1
+C: 0%
+Direction -1
+
+On tick: 599 there was a stability update of -7
+On tick: 609 there was an earthquake event
+On tick: 619 there was a movement update
+A: 30-31%
+Direction 1
+B: 75%
+Direction -1
+C: 0%
+Direction -1
+
+On tick: 624 there was a stability update of -6
+On tick: 629 there was a movement update
+A: 32-33%
+Direction 1
+B: 73%
+Direction -1
+C: 0%
+Direction -1
+
+On tick: 639 there was a movement update
+A: 34-35%
+Direction 1
+B: 71%
+Direction -1
+C: 0%
+Direction -1
+
+On tick: 649 there was a movement update
+A: 36-37%
+Direction 1
+B: 69%
+Direction -1
+C: 0%
+Direction -1
+
+On tick: 649 there was a stability update of -2
+On tick: 651 B Vent direction has changed
+On tick: 655 B Vent direction has changed
+On tick: 656 B Vent direction has changed
+On tick: 659 there was a movement update
+A: 38-39%
+Direction 1
+B: 67%
+Direction -1
+C: 0%
+Direction -1
+
+On tick: 659 B Vent direction has changed
+On tick: 669 there was a movement update
+A: 40-41%
+Direction 1
+B: 65%
+Direction -1
+C: 0%
+Direction -1
+
+On tick: 674 there was a stability update of 1
+On tick: 679 there was a movement update
+A: 42%
+Direction 1
+B: 64%
+Direction -1
+C: 0%
+Direction -1
+
+On tick: 684 there was an earthquake event
+On tick: 689 there was a movement update
+A: 43%
+Direction 1
+B: 63%
+Direction -1
+C: 0%
+Direction -1
+
+On tick: 699 there was an earthquake event
+On tick: 709 there was a movement update
+A: 44%
+Direction 1
+B: 62%
+Direction -1
+C: 0%
+Direction -1
+
+On tick: 719 there was a movement update
+A: 45%
+Direction 1
+B: 61%
+Direction -1
+C: 0%
+Direction -1
+
+On tick: 724 there was a stability update of 4
+On tick: 729 there was a movement update
+A: 46%
+Direction 1
+B: 60%
+Direction -1
+C: 0%
+Direction -1
+
+On tick: 739 there was a movement update
+A: 47%
+Direction 1
+B: 59%
+Direction -1
+C: 0%
+Direction -1
+
+On tick: 749 we added estimated movement
+On tick: 749 there was a stability update of 5
+On tick: 759 we added estimated movement
+On tick: 769 we added estimated movement
+On tick: 774 there was a stability update of 5
+On tick: 779 we added estimated movement
+On tick: 789 we added estimated movement
+On tick: 799 we added estimated movement
+On tick: 799 there was a stability update of 4
+On tick: 809 we added estimated movement
+On tick: 819 we added estimated movement
+On tick: 824 there was a stability update of 4
+On tick: 829 we added estimated movement
+On tick: 839 we added estimated movement
+On tick: 849 we added estimated movement
+On tick: 849 there was a stability update of 3
+On tick: 859 we added estimated movement
+On tick: 869 there was a movement update
+A: 60%
+Direction 1
+B: 58%
+Direction -1
+C: 0%
+Direction -1
+
+On tick: 874 there was a stability update of 2
+On tick: 879 there was a movement update
+A: 62%
+Direction 1
+B: 57%
+Direction -1
+C: 0%
+Direction -1
+
+On tick: 889 there was a movement update
+A: 64%
+Direction 1
+B: 56%
+Direction -1
+C: 0%
+Direction -1
+
+On tick: 899 there was a movement update
+A: 66%
+Direction 1
+B: 55%
+Direction -1
+C: 0%
+Direction -1
+
+On tick: 899 there was a stability update of 1
+On tick: 909 there was a movement update
+A: 68%
+Direction 1
+B: 54%
+Direction -1
+C: 0%
+Direction -1
+
+On tick: 919 there was a movement update
+A: 70%
+Direction 1
+B: 53%
+Direction -1
+C: 0%
+Direction -1
+
+On tick: 924 there was an earthquake event
+On tick: 929 there was a movement update
+A: 72%
+Direction 1
+B: 52%
+Direction -1
+C: 0%
+Direction -1
+
