@@ -78,6 +78,7 @@ public class VentStatusPredicter {
         for(int i = 0; i < changeStates.length; ++i) {
             if((changeStates[i] & VentChangeStateFlag.IDENTIFIED.bitFlag()) != 0) {
                 bitState |= (1 << i);
+                movementBitState |= (3 << (i * 2));
             }
             if((changeStates[i] & VentChangeStateFlag.DIRECTION_CHANGE.bitFlag()) != 0) {
                 bitState |= (1 << (i+3));
@@ -114,7 +115,7 @@ public class VentStatusPredicter {
         if((bitState & VentStatusTimeline.DIRECTION_CHANGED_BIT_MASK) != 0) timeline.addDirectionChangeTick(bitState);
 
         //Do an estimated move if a movement update was skips for whatever reason
-        if(movementBitState == 0) {
+        if((bitState & 128) == 0) {
             if(++numTicksNoMove == VentStatusTimeline.VENT_MOVE_TICK_TIME) {
                 if(timeline.addEstimatedMovementTick()) updateDisplayState();
                 numTicksNoMove = 0;

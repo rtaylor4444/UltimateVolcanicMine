@@ -7,6 +7,7 @@ public class VentStatus {
     public static final int MAX_VENT_VALUE = 100;
     public static final float VENT_STABILITY_WEIGHT = 16.0f;
     public static int BASE_MOVE_RATE = 2;
+    public static int[][] pointsToLowerRanges = null, pointsToUpperRanges = null;
 
 
     public enum VentChangeStateFlag {
@@ -31,17 +32,71 @@ public class VentStatus {
     private int lowerBoundStart, lowerBoundEnd;
     private int upperBoundStart, upperBoundEnd;
 
+    private static void makePointsToRangeTable() {
+        if(pointsToLowerRanges != null && pointsToUpperRanges != null) return;
+        pointsToLowerRanges = new int[(int)VENT_STABILITY_WEIGHT+1][2];
+        pointsToUpperRanges = new int[(int)VENT_STABILITY_WEIGHT+1][2];
+
+        //Mid values
+        pointsToLowerRanges[16][0] = pointsToUpperRanges[16][0] = 47;
+        pointsToLowerRanges[16][1] = pointsToUpperRanges[16][1] = 53;
+        //Lower values
+        pointsToLowerRanges[15][0] = 44; pointsToLowerRanges[15][1] = 46;
+        pointsToLowerRanges[14][0] = 41; pointsToLowerRanges[14][1] = 43;
+        pointsToLowerRanges[13][0] = 38; pointsToLowerRanges[13][1] = 40;
+        pointsToLowerRanges[12][0] = 35; pointsToLowerRanges[12][1] = 37;
+        pointsToLowerRanges[11][0] = 32; pointsToLowerRanges[11][1] = 34;
+        pointsToLowerRanges[10][0] = 29; pointsToLowerRanges[10][1] = 31;
+        pointsToLowerRanges[9][0] = 26; pointsToLowerRanges[9][1] = 28;
+        pointsToLowerRanges[8][0] = 22; pointsToLowerRanges[8][1] = 25;
+        pointsToLowerRanges[7][0] = 19; pointsToLowerRanges[7][1] = 21;
+        pointsToLowerRanges[6][0] = 16; pointsToLowerRanges[6][1] = 18;
+        pointsToLowerRanges[5][0] = 13; pointsToLowerRanges[5][1] = 15;
+        pointsToLowerRanges[4][0] = 10; pointsToLowerRanges[4][1] = 12;
+        pointsToLowerRanges[3][0] = 7; pointsToLowerRanges[3][1] = 9;
+        pointsToLowerRanges[2][0] = 4; pointsToLowerRanges[2][1] = 6;
+        pointsToLowerRanges[1][0] = 1; pointsToLowerRanges[1][1] = 3;
+        pointsToLowerRanges[0][0] = pointsToLowerRanges[0][1] = 0;
+        //Upper values
+        pointsToUpperRanges[15][0] = 54; pointsToLowerRanges[15][1] = 56;
+        pointsToUpperRanges[14][0] = 57; pointsToLowerRanges[14][1] = 59;
+        pointsToUpperRanges[13][0] = 60; pointsToLowerRanges[13][1] = 62;
+        pointsToUpperRanges[12][0] = 63; pointsToLowerRanges[12][1] = 65;
+        pointsToUpperRanges[11][0] = 66; pointsToLowerRanges[11][1] = 68;
+        pointsToUpperRanges[10][0] = 69; pointsToUpperRanges[10][1] = 71;
+        pointsToUpperRanges[9][0] = 72; pointsToUpperRanges[9][1] = 74;
+        pointsToUpperRanges[8][0] = 75; pointsToUpperRanges[8][1] = 78;
+        pointsToUpperRanges[7][0] = 79; pointsToUpperRanges[7][1] = 81;
+        pointsToUpperRanges[6][0] = 82; pointsToUpperRanges[6][1] = 84;
+        pointsToUpperRanges[5][0] = 85; pointsToUpperRanges[5][1] = 87;
+        pointsToUpperRanges[4][0] = 88; pointsToUpperRanges[4][1] = 90;
+        pointsToUpperRanges[3][0] = 91; pointsToUpperRanges[3][1] = 93;
+        pointsToUpperRanges[2][0] = 94; pointsToUpperRanges[2][1] = 96;
+        pointsToUpperRanges[1][0] = 97; pointsToUpperRanges[1][1] = 99;
+        pointsToUpperRanges[0][0] = pointsToUpperRanges[0][1] = 100;
+    }
     public static int getStabilityInfluence(int ventValue) {
         float percentValue = PERFECT_VENT_VALUE - Math.abs(PERFECT_VENT_VALUE - ventValue);
         percentValue = (percentValue / 50.0f) * VENT_STABILITY_WEIGHT;
         return (int) Math.ceil(percentValue);
     }
-    public static int getInfluenceOfValue(int value) {
+    public static int getMovementInfluenceOfValue(int value) {
         if(value > 40 && value < 60) return -1;
         return 0;
     }
+    public static int[] pointsToLowerRange(int points) {
+        if(pointsToLowerRanges == null) return new int[]{-1, -1};
+        if(points < 0 || points > (int)VENT_STABILITY_WEIGHT) return new int[]{-1, -1};
+        return pointsToLowerRanges[points];
+    }
+    public static int[] pointsToUpperRange(int points) {
+        if(pointsToUpperRanges == null) return new int[]{-1, -1};
+        if(points < 0 || points > (int)VENT_STABILITY_WEIGHT) return new int[]{-1, -1};
+        return pointsToUpperRanges[points];
+    }
 
     public VentStatus(char name) {
+        makePointsToRangeTable();
         ventName = name;
         this.movementDirection = 0;
         doVMReset();
@@ -94,24 +149,38 @@ public class VentStatus {
 
         return bitState | VentChangeStateFlag.NO_CHANGE.bitFlag;
     }
-    public void updateMovement(int outsideVentInfluence) {
+    public void updateMovement(int[] outsideVentInfluence) {
         if(isIdentified()) return;
         if(!isRangeDefined()) return;
 
-        //Update our current ranges
-        int currentMoveRate = BASE_MOVE_RATE + outsideVentInfluence;
+        //Get our possible movement amounts
+        int currentMinMoveRate = BASE_MOVE_RATE + outsideVentInfluence[0];
+        int currentMaxMoveRate = BASE_MOVE_RATE + outsideVentInfluence[1];
 
+        //Consider all movement possibilities when moving ranges
+        int startRangeMoveRate, endRangeMoveRate;
+        if(getDirection() > 0) {
+            //upward movement
+            endRangeMoveRate = currentMaxMoveRate;
+            startRangeMoveRate = currentMinMoveRate;
+        } else {
+            //downward movement
+            startRangeMoveRate = currentMaxMoveRate;
+            endRangeMoveRate = currentMinMoveRate;
+        }
+
+        //Update our current ranges
         int lowerStart = getLowerBoundStart();
-        int lowerStartMove = Math.max(0, (currentMoveRate + getInfluenceOfValue(lowerStart))) * movementDirection;
+        int lowerStartMove = Math.max(0, (startRangeMoveRate + getMovementInfluenceOfValue(lowerStart))) * movementDirection;
 
         int upperEnd = getUpperBoundEnd();
-        int upperEndMove = Math.max(0, (currentMoveRate + getInfluenceOfValue(upperEnd))) * movementDirection;
+        int upperEndMove = Math.max(0, (endRangeMoveRate + getMovementInfluenceOfValue(upperEnd))) * movementDirection;
 
         int lowerEnd = getLowerBoundEnd();
-        int lowerEndMove = Math.max(0, (currentMoveRate + getInfluenceOfValue(lowerEnd))) * movementDirection;
+        int lowerEndMove = Math.max(0, (endRangeMoveRate + getMovementInfluenceOfValue(lowerEnd))) * movementDirection;
 
         int upperStart = getUpperBoundStart();
-        int upperStartMove = Math.max(0, (currentMoveRate + getInfluenceOfValue(upperStart))) * movementDirection;
+        int upperStartMove = Math.max(0, (startRangeMoveRate + getMovementInfluenceOfValue(upperStart))) * movementDirection;
 
         clearRanges();
         setLowerBoundRange(lowerStart + lowerStartMove, lowerEnd + lowerEndMove);
@@ -120,6 +189,12 @@ public class VentStatus {
     public void clearRanges() {
         lowerBoundStart = lowerBoundEnd = STARTING_VENT_VALUE;
         upperBoundStart = upperBoundEnd = STARTING_VENT_VALUE;
+    }
+    public boolean canLowerBoundMergeWith(int start, int end) {
+        return isLowerBoundWithinRange(start-1, end+1);
+    }
+    public boolean canUpperBoundMergeWith(int start, int end) {
+        return isUpperBoundWithinRange(start-1, end+1);
     }
     public void mergeLowerBoundRanges(int start, int end) {
         lowerBoundStart = Math.min(lowerBoundStart, capVentValue(start));
@@ -133,7 +208,7 @@ public class VentStatus {
         lowerBoundStart = capVentValue(start);
         lowerBoundEnd = capVentValue(end);
         //Merge ranges if they are both within bounds
-        if(isUpperBoundWithinRange(lowerBoundStart, lowerBoundEnd)) {
+        if(canUpperBoundMergeWith(lowerBoundStart, lowerBoundEnd)) {
             mergeUpperBoundRanges(lowerBoundStart, lowerBoundEnd);
             mergeLowerBoundRanges(upperBoundStart, upperBoundEnd);
         }
@@ -142,7 +217,7 @@ public class VentStatus {
         upperBoundStart = capVentValue(start);
         upperBoundEnd = capVentValue(end);
         //Merge ranges if they are both within bounds
-        if(isLowerBoundWithinRange(upperBoundStart, upperBoundEnd)) {
+        if(canLowerBoundMergeWith(upperBoundStart, upperBoundEnd)) {
             mergeUpperBoundRanges(lowerBoundStart, lowerBoundEnd);
             mergeLowerBoundRanges(upperBoundStart, upperBoundEnd);
         }
@@ -298,11 +373,41 @@ public class VentStatus {
         if(isWithinRange(41,59)) return -1;
         return 0;
     }
+    public void updateEstimatedMovementInfluence(int[] currentInf) {
+        int minInf, maxInf;
+        if(!isRangeDefined()) {
+            //Assume 0-100 which means both -1 and 0 influence
+            minInf = -1; maxInf = 0;
+        } else {
+            boolean canInfluence = isWithinRange(41,59);
+            boolean canNotInfluence = isWithinRange(0, 40) || isWithinRange(60, 100);
+            if(canInfluence && canNotInfluence) {
+                //This vent has the possibility to both slow and not slow movement
+                minInf = -1; maxInf = 0;
+            }
+            else if(canInfluence) {
+                //This vent only has the possibility to slow movement
+                minInf = maxInf = -1;
+            }
+            else if(canNotInfluence) {
+                //This vent cannot influence movement
+                minInf = maxInf = 0;
+            }
+            else {
+                //Somehow invalid range - should be impossible
+                //Assume 0-100 which means both -1 and 0 influence
+                minInf = -1; maxInf = 0;
+            }
+        }
+        currentInf[0] += minInf;
+        currentInf[1] += maxInf;
+    }
+
     public int getReversedInfluence(int outsideVentInfluence) {
         //TODO: Fix this code later to work with estimated ranges
         //We know the value is the same as before so we can exit safely
         if(outsideVentInfluence < -1)
-            return isIdentified() ? getInfluenceOfValue(capVentValue(actualValue)) : 0;
+            return isIdentified() ? getMovementInfluenceOfValue(capVentValue(actualValue)) : 0;
         if(!isIdentified()) return STARTING_VENT_VALUE;
         //We cannot reverse bounded values; dont know how long they been bounded
         if(isBounded()) return STARTING_VENT_VALUE;
@@ -310,12 +415,12 @@ public class VentStatus {
         int[] infPossibilities = new int[BASE_MOVE_RATE];
         for(int i = 0; i < BASE_MOVE_RATE; ++i) {
             int move = (outsideVentInfluence + (BASE_MOVE_RATE - i)) * movementDirection;
-            infPossibilities[i] = getInfluenceOfValue(capVentValue(actualValue - move));
+            infPossibilities[i] = getMovementInfluenceOfValue(capVentValue(actualValue - move));
         }
         //Exit on freeze, non-freeze mismatch cannot reverse reliably
         //eg blocked 41 or unblocked 59
         if(infPossibilities[0] != infPossibilities[1]) return STARTING_VENT_VALUE;
-        return getInfluenceOfValue(capVentValue(actualValue - movementDirection));
+        return getMovementInfluenceOfValue(capVentValue(actualValue - movementDirection));
     }
     public void doReversedMovement(int outsideVentInfluence) {
         //TODO: Fix this code later to work with estimated ranges

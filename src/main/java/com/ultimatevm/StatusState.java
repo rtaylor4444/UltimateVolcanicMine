@@ -69,10 +69,15 @@ public class StatusState {
         return changeStates;
     }
     public void updateVentMovement() {
-        int currentVentInfluence = 0;
+        int[] currentVentInfluence = new int[]{0, 0};
+        int[] previousVentInfluence = new int[]{0, 0};
         for(int i = 0; i < vents.length; ++i) {
-            vents[i].updateMovement(currentVentInfluence);
-            currentVentInfluence += vents[i].getEstimatedInfluence();
+            //keep track of influence before vent movement
+            previousVentInfluence[0] = currentVentInfluence[0];
+            previousVentInfluence[1] = currentVentInfluence[1];
+            //The vent values BEFORE movement influences other vents below it
+            vents[i].updateEstimatedMovementInfluence(currentVentInfluence);
+            vents[i].updateMovement(previousVentInfluence);
         }
     }
     public int reverseMovement(int knownBitFlag) {
@@ -103,7 +108,6 @@ public class StatusState {
         for(int i = 0; i < NUM_VENTS; ++i) {
             if(vents[i].isIdentified()) continue;
             if(!vents[i].isRangeDefined()) continue;
-            if(!state.vents[i].isRangeDefined()) continue;
             overlapVentWith(i, state.vents[i]);
         }
     }
@@ -304,6 +308,13 @@ public class StatusState {
             if(!vents[i].isRangeDefined()) mergeVentWith(i, state.vents[i]);
             else overlapVentWith(i, state.vents[i]);
         }
+    }
+    public void trimDoubleVentRanges(int change) {
+        if(numIdentifiedVents != 1) return;
+        int[] ventIndices = getUnidentifiedVentIndices();
+        int pointsNeeded = getTotalVentUpdate(change) - getIdentifiedVentTotalValue();
+        trimRangesBasedOn(pointsNeeded, vents[ventIndices[1]], vents[ventIndices[0]]);
+        trimRangesBasedOn(pointsNeeded, vents[ventIndices[0]], vents[ventIndices[1]]);
     }
     public void clipPredictedStabilityMismatch(int stabilityAmount) {
         if(numIdentifiedVents != 2) return;
@@ -533,24 +544,135 @@ public class StatusState {
         vents[index].clearRanges();
         if(!isLowerValid && !isUpperValid) return;
 
-        //TODO: For now we assume if both ranges match they are the same
-        //For single range the minimum distance between lower and upper is 6
-        //since our ranges are size 3 its impossible for both to match
+        //All overlaps are valid edge case
+        boolean isBothLowerValid = isLowerUpperValid && isLowerLowerValid;
+        boolean isBothUpperValid = isUpperLowerValid && isUpperUpperValid;
+        if(isBothLowerValid && isBothUpperValid) {
+            vents[index].setLowerBoundRange(lowerLower[0], lowerLower[1]);
+            vents[index].setUpperBoundRange(upperUpper[0], upperUpper[1]);
+            return;
+        }
 
         //Lower bound range overlaps with another range
         if(isLowerValid) {
-            if(isLowerLowerValid) vents[index].setLowerBoundRange(lowerLower[0], lowerLower[1]);
-            else vents[index].setLowerBoundRange(lowerUpper[0], lowerUpper[1]);
+            if(isBothLowerValid) {
+                vents[index].setLowerBoundRange(lowerLower[0], lowerUpper[1]);
+            } else {
+                if (isLowerLowerValid) vents[index].setLowerBoundRange(lowerLower[0], lowerLower[1]);
+                else vents[index].setLowerBoundRange(lowerUpper[0], lowerUpper[1]);
+            }
             //If only lower bound is valid set upper bound range as well
             if(!isUpperValid) vents[index].setUpperBoundRange(vents[index].getLowerBoundStart(), vents[index].getLowerBoundEnd());
         }
         //Upper bound range overlaps with another range
         if(isUpperValid) {
-            if(isUpperUpperValid) vents[index].setUpperBoundRange(upperUpper[0], upperUpper[1]);
-            else vents[index].setUpperBoundRange(upperLower[0], upperLower[1]);
+            if(isBothUpperValid) {
+                vents[index].setUpperBoundRange(upperLower[0], upperUpper[1]);
+            } else {
+                if (isUpperUpperValid) vents[index].setUpperBoundRange(upperUpper[0], upperUpper[1]);
+                else vents[index].setUpperBoundRange(upperLower[0], upperLower[1]);
+            }
             //If only upper bound is valid set lower bound range as well
             if(!isLowerValid) vents[index].setLowerBoundRange(vents[index].getUpperBoundStart(), vents[index].getUpperBoundEnd());
         }
+    }
+
+    //Double Vent range trimming
+    private void trimRangesBasedOn(int pointsNeeded, VentStatus toTrim, VentStatus trimSource) {
+        if(!toTrim.isRangeDefined()) return;
+        if(toTrim.isTwoSeperateValues()) {
+            int[] lowerResult = trimSingleSeperateRange(pointsNeeded, trimSource,
+                    new int[]{toTrim.getLowerBoundStart(), toTrim.getLowerBoundEnd()});
+            boolean isLowerResultValid = (lowerResult[0] != -1 && lowerResult[1] != -1);
+            int[] upperResult = trimSingleSeperateRange(pointsNeeded, trimSource,
+                    new int[]{toTrim.getUpperBoundStart(), toTrim.getUpperBoundEnd()});
+            boolean isUpperResultValid = (upperResult[0] != -1 && upperResult[1] != -1);
+
+            toTrim.clearRanges();
+            if(!isLowerResultValid && !isUpperResultValid) return;
+
+            if(isLowerResultValid && isUpperResultValid) {
+                toTrim.setLowerBoundRange(lowerResult[0], lowerResult[1]);
+                toTrim.setUpperBoundRange(upperResult[0], upperResult[1]);
+            } else if(isLowerResultValid) {
+                toTrim.setLowerBoundRange(lowerResult[0], lowerResult[1]);
+                toTrim.setUpperBoundRange(lowerResult[0], lowerResult[1]);
+            } else {
+                toTrim.setLowerBoundRange(upperResult[0], upperResult[1]);
+                toTrim.setUpperBoundRange(upperResult[0], upperResult[1]);
+            }
+        } else {
+            int boundStart = toTrim.getLowerBoundStart();
+            int boundEnd = toTrim.getLowerBoundEnd();
+            int lowerBoundStart = Integer.MAX_VALUE, upperBoundEnd = Integer.MIN_VALUE;
+            int lowerBoundEnd = MIN_VENT_VALUE, upperBoundStart = MAX_VENT_VALUE;
+            //Iterate through all possibilities considering that the range couls
+            //break in two
+            while (boundStart <= boundEnd) {
+                int missingPoints = pointsNeeded - getStabilityInfluence(boundStart);
+                boolean isBoundStartValid = doesVentSourceHaveRange(trimSource, missingPoints);
+
+                if(isBoundStartValid) {
+                    //Smallest valid bound start is our new lowerBoundStart
+                    lowerBoundStart = Math.min(boundStart, lowerBoundStart);
+                    //Largest valid bound start is our new lowerBoundEnd
+                    lowerBoundEnd = Math.max(boundStart, lowerBoundEnd);
+                }
+
+                missingPoints = pointsNeeded - getStabilityInfluence(boundEnd);
+                boolean isBoundEndValid = doesVentSourceHaveRange(trimSource, missingPoints);
+
+                if(isBoundEndValid) {
+                    //Largest valid bound end is our new upperBoundEnd
+                    upperBoundEnd = Math.max(boundEnd, upperBoundEnd);
+                    //Smallest valid bound end is our new upperBoundStart
+                    upperBoundStart = Math.min(boundEnd, upperBoundStart);
+                }
+
+                ++boundStart; --boundEnd;
+            }
+
+            toTrim.clearRanges();
+            if(lowerBoundStart == Integer.MAX_VALUE && upperBoundEnd == Integer.MIN_VALUE)
+                return;
+
+            if(lowerBoundStart == Integer.MAX_VALUE) {
+                toTrim.setLowerBoundRange(upperBoundStart, upperBoundEnd);
+                toTrim.setUpperBoundRange(upperBoundStart, upperBoundEnd);
+            }
+            else if(upperBoundEnd == Integer.MIN_VALUE) {
+                toTrim.setLowerBoundRange(lowerBoundStart, lowerBoundEnd);
+                toTrim.setUpperBoundRange(lowerBoundStart, lowerBoundEnd);
+            }
+            else {
+                toTrim.setLowerBoundRange(lowerBoundStart, lowerBoundEnd);
+                toTrim.setUpperBoundRange(upperBoundStart, upperBoundEnd);
+            }
+        }
+    }
+    private int[] trimSingleSeperateRange(int pointsNeeded, VentStatus trimSource, int[] rangeBounds) {
+        int boundStart = rangeBounds[0];
+        int boundEnd = rangeBounds[1];
+        while (boundStart <= boundEnd) {
+            int missingPoints = pointsNeeded - getStabilityInfluence(boundStart);
+            boolean isBoundStartValid = doesVentSourceHaveRange(trimSource, missingPoints);
+            if(!isBoundStartValid) ++boundStart;
+
+            missingPoints = pointsNeeded - getStabilityInfluence(boundEnd);
+            boolean isBoundEndValid = doesVentSourceHaveRange(trimSource, missingPoints);
+            if(!isBoundEndValid) --boundEnd;
+
+            if(isBoundStartValid && isBoundEndValid) break;
+        }
+        if(boundStart > boundEnd) return new int[]{-1, -1};
+        return new int[]{boundStart, boundEnd};
+    }
+    private boolean doesVentSourceHaveRange(VentStatus trimSource, int missingPoints) {
+        int[] lowerRange = VentStatus.pointsToLowerRange(missingPoints);
+        int[] upperRange = VentStatus.pointsToUpperRange(missingPoints);
+        boolean isLowerValid = trimSource.isWithinRange(lowerRange[0], lowerRange[1]);
+        boolean isUpperValid = trimSource.isWithinRange(upperRange[0], upperRange[1]);
+        return (isLowerValid || isUpperValid);
     }
 
     //Accessors
