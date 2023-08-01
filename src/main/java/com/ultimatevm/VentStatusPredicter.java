@@ -11,7 +11,6 @@ public class VentStatusPredicter {
 
     private VentStatusTimeline timeline;
     private StatusState displayState;
-    private boolean hasDoneFinalLog;
     private int numTicksNoMove, cooldownEndTick;
 
 
@@ -21,7 +20,6 @@ public class VentStatusPredicter {
     public void initialize() {
         timeline = new VentStatusTimeline();
         displayState = new StatusState();
-        hasDoneFinalLog = false;
         cooldownEndTick = 0;
     }
     public void reset() {
