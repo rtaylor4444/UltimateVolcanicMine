@@ -247,9 +247,9 @@ public class VentStatusTimelineTest {
         VentStatusTimeline MoveStartTimeline = new VentStatusTimeline();
         int addedEstMoveFlag = (1 << VentStatusTimeline.ESTIMATED_MOVEMENT_FLAG);
 
-        //Should fail since neither a movement or stability update has occured
-        Assert.assertFalse(MoveStartTimeline.addEstimatedMovementTick());
-        Assert.assertNotEquals(MoveStartTimeline.getTimeline()[0], addedEstMoveFlag);
+        //Should pass even though neither a movement or stability update has occured
+        Assert.assertTrue(MoveStartTimeline.addEstimatedMovementTick());
+        Assert.assertEquals(MoveStartTimeline.getTimeline()[0], addedEstMoveFlag);
 
         //Should pass even though no stability update
         advanceTicks(MoveStartTimeline, 10);
@@ -441,15 +441,15 @@ public class VentStatusTimelineTest {
         timeline.addInitialState(state);
 
         advanceTicks(timeline, 25);
-        timeline.addStabilityUpdateTick(state, 0);
+        timeline.addStabilityUpdateTick(state, 3);
 
         //Ensure we get a calculated value
         StatusState result = timeline.getTimelinePredictionState();
         VentStatus predictedVent = result.getVents()[0];
-        Assert.assertEquals(predictedVent.getLowerBoundStart(), 26);
-        Assert.assertEquals(predictedVent.getLowerBoundEnd(), 28);
-        Assert.assertEquals(predictedVent.getUpperBoundStart(), 72);
-        Assert.assertEquals(predictedVent.getUpperBoundEnd(), 74);
+        Assert.assertEquals(predictedVent.getLowerBoundStart(), 35);
+        Assert.assertEquals(predictedVent.getLowerBoundEnd(), 37);
+        Assert.assertEquals(predictedVent.getUpperBoundStart(), 63);
+        Assert.assertEquals(predictedVent.getUpperBoundEnd(), 65);
     }
 
     public void updatePreviousVentValuesTest() {

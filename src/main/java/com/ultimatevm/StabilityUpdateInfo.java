@@ -82,6 +82,7 @@ public class StabilityUpdateInfo {
     }
 
     public void calcStabilityChange() {
+        stabilityUpdateState.clearAllRanges();
         stabilityUpdateState.calcPredictedVentValues(initialChange - RNGUpdateMod);
     }
     public void updateVentValues(StatusState updatedState) {
@@ -99,14 +100,14 @@ public class StabilityUpdateInfo {
     public StatusState getAllPossiblePredictedValuesState() {
         StatusState mergedPossiblities = new StatusState(stabilityUpdateState);
         for(int i = 0; i < getMaxRNGPossibleSize(); ++i) {
-            StatusState testState = new StatusState(stabilityUpdateState);
-            testState.calcPredictedVentValues(initialChange - (1 - i));
+            StatusState testState = getPossiblePredictedValuesState(1 - i);
             mergedPossiblities.mergePredictedRangesWith(testState);
         }
         return mergedPossiblities;
     }
     public StatusState getPossiblePredictedValuesState(int rngMod) {
         StatusState possibleState = new StatusState(stabilityUpdateState);
+        possibleState.clearAllRanges();
         possibleState.calcPredictedVentValues(initialChange - rngMod);
         return possibleState;
     }
@@ -128,6 +129,7 @@ public class StabilityUpdateInfo {
     private void trimDoubleVentRanges(StatusState predictedState) {
         if(predictedState.getNumIdentifiedVents() != 1) return;
         StatusState mergedTrimmings = new StatusState();
+        mergedTrimmings.clearAllRanges();
         for(int i = 0; i < getMaxRNGPossibleSize(); ++i) {
             StatusState testState = new StatusState(predictedState);
             testState.trimDoubleVentRanges(initialChange - (1 - i));

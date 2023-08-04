@@ -171,13 +171,8 @@ public class VentStatusTimeline {
         timeline[prevEstMoveTick] &= ~(1 << ESTIMATED_MOVEMENT_FLAG);
     }
     private void fixPreviousEstimatedMoves() {
-        //If there was no stab update there is no est move to fix
-        if(initialStabInfo == null) return;
         int updateTick = currentTick % VENT_MOVE_TICK_TIME;
-        for(int i = currentTick-1; i >= startingTick; --i) {
-            //Exit before the first stability update occured
-            //(impossible for there to be any est moves)
-            if(i < firstStabilityUpdateTick) break;
+        for(int i = currentTick-1; i >= currentMovementTick; --i) {
             //Clear estimated movement flag
             timeline[i] &= ~(1 << ESTIMATED_MOVEMENT_FLAG);
             if(i % VENT_MOVE_TICK_TIME == updateTick)
@@ -208,8 +203,6 @@ public class VentStatusTimeline {
         addNewStabilityUpdateTickState(currentTick, currentState, change);
     }
     public boolean addEstimatedMovementTick() {
-        //We can only add estimates if at least 1 movement or stability update occured
-        if(currentMovementTick == startingTick && initialStabInfo == null) return false;
         return addEstimatedMovementTick(currentTick);
     }
     private boolean addEstimatedMovementTick(int tick) {
@@ -318,8 +311,7 @@ public class VentStatusTimeline {
                     StatusState curState = iterator.next();
                     //Use stability updates to set/narrow our possible values
                     if (stabilityInfo == initialStabInfo) {
-                        if(curState.areRangesDefined()) stabilityInfo.updatePredictedState(curState, prevStabInfo, initalRNGMod);
-                        else curState.alignPredictedRangesWith(initialStabInfo.getStabilityUpdateState());
+                        curState.alignPredictedRangesWith(initialStabInfo.getStabilityUpdateState());
                     }
                     else stabilityInfo.updatePredictedState(curState, prevStabInfo, initalRNGMod);
 

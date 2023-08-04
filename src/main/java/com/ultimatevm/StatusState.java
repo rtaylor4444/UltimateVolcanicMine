@@ -58,6 +58,12 @@ public class StatusState {
         this.stabilityChange = state.stabilityChange;
         setVentsEqualTo(state);
     }
+    public void clearAllRanges() {
+        for(int i = 0; i < vents.length; ++i) {
+            if(vents[i].isIdentified()) continue;
+            vents[i].clearRanges();
+        }
+    }
 
     public int[] updateVentStatus(int[] ventStatus, int chambers) {
         numIdentifiedVents = 0;
