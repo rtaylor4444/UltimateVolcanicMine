@@ -267,9 +267,6 @@ public class VentStatusTimeline {
             }
             if((timeline[i] & (1 << ESTIMATED_MOVEMENT_FLAG)) != 0) {
                 StatusState newPossibility = new StatusState(possibleStates.getLast());
-                //Only set ranges when there is not a simple movement skip
-                if(i - previousMovementTick > VENT_MOVE_TICK_TIME)
-                    newPossibility.setFreezeRanges(0);
 
                 //Only set if value wasnt freeze clipped
                 boolean isValueClipped = newPossibility.doFreezeClipping(0);
@@ -289,7 +286,6 @@ public class VentStatusTimeline {
                 Iterator<StatusState> iterator = possibleStates.descendingIterator();
                 while (iterator.hasNext()) {
                     StatusState curState = iterator.next();
-                    curState.setFreezeRanges(moveBitState);
                     //Remove possibility if a value was clipped
                     boolean isValueClipped = curState.doFreezeClipping(moveBitState);
                     if(possibleStates.size() > 1 && isValueClipped) {

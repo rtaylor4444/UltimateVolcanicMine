@@ -511,6 +511,7 @@ public class SimulationTests {
     public void simulateDoubleVentCorrectAClipped() {
         //proof we cannot rely on estimated moves!
         createPredicter(6, 0, 1);
+        doReset();
         doIdentifyVent(7, u, 59, u);
         doMovementUpdateByValue(9, u, 60, u);
         doMovementUpdateByValue(19, u, 62, u);
