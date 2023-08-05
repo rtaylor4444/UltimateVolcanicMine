@@ -720,11 +720,31 @@ public class SimulationTests {
         doStabilityUpdate(424, 3);
         doMovementUpdateByValue(429, u, u, 47);
 
-        //B is in fact 62-64%
+        //B is in fact 62%
         Assert.assertEquals(predictedState.getVents()[1].getLowerBoundStart(), 62);
-        Assert.assertEquals(predictedState.getVents()[1].getLowerBoundEnd(), 64);
+        Assert.assertEquals(predictedState.getVents()[1].getLowerBoundEnd(), 62);
         Assert.assertEquals(predictedState.getVents()[1].getUpperBoundStart(), 62);
-        Assert.assertEquals(predictedState.getVents()[1].getUpperBoundEnd(), 64);
+        Assert.assertEquals(predictedState.getVents()[1].getUpperBoundEnd(), 62);
+    }
+
+    public void simulateLostRangesAtGameStart() {
+        createPredicter(3, 0, 1);
+        doStabilityUpdate(23, 14);
+        doIdentifyVent(42, u, u, 29);
+
+        //Ranges shouldn't be cleared due to a blank stability update
+        StatusState predictedState = predicter.getDisplayState();
+        Assert.assertTrue(predictedState.getVents()[0].isRangeDefined());
+        Assert.assertTrue(predictedState.getVents()[1].isRangeDefined());
+        Assert.assertTrue(predictedState.getVents()[2].isRangeDefined());
+
+        doSameTickMovementStabilityUpdate(48, u, u, 28, 9);
+        doMovementUpdateByValue(58, u, u, 27);
+        doDirectionChange(65, 7);
+        doMovementUpdateByValue(68, u, u, 29);
+        doStabilityUpdate(73, 8);
+        doMovementUpdateByValue(78, u, u, 31);
+        doMovementUpdateByValue(88, u, u, 33);
     }
 
 

@@ -305,11 +305,12 @@ public class VentStatusTimeline {
                 int initalRNGMod = initialStabInfo == null ? 0 : initialStabInfo.getRNGUpdateMod();
                 while (iterator.hasNext()) {
                     StatusState curState = iterator.next();
-                    //Use stability updates to set/narrow our possible values
-                    if (stabilityInfo == initialStabInfo) {
-                        curState.alignPredictedRangesWith(initialStabInfo.getStabilityUpdateState());
+                    if(stabilityInfo.isValid()) {
+                        //Use stability updates to set/narrow our possible values
+                        if (stabilityInfo == initialStabInfo) {
+                            curState.alignPredictedRangesWith(initialStabInfo.getStabilityUpdateState());
+                        } else stabilityInfo.updatePredictedState(curState, prevStabInfo, initalRNGMod);
                     }
-                    else stabilityInfo.updatePredictedState(curState, prevStabInfo, initalRNGMod);
 
                     if((timeline[i] & (1 << HALF_SPACE_COMPLETED_FLAG)) != 0) {
                         int ventsToClip = (timeline[i] & HALF_SPACE_VENTS_BIT_MASK) >> (HALF_SPACE_COMPLETED_FLAG+1);

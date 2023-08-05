@@ -158,6 +158,8 @@ public class StatusState {
                     boolean isADefined = vents[0].isRangeDefined();
                     boolean isBDefined = vents[1].isRangeDefined();
                     if(!isADefined && !isBDefined) continue;
+                    boolean canAFreeze = vents[0].isWithinRange(41, 59);
+                    boolean canBFreeze = vents[1].isWithinRange(41, 59);
                     if(curMove == 0) {
                         //Skip if bounded
                         if(vents[i].isBounded()) continue;
@@ -166,12 +168,26 @@ public class StatusState {
                             vents[0].doInnerBoundsClipping(41, 59);
                             vents[1].doInnerBoundsClipping(41, 59);
                         }
+                        //Otherwise at least either A or B must be 41-59
+                        else {
+                            if(!canAFreeze) vents[1].doInnerBoundsClipping(41, 59);
+                            if(!canBFreeze) vents[0].doInnerBoundsClipping(41, 59);
+                        }
                     }
                     else if(curMove == 1) {
+                        //Skip if C could be bounded
+                        int actualValue = vents[i].getActualValue();
+                        if(actualValue == 1 || actualValue == 99) continue;
+
                         if(vents[i].isWithinRange(41, 59)) {
                             //C cannot have full movement unless A and B arent 41-59
                             vents[0].doOuterBoundsClipping(41, 59);
                             vents[1].doOuterBoundsClipping(41, 59);
+                        }
+                        //Otherwise at least either A or B must be 41-59
+                        else {
+                            if(!canAFreeze) vents[1].doInnerBoundsClipping(41, 59);
+                            if(!canBFreeze) vents[0].doInnerBoundsClipping(41, 59);
                         }
                     }
                     else if(curMove == 2) {
