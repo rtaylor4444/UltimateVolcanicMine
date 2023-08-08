@@ -90,6 +90,7 @@ public class StatusStateTest {
         final VentStatus[] vents = state.getVents();
         state.updateVentStatus(new int[]{u, u, u}, 7);
 
+        vents[0].clearRanges();
         vents[0].setUpperBoundRange(50, 50);
         vents[0].setLowerBoundRange(50, 50);
 
@@ -107,6 +108,7 @@ public class StatusStateTest {
 
         //A never freezes
         //Movement by 1 since 41-59% range
+        vents[0].clearRanges();
         vents[0].setLowerBoundRange(41, 59);
         vents[0].setUpperBoundRange(41, 59);
         state.updateVentMovement();
@@ -116,6 +118,7 @@ public class StatusStateTest {
         Assert.assertEquals(vents[0].getUpperBoundEnd(), 60);
 
         //Movement by 2 since outside of 41-59% range
+        vents[0].clearRanges();
         vents[0].setLowerBoundRange(0, 40);
         vents[0].setUpperBoundRange(60, 99);
         state.updateVentMovement();
@@ -133,6 +136,7 @@ public class StatusStateTest {
         //Unidentified A influence (possible 0, -1 movement inf)
         state.updateVentStatus(new int[]{u, u, 50}, 7);
         //Movement by 0 and 1 since A is unknown and B is 41-59% range
+        vents[1].clearRanges();
         vents[1].setLowerBoundRange(41, 59);
         vents[1].setUpperBoundRange(41, 59);
         state.updateVentMovement();
@@ -207,6 +211,7 @@ public class StatusStateTest {
         state.updateVentStatus(new int[]{u, u, u}, 7);
 
         //Movement by 0 and 1 since A and B are unknown
+        vents[2].clearRanges();
         vents[2].setLowerBoundRange(41, 59);
         vents[2].setUpperBoundRange(41, 59);
         state.updateVentMovement();
@@ -498,11 +503,12 @@ public class StatusStateTest {
         state.calcPredictedVentValues(25);
         Assert.assertEquals(state.getStabilityChange(), 25);
         final VentStatus[] vents2 = state.getVents();
-        Assert.assertFalse(vents2[0].isRangeDefined());
-        Assert.assertEquals(vents2[0].getLowerBoundStart(), u);
-        Assert.assertEquals(vents2[0].getLowerBoundEnd(), u);
-        Assert.assertEquals(vents2[0].getUpperBoundStart(), u);
-        Assert.assertEquals(vents2[0].getUpperBoundEnd(), u);
+        for(int i = 0; i < vents2.length; ++i) {
+            Assert.assertEquals(vents2[i].getLowerBoundStart(), VentStatus.MIN_STARTING_VENT_VALUE);
+            Assert.assertEquals(vents2[i].getLowerBoundEnd(), VentStatus.MAX_STARTING_VENT_VALUE);
+            Assert.assertEquals(vents2[i].getUpperBoundStart(), VentStatus.MIN_STARTING_VENT_VALUE);
+            Assert.assertEquals(vents2[i].getUpperBoundEnd(), VentStatus.MAX_STARTING_VENT_VALUE);
+        }
     }
 
     public void calcSingleVentValueTest() {
@@ -539,6 +545,7 @@ public class StatusStateTest {
         //Max calc test
         StatusState state = new StatusState();
         state.updateVentStatus(new int[]{u, 50, 50}, 7);
+        state.clearAllRanges();
         Assert.assertFalse(state.calcPredictedVentValues(24));
         final VentStatus[] vents = state.getVents();
         Assert.assertEquals(vents[0].getLowerBoundStart(), u);
@@ -548,6 +555,7 @@ public class StatusStateTest {
 
         //Min calc test
         state.updateVentStatus(new int[]{u, 0, 0}, 7);
+        state.clearAllRanges();
         Assert.assertFalse(state.calcPredictedVentValues(-27));
         Assert.assertEquals(vents[0].getLowerBoundStart(), u);
         Assert.assertEquals(vents[0].getLowerBoundEnd(), u);
@@ -619,6 +627,7 @@ public class StatusStateTest {
         StatusState state = new StatusState();
         state.updateVentStatus(new int[]{u, 50, u}, 7);
         final VentStatus[] vents = state.getVents();
+        state.clearAllRanges();
         Assert.assertFalse(state.calcPredictedVentValues(24));
         Assert.assertEquals(vents[0].getLowerBoundStart(), u);
         Assert.assertEquals(vents[0].getLowerBoundEnd(), u);
@@ -632,6 +641,7 @@ public class StatusStateTest {
         //Min calc test
         state.updateVentStatus(new int[]{u, 0, u}, 7);
         final VentStatus[] vents2 = state.getVents();
+        state.clearAllRanges();
         Assert.assertFalse(state.calcPredictedVentValues(-27));
         Assert.assertEquals(vents2[0].getLowerBoundStart(), u);
         Assert.assertEquals(vents2[0].getLowerBoundEnd(), u);
@@ -647,11 +657,13 @@ public class StatusStateTest {
         StatusState state = new StatusState();
         StatusState toMerge = new StatusState();
         toMerge.updateVentStatus(new int[]{50, 50, u}, 7);
+        toMerge.getVents()[2].clearRanges();
         toMerge.getVents()[2].setLowerBoundRange(41, 59);
         toMerge.getVents()[2].setUpperBoundRange(41, 59);
 
         //When we have no range defined to take the other states range
         state.updateVentStatus(new int[]{50, 50, u}, 7);
+        state.getVents()[2].clearRanges();
         state.mergePredictedRangesWith(toMerge);
         Assert.assertEquals(state.getVents()[2].getLowerBoundStart(), 41);
         Assert.assertEquals(state.getVents()[2].getLowerBoundEnd(), 59);
@@ -702,10 +714,12 @@ public class StatusStateTest {
         final VentStatus vent = state.getVents()[2];
         StatusState toOverlap = new StatusState();
         toOverlap.updateVentStatus(new int[]{50, 50, u}, 7);
+        toOverlap.getVents()[2].clearRanges();
         toOverlap.getVents()[2].setLowerBoundRange(41, 46);
         toOverlap.getVents()[2].setUpperBoundRange(54, 59);
 
         //Both ranges overlap
+        vent.clearRanges();
         vent.setLowerBoundRange(38, 44);
         vent.setUpperBoundRange(56, 62);
         state.setOverlappingRangesWith(toOverlap);
@@ -834,10 +848,12 @@ public class StatusStateTest {
         final VentStatus vent = state.getVents()[2];
         StatusState toOverlap = new StatusState();
         toOverlap.updateVentStatus(new int[]{50, 50, u}, 7);
+        toOverlap.getVents()[2].clearRanges();
         toOverlap.getVents()[2].setLowerBoundRange(0, 46);
         toOverlap.getVents()[2].setUpperBoundRange(54, 100);
 
         //Upper range values match both lower and upper overlap
+        vent.clearRanges();
         vent.setLowerBoundRange(0, 9);
         vent.setUpperBoundRange(46, 59);
         state.setOverlappingRangesWith(toOverlap);
@@ -883,6 +899,7 @@ public class StatusStateTest {
         state.updateVentStatus(new int[]{u, 50, 50}, 0);
 
         //B is frozen with 0 move
+        vent.clearRanges();
         vent.setLowerBoundRange(30, 33);
         vent.setUpperBoundRange(42, 44);
         Assert.assertFalse(state.doFreezeClipping(makeMoveBitState(1, 0, 0)));
@@ -892,6 +909,7 @@ public class StatusStateTest {
         Assert.assertEquals(vent.getUpperBoundEnd(), 44);
 
         //B is 41-59 with 1 move
+        vent.clearRanges();
         vent.setLowerBoundRange(30, 33);
         vent.setUpperBoundRange(42, 44);
         Assert.assertFalse(state.doFreezeClipping(makeMoveBitState(2, 1, 0)));
@@ -902,6 +920,7 @@ public class StatusStateTest {
 
         //B is outside 41-59 with 1 move
         state.updateVentStatus(new int[]{u, 60, 50}, 0);
+        vent.clearRanges();
         vent.setLowerBoundRange(30, 33);
         vent.setUpperBoundRange(42, 44);
         Assert.assertFalse(state.doFreezeClipping(makeMoveBitState(2, 1, 0)));
@@ -911,7 +930,8 @@ public class StatusStateTest {
         Assert.assertEquals(vent.getUpperBoundEnd(), 44);
 
         //B is bounded with 1 move edge case - dont clip anything
-        state.updateVentStatus(new int[]{u, 1, 50}, 0);
+        state.updateVentStatus(new int[]{u, 1, u}, 0);
+        vent.clearRanges();
         vent.setLowerBoundRange(30, 33);
         vent.setUpperBoundRange(42, 44);
         Assert.assertFalse(state.doFreezeClipping(makeMoveBitState(2, 1, 0)));
@@ -921,6 +941,7 @@ public class StatusStateTest {
         Assert.assertEquals(vent.getUpperBoundEnd(), 44);
 
         //B is outside 41-59 with 2 move
+        vent.clearRanges();
         vent.setLowerBoundRange(30, 33);
         vent.setUpperBoundRange(42, 44);
         Assert.assertFalse(state.doFreezeClipping(makeMoveBitState(2, 2, 0)));
@@ -930,7 +951,8 @@ public class StatusStateTest {
         Assert.assertEquals(vent.getUpperBoundEnd(), 33);
 
         //B is bounded with 0 move - don't clip anything
-        state.updateVentStatus(new int[]{u, 0, 50}, 0);
+        state.updateVentStatus(new int[]{u, 0, u}, 0);
+        vent.clearRanges();
         vent.setLowerBoundRange(30, 33);
         vent.setUpperBoundRange(42, 44);
         Assert.assertFalse(state.doFreezeClipping(makeMoveBitState(2, 0, 0)));
@@ -946,6 +968,7 @@ public class StatusStateTest {
         state.updateVentStatus(new int[]{u, 50, 50}, 0);
 
         //B is outside 41-59 with 2 move - ensure A gets clipped
+        vent.clearRanges();
         vent.setLowerBoundRange(42, 44);
         vent.setUpperBoundRange(42, 44);
         Assert.assertTrue(state.doFreezeClipping(makeMoveBitState(0, 2, 0)));
@@ -963,8 +986,10 @@ public class StatusStateTest {
         //0 move tests
         //C is outside 41-59 with 0 move - both A B 41-59
         state.updateVentStatus(new int[]{u, u, 60}, 0);
+        ventA.clearRanges();
         ventA.setLowerBoundRange(30, 33);
         ventA.setUpperBoundRange(42, 44);
+        ventB.clearRanges();
         ventB.setLowerBoundRange(30, 33);
         ventB.setUpperBoundRange(42, 44);
         state.doFreezeClipping(makeMoveBitState(1, 0, 0));
@@ -977,10 +1002,12 @@ public class StatusStateTest {
         Assert.assertEquals(ventB.getUpperBoundStart(), 42);
         Assert.assertEquals(ventB.getUpperBoundEnd(), 44);
 
-        //C is 41-59 with 0 move - do nothing
+        //C is 41-59 with 0 move (possible both AB are 41-59) - do nothing
         state.updateVentStatus(new int[]{u, u, 50}, 0);
+        ventA.clearRanges();
         ventA.setLowerBoundRange(30, 33);
         ventA.setUpperBoundRange(42, 44);
+        ventB.clearRanges();
         ventB.setLowerBoundRange(30, 33);
         ventB.setUpperBoundRange(42, 44);
         state.doFreezeClipping(makeMoveBitState(1, 0, 0));
@@ -993,10 +1020,48 @@ public class StatusStateTest {
         Assert.assertEquals(ventB.getUpperBoundStart(), 42);
         Assert.assertEquals(ventB.getUpperBoundEnd(), 44);
 
-        //C is bounded with 0 move - do nothing
-        state.updateVentStatus(new int[]{u, u, 0}, 0);
+        //C is 41-59 with 0 move (only possible A is 41-59) - clip A
+        state.updateVentStatus(new int[]{u, u, 50}, 0);
+        ventA.clearRanges();
         ventA.setLowerBoundRange(30, 33);
         ventA.setUpperBoundRange(42, 44);
+        ventB.clearRanges();
+        ventB.setLowerBoundRange(30, 33);
+        ventB.setUpperBoundRange(30, 33);
+        state.doFreezeClipping(makeMoveBitState(1, 0, 0));
+        Assert.assertEquals(ventA.getLowerBoundStart(), 42);
+        Assert.assertEquals(ventA.getLowerBoundEnd(), 44);
+        Assert.assertEquals(ventA.getUpperBoundStart(), 42);
+        Assert.assertEquals(ventA.getUpperBoundEnd(), 44);
+        Assert.assertEquals(ventB.getLowerBoundStart(), 30);
+        Assert.assertEquals(ventB.getLowerBoundEnd(), 33);
+        Assert.assertEquals(ventB.getUpperBoundStart(), 30);
+        Assert.assertEquals(ventB.getUpperBoundEnd(), 33);
+
+        //C is 41-59 with 0 move (only possible B is 41-59) - clip B
+        state.updateVentStatus(new int[]{u, u, 50}, 0);
+        ventA.clearRanges();
+        ventA.setLowerBoundRange(30, 33);
+        ventA.setUpperBoundRange(30, 33);
+        ventB.clearRanges();
+        ventB.setLowerBoundRange(30, 33);
+        ventB.setUpperBoundRange(42, 44);
+        state.doFreezeClipping(makeMoveBitState(1, 0, 0));
+        Assert.assertEquals(ventA.getLowerBoundStart(), 30);
+        Assert.assertEquals(ventA.getLowerBoundEnd(), 33);
+        Assert.assertEquals(ventA.getUpperBoundStart(), 30);
+        Assert.assertEquals(ventA.getUpperBoundEnd(), 33);
+        Assert.assertEquals(ventB.getLowerBoundStart(), 42);
+        Assert.assertEquals(ventB.getLowerBoundEnd(), 44);
+        Assert.assertEquals(ventB.getUpperBoundStart(), 42);
+        Assert.assertEquals(ventB.getUpperBoundEnd(), 44);
+
+        //C is bounded with 0 move (possible both AB are 41-59) - do nothing
+        state.updateVentStatus(new int[]{u, u, 0}, 0);
+        ventA.clearRanges();
+        ventA.setLowerBoundRange(30, 33);
+        ventA.setUpperBoundRange(42, 44);
+        ventB.clearRanges();
         ventB.setLowerBoundRange(30, 33);
         ventB.setUpperBoundRange(42, 44);
         state.doFreezeClipping(makeMoveBitState(1, 0, 0));
@@ -1013,8 +1078,10 @@ public class StatusStateTest {
         //1 move tests
         //C is outside 41-59 with 1 move - either A or B 41-59
         state.updateVentStatus(new int[]{u, u, 60}, 0);
+        ventA.clearRanges();
         ventA.setLowerBoundRange(30, 33);
         ventA.setUpperBoundRange(42, 44);
+        ventB.clearRanges();
         ventB.setLowerBoundRange(30, 33);
         ventB.setUpperBoundRange(42, 44);
         state.doFreezeClipping(makeMoveBitState(1, 1, 1));
@@ -1027,10 +1094,66 @@ public class StatusStateTest {
         Assert.assertEquals(ventB.getUpperBoundStart(), 42);
         Assert.assertEquals(ventB.getUpperBoundEnd(), 44);
 
-        //C is 41-59 with 1 move - both A B outside 41-59
-        state.updateVentStatus(new int[]{u, u, 50}, 0);
+        //C is outside 41-59 with 1 move (only possible A is 41-59) - clip A
+        state.updateVentStatus(new int[]{u, u, 60}, 0);
+        ventA.clearRanges();
         ventA.setLowerBoundRange(30, 33);
         ventA.setUpperBoundRange(42, 44);
+        ventB.clearRanges();
+        ventB.setLowerBoundRange(30, 33);
+        ventB.setUpperBoundRange(30, 33);
+        state.doFreezeClipping(makeMoveBitState(1, 1, 1));
+        Assert.assertEquals(ventA.getLowerBoundStart(), 42);
+        Assert.assertEquals(ventA.getLowerBoundEnd(), 44);
+        Assert.assertEquals(ventA.getUpperBoundStart(), 42);
+        Assert.assertEquals(ventA.getUpperBoundEnd(), 44);
+        Assert.assertEquals(ventB.getLowerBoundStart(), 30);
+        Assert.assertEquals(ventB.getLowerBoundEnd(), 33);
+        Assert.assertEquals(ventB.getUpperBoundStart(), 30);
+        Assert.assertEquals(ventB.getUpperBoundEnd(), 33);
+
+        //C is outside 41-59 with 1 move (only possible B is 41-59) - clip B
+        state.updateVentStatus(new int[]{u, u, 60}, 0);
+        ventA.clearRanges();
+        ventA.setLowerBoundRange(30, 33);
+        ventA.setUpperBoundRange(30, 33);
+        ventB.clearRanges();
+        ventB.setLowerBoundRange(30, 33);
+        ventB.setUpperBoundRange(42, 44);
+        state.doFreezeClipping(makeMoveBitState(1, 1, 1));
+        Assert.assertEquals(ventA.getLowerBoundStart(), 30);
+        Assert.assertEquals(ventA.getLowerBoundEnd(), 33);
+        Assert.assertEquals(ventA.getUpperBoundStart(), 30);
+        Assert.assertEquals(ventA.getUpperBoundEnd(), 33);
+        Assert.assertEquals(ventB.getLowerBoundStart(), 42);
+        Assert.assertEquals(ventB.getLowerBoundEnd(), 44);
+        Assert.assertEquals(ventB.getUpperBoundStart(), 42);
+        Assert.assertEquals(ventB.getUpperBoundEnd(), 44);
+
+        //C is bounded with 1 move (only possible B is 41-59) - do nothing
+        state.updateVentStatus(new int[]{u, u, 1}, 0);
+        ventA.clearRanges();
+        ventA.setLowerBoundRange(30, 33);
+        ventA.setUpperBoundRange(30, 33);
+        ventB.clearRanges();
+        ventB.setLowerBoundRange(30, 33);
+        ventB.setUpperBoundRange(42, 44);
+        state.doFreezeClipping(makeMoveBitState(1, 1, 1));
+        Assert.assertEquals(ventA.getLowerBoundStart(), 30);
+        Assert.assertEquals(ventA.getLowerBoundEnd(), 33);
+        Assert.assertEquals(ventA.getUpperBoundStart(), 30);
+        Assert.assertEquals(ventA.getUpperBoundEnd(), 33);
+        Assert.assertEquals(ventB.getLowerBoundStart(), 30);
+        Assert.assertEquals(ventB.getLowerBoundEnd(), 33);
+        Assert.assertEquals(ventB.getUpperBoundStart(), 42);
+        Assert.assertEquals(ventB.getUpperBoundEnd(), 44);
+
+        //C is 41-59 with 1 move - both A B outside 41-59
+        state.updateVentStatus(new int[]{u, u, 50}, 0);
+        ventA.clearRanges();
+        ventA.setLowerBoundRange(30, 33);
+        ventA.setUpperBoundRange(42, 44);
+        ventB.clearRanges();
         ventB.setLowerBoundRange(30, 33);
         ventB.setUpperBoundRange(42, 44);
         state.doFreezeClipping(makeMoveBitState(2, 2, 1));
@@ -1047,8 +1170,10 @@ public class StatusStateTest {
         //2 move tests
         //C is outside 41-59 with 2 move - both A B outside 41-59
         state.updateVentStatus(new int[]{u, u, 60}, 0);
+        ventA.clearRanges();
         ventA.setLowerBoundRange(30, 33);
         ventA.setUpperBoundRange(42, 44);
+        ventB.clearRanges();
         ventB.setLowerBoundRange(30, 33);
         ventB.setUpperBoundRange(42, 44);
         state.doFreezeClipping(makeMoveBitState(2, 2, 2));

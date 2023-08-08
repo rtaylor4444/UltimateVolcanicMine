@@ -65,7 +65,7 @@ public class VentStatusPredicterTest {
         //Right amount of vents are known a range should be made!
         predicter.updateVentStatus(new int[]{u, 40, 50}, 7);
         predicter.getTimeline().updateTick();
-        predicter.makeStatusState(10);
+        predicter.makeStatusState(15);
         Assert.assertFalse(predicter.getDisplayState().getVents()[0].isIdentified());
         Assert.assertTrue(predicter.getDisplayState().getVents()[0].isRangeDefined());
     }
@@ -171,6 +171,7 @@ public class VentStatusPredicterTest {
     public void getVentStatusTextTest() {
         //Undefined range vents return the default text
         VentStatusPredicter predicter = new VentStatusPredicter();
+        predicter.getDisplayState().getVents()[0].clearRanges();
         Assert.assertEquals(predicter.getVentStatusText(0, ""), "");
 
         //Identified vents return the default text
@@ -181,6 +182,7 @@ public class VentStatusPredicterTest {
         //Only a single value should be displayed
         predicter.initialize();
         predicter.updateVentStatus(new int[]{VentStatus.STARTING_VENT_VALUE, 51, 51}, 7);
+        predicter.getDisplayState().getVents()[0].clearRanges();
         predicter.getDisplayState().getVents()[0].setLowerBoundRange(50, 50);
         predicter.getDisplayState().getVents()[0].setUpperBoundRange(50, 50);
         String result = predicter.getVentStatusText(0, "A: ");
@@ -190,6 +192,7 @@ public class VentStatusPredicterTest {
         //Only a single range should be displayed
         predicter.initialize();
         predicter.updateVentStatus(new int[]{VentStatus.STARTING_VENT_VALUE, 50, 51}, 7);
+        predicter.getDisplayState().getVents()[0].clearRanges();
         predicter.getDisplayState().getVents()[0].setLowerBoundRange(49, 51);
         predicter.getDisplayState().getVents()[0].setUpperBoundRange(49, 51);
         result = Text.removeTags(predicter.getVentStatusText(0, "A: "));
@@ -199,6 +202,7 @@ public class VentStatusPredicterTest {
         predicter.initialize();
         predicter.reset();
         predicter.updateVentStatus(new int[]{VentStatus.STARTING_VENT_VALUE, 50, 50}, 7);
+        predicter.getDisplayState().getVents()[0].clearRanges();
         predicter.getDisplayState().getVents()[0].setLowerBoundRange(0, 0);
         predicter.getDisplayState().getVents()[0].setUpperBoundRange(100, 100);
         result = Text.removeTags(predicter.getVentStatusText(0, "A: "));
@@ -207,6 +211,7 @@ public class VentStatusPredicterTest {
         //Two ranges should be displayed
         predicter.initialize();
         predicter.updateVentStatus(new int[]{VentStatus.STARTING_VENT_VALUE, 50, 50}, 7);
+        predicter.getDisplayState().getVents()[0].clearRanges();
         predicter.getDisplayState().getVents()[0].setLowerBoundRange(45, 47);
         predicter.getDisplayState().getVents()[0].setUpperBoundRange(53, 55);
         result = Text.removeTags(predicter.getVentStatusText(0, "A: "));
@@ -215,6 +220,7 @@ public class VentStatusPredicterTest {
         //One value one range should be displayed
         predicter.initialize();
         predicter.updateVentStatus(new int[]{VentStatus.STARTING_VENT_VALUE, 50, 50}, 7);
+        predicter.getDisplayState().getVents()[0].clearRanges();
         predicter.getDisplayState().getVents()[0].setLowerBoundRange(45, 45);
         predicter.getDisplayState().getVents()[0].setUpperBoundRange(53, 55);
         result = Text.removeTags(predicter.getVentStatusText(0, "A: "));
@@ -222,6 +228,7 @@ public class VentStatusPredicterTest {
 
         predicter.initialize();
         predicter.updateVentStatus(new int[]{VentStatus.STARTING_VENT_VALUE, 50, 50}, 7);
+        predicter.getDisplayState().getVents()[0].clearRanges();
         predicter.getDisplayState().getVents()[0].setLowerBoundRange(45, 47);
         predicter.getDisplayState().getVents()[0].setUpperBoundRange(55, 55);
         result = Text.removeTags(predicter.getVentStatusText(0, "A: "));

@@ -162,13 +162,8 @@ public class VentStatusTimeline {
         timeline[prevEstMoveTick] &= ~(1 << ESTIMATED_MOVEMENT_FLAG);
     }
     private void fixPreviousEstimatedMoves() {
-        //If there was no stab update there is no est move to fix
-        if(initialStabInfo == null) return;
         int updateTick = currentTick % VENT_MOVE_TICK_TIME;
-        for(int i = currentTick-1; i >= startingTick; --i) {
-            //Exit before the first stability update occured
-            //(impossible for there to be any est moves)
-            if(i < firstStabilityUpdateTick) break;
+        for(int i = currentTick-1; i >= currentMovementTick; --i) {
             //Clear estimated movement flag
             timeline[i] &= ~(1 << ESTIMATED_MOVEMENT_FLAG);
             if(i % VENT_MOVE_TICK_TIME == updateTick)
@@ -199,8 +194,6 @@ public class VentStatusTimeline {
         addNewStabilityUpdateTickState(currentTick, currentState, change);
     }
     public boolean addEstimatedMovementTick() {
-        //We can only add estimates if at least 1 movement or stability update occured
-        if(currentMovementTick == startingTick && initialStabInfo == null) return false;
         return addEstimatedMovementTick(currentTick);
     }
     private boolean addEstimatedMovementTick(int tick) {
@@ -264,21 +257,20 @@ public class VentStatusTimeline {
                 }
             }
             if((timeline[i] & (1 << ESTIMATED_MOVEMENT_FLAG)) != 0) {
+                boolean isValueClipped = false, isConsecMoveSkip = (i - previousMovementTick > VENT_MOVE_TICK_TIME);
                 StatusState newPossibility = new StatusState(possibleStates.getLast());
-                //Only set ranges when there is not a simple movement skip
-                if(i - previousMovementTick > VENT_MOVE_TICK_TIME)
-                    newPossibility.setFreezeRanges(0);
+
+                //Don't do any freeze clipping unless two movements were skipped
+                if(isConsecMoveSkip) isValueClipped = newPossibility.doFreezeClipping(0);
 
                 //Only set if value wasnt freeze clipped
-                boolean isValueClipped = newPossibility.doFreezeClipping(0);
                 if(!isValueClipped) {
                     handleSameTickDirectionChangeMovement(newPossibility, i);
                     possibleStates.addLast(newPossibility);
                 }
                 //Set predicted state to the new up to date possibility
                 //If two consecutive movements are skipped just update the predicted state
-                if(i - previousMovementTick > VENT_MOVE_TICK_TIME)
-                    predictedState = possibleStates.getLast();
+                if(isConsecMoveSkip) predictedState = possibleStates.getLast();
             }
             if((timeline[i] & (1 << MOVEMENT_UPDATE_FLAG)) != 0) {
                 previousMovementTick = i;
@@ -287,7 +279,6 @@ public class VentStatusTimeline {
                 Iterator<StatusState> iterator = possibleStates.descendingIterator();
                 while (iterator.hasNext()) {
                     StatusState curState = iterator.next();
-                    curState.setFreezeRanges(moveBitState);
                     //Remove possibility if a value was clipped
                     boolean isValueClipped = curState.doFreezeClipping(moveBitState);
                     if(possibleStates.size() > 1 && isValueClipped) {
@@ -307,12 +298,12 @@ public class VentStatusTimeline {
                 int initalRNGMod = initialStabInfo == null ? 0 : initialStabInfo.getRNGUpdateMod();
                 while (iterator.hasNext()) {
                     StatusState curState = iterator.next();
-                    //Use stability updates to set/narrow our possible values
-                    if (stabilityInfo == initialStabInfo) {
-                        if(curState.areRangesDefined()) stabilityInfo.updatePredictedState(curState, prevStabInfo, initalRNGMod);
-                        else curState.alignPredictedRangesWith(initialStabInfo.getStabilityUpdateState());
+                    if(stabilityInfo.isValid()) {
+                        //Use stability updates to set/narrow our possible values
+                        if (stabilityInfo == initialStabInfo) {
+                            curState.alignPredictedRangesWith(initialStabInfo.getStabilityUpdateState());
+                        } else stabilityInfo.updatePredictedState(curState, prevStabInfo, initalRNGMod);
                     }
-                    else stabilityInfo.updatePredictedState(curState, prevStabInfo, initalRNGMod);
 
                     if((timeline[i] & (1 << HALF_SPACE_COMPLETED_FLAG)) != 0) {
                         int ventsToClip = (timeline[i] & HALF_SPACE_VENTS_BIT_MASK) >> (HALF_SPACE_COMPLETED_FLAG+1);

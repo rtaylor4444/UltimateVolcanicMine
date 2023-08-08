@@ -58,6 +58,12 @@ public class StatusState {
         this.stabilityChange = state.stabilityChange;
         setVentsEqualTo(state);
     }
+    public void clearAllRanges() {
+        for(int i = 0; i < vents.length; ++i) {
+            if(vents[i].isIdentified()) continue;
+            vents[i].clearRanges();
+        }
+    }
 
     public int[] updateVentStatus(int[] ventStatus, int chambers) {
         numIdentifiedVents = 0;
@@ -152,6 +158,8 @@ public class StatusState {
                     boolean isADefined = vents[0].isRangeDefined();
                     boolean isBDefined = vents[1].isRangeDefined();
                     if(!isADefined && !isBDefined) continue;
+                    boolean canAFreeze = vents[0].isWithinRange(41, 59);
+                    boolean canBFreeze = vents[1].isWithinRange(41, 59);
                     if(curMove == 0) {
                         //Skip if bounded
                         if(vents[i].isBounded()) continue;
@@ -160,12 +168,26 @@ public class StatusState {
                             vents[0].doInnerBoundsClipping(41, 59);
                             vents[1].doInnerBoundsClipping(41, 59);
                         }
+                        //Otherwise at least either A or B must be 41-59
+                        else {
+                            if(!canAFreeze) vents[1].doInnerBoundsClipping(41, 59);
+                            if(!canBFreeze) vents[0].doInnerBoundsClipping(41, 59);
+                        }
                     }
                     else if(curMove == 1) {
+                        //Skip if C could be bounded
+                        int actualValue = vents[i].getActualValue();
+                        if(actualValue == 1 || actualValue == 99) continue;
+
                         if(vents[i].isWithinRange(41, 59)) {
                             //C cannot have full movement unless A and B arent 41-59
                             vents[0].doOuterBoundsClipping(41, 59);
                             vents[1].doOuterBoundsClipping(41, 59);
+                        }
+                        //Otherwise at least either A or B must be 41-59
+                        else {
+                            if(!canAFreeze) vents[1].doInnerBoundsClipping(41, 59);
+                            if(!canBFreeze) vents[0].doInnerBoundsClipping(41, 59);
                         }
                     }
                     else if(curMove == 2) {
@@ -181,75 +203,6 @@ public class StatusState {
             }
         }
         return clippedValueState != 0;
-    }
-    public void setFreezeRanges(int moveBitState) {
-        for(int i = 0; i < NUM_VENTS; ++i) {
-            int curMove = moveBitState & (3 << (i * 2));
-            curMove = (curMove >> (i * 2));
-            switch(vents[i].getName()) {
-                case 'A':
-                    //Cant set any vents based on A's movement
-                    break;
-                case 'B':
-                    //Skip if not identified movement wont be accurate
-                    if(!vents[i].isIdentified()) continue;
-                    if(vents[0].isRangeDefined()) continue;
-                    if(curMove == 0) {
-                        //Skip if bounded
-                        if(vents[i].isBounded()) continue;
-                        //B cannot freeze unless A is 41-59
-                        vents[0].setLowerBoundRange(41, 59);
-                        vents[0].setUpperBoundRange(41, 59);
-                    } else if(curMove == 1) {
-                        //Skip if B could be bounded
-                        int actualValue = vents[i].getActualValue();
-                        if(actualValue == 1 || actualValue == 99) return;
-                        //If B is 41-59 A must be outside of 41-59
-                        //TODO: Set large range A - for now skip until predicted stability clipping
-                        if(vents[i].isWithinRange(41, 59)) {}
-                            //Otherwise A must be 41-59 to slow B's movement
-                        else {
-                            vents[0].setLowerBoundRange(41, 59);
-                            vents[0].setUpperBoundRange(41, 59);
-                        }
-                    } else if(curMove == 2) {
-                        //B cannot have full movement unless A is not 41-59
-                        //TODO: Set large range A - for now skip until predicted stability clipping
-                    }
-                    break;
-                case 'C':
-                    //Skip if not identified movement won't be accurate
-                    if(!vents[i].isIdentified()) continue;
-                    if(vents[0].isRangeDefined() && vents[1].isRangeDefined()) continue;
-                    if(curMove == 0) {
-                        //Skip if bounded
-                        if(vents[i].isBounded()) continue;
-                        //If C is outside 41-59 then both A and B must be 41-59
-                        if(!vents[i].isWithinRange(41, 59)) {
-                            if(!vents[0].isRangeDefined()) {
-                                vents[0].setLowerBoundRange(41, 59);
-                                vents[0].setUpperBoundRange(41, 59);
-                            }
-
-                            if(!vents[1].isRangeDefined()) {
-                                vents[1].setLowerBoundRange(41, 59);
-                                vents[1].setUpperBoundRange(41, 59);
-                            }
-                        }
-                    }
-                    else if(curMove == 1) {
-                        if(vents[i].isWithinRange(41, 59)) {
-                            //C cannot have full movement unless A and B arent 41-59
-                            //TODO: Set large range AB - for now skip until predicted stability clipping
-                        }
-                    }
-                    else if(curMove == 2) {
-                        //C cannot have full movement unless A and B arent 41-59
-                        //TODO: Set large range AB - for now skip until predicted stability clipping
-                    }
-                    break;
-            }
-        }
     }
     public void forceReset() {
         numIdentifiedVents = 0;

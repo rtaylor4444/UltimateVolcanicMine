@@ -3,8 +3,6 @@ package com.ultimatevm;
 import static com.ultimatevm.StatusState.*;
 import static com.ultimatevm.VentStatus.*;
 
-import java.util.ArrayList;
-
 public class VentStatusPredicter {
     public static final int SLOWEST_VENT_UPDATE_TICK = VentStatusTimeline.VENT_MOVE_TICK_TIME-1;
     public static final int HIGHEST_STABLE_RNG_PLAYER_COUNT = 8;

@@ -5,6 +5,8 @@ public class VentStatus {
     public static final int MIN_VENT_VALUE = 0;
     public static final int PERFECT_VENT_VALUE = 50;
     public static final int MAX_VENT_VALUE = 100;
+    public static final int MIN_STARTING_VENT_VALUE = 30;
+    public static final int MAX_STARTING_VENT_VALUE = 70;
     public static final float VENT_STABILITY_WEIGHT = 16.0f;
     public static int BASE_MOVE_RATE = 2;
     public static int[][] pointsToLowerRanges = null, pointsToUpperRanges = null;
@@ -31,6 +33,7 @@ public class VentStatus {
     //Estimated Bounds
     private int lowerBoundStart, lowerBoundEnd;
     private int upperBoundStart, upperBoundEnd;
+    private int totalBoundStart, totalBoundEnd;
 
     private static void makePointsToRangeTable() {
         if(pointsToLowerRanges != null && pointsToUpperRanges != null) return;
@@ -99,7 +102,10 @@ public class VentStatus {
         makePointsToRangeTable();
         ventName = name;
         this.movementDirection = 0;
-        doVMReset();
+        actualValue = STARTING_VENT_VALUE;
+        totalBoundStart = MIN_STARTING_VENT_VALUE;
+        totalBoundEnd = MAX_STARTING_VENT_VALUE;
+        setStartingRanges();
     }
     public VentStatus(VentStatus vent) {
         setEqualTo(vent);
@@ -108,7 +114,9 @@ public class VentStatus {
     public void doVMReset() {
         //Direction state will remain the same as before
         actualValue = STARTING_VENT_VALUE;
-        clearRanges();
+        totalBoundStart = MIN_VENT_VALUE;
+        totalBoundEnd = MAX_VENT_VALUE;
+        setStartingRanges();
     }
     public void setEqualTo(VentStatus vent) {
         this.ventName = vent.ventName;
@@ -119,6 +127,8 @@ public class VentStatus {
         this.lowerBoundEnd = vent.lowerBoundEnd;
         this.upperBoundStart = vent.upperBoundStart;
         this.upperBoundEnd = vent.upperBoundEnd;
+        this.totalBoundStart = vent.totalBoundStart;
+        this.totalBoundEnd = vent.totalBoundEnd;
     }
     public int update(int actualValue, int direction) {
         int bitState = 0;
@@ -151,8 +161,6 @@ public class VentStatus {
     }
     public void updateMovement(int[] outsideVentInfluence) {
         if(isIdentified()) return;
-        if(!isRangeDefined()) return;
-
         //Get our possible movement amounts
         int currentMinMoveRate = BASE_MOVE_RATE + outsideVentInfluence[0];
         int currentMaxMoveRate = BASE_MOVE_RATE + outsideVentInfluence[1];
@@ -168,7 +176,14 @@ public class VentStatus {
             startRangeMoveRate = currentMaxMoveRate;
             endRangeMoveRate = currentMinMoveRate;
         }
+        //Update total bounds even if range is not defined
+        int totalBoundStartMove = Math.max(0, (startRangeMoveRate + getMovementInfluenceOfValue(totalBoundStart))) * movementDirection;
+        totalBoundStart = capVentValue(totalBoundStart + totalBoundStartMove);
 
+        int totalBoundEndMove = Math.max(0, (endRangeMoveRate + getMovementInfluenceOfValue(totalBoundEnd))) * movementDirection;
+        totalBoundEnd = capVentValue(totalBoundEnd + totalBoundEndMove);
+
+        if(!isRangeDefined()) return;
         //Update our current ranges
         int lowerStart = getLowerBoundStart();
         int lowerStartMove = Math.max(0, (startRangeMoveRate + getMovementInfluenceOfValue(lowerStart))) * movementDirection;
@@ -440,6 +455,11 @@ public class VentStatus {
     }
 
     private int capVentValue(int value) { return Math.min(MAX_VENT_VALUE, Math.max(MIN_VENT_VALUE, value));}
+    private void setStartingRanges() {
+        clearRanges();
+        setLowerBoundRange(totalBoundStart, totalBoundEnd);
+        setUpperBoundRange(totalBoundStart, totalBoundEnd);
+    }
 
 
     //Getters
@@ -450,4 +470,6 @@ public class VentStatus {
     public int getLowerBoundEnd() { return lowerBoundEnd; }
     public int getUpperBoundStart() { return upperBoundStart; }
     public int getUpperBoundEnd() { return upperBoundEnd; }
+    public int getTotalBoundStart() { return totalBoundStart; }
+    public int getTotalBoundEnd() { return totalBoundEnd; }
 }
