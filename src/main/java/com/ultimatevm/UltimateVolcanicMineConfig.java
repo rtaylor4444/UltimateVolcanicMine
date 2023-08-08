@@ -80,7 +80,7 @@ public interface UltimateVolcanicMineConfig extends Config
 			position = 5,
 			keyName = "ventStatusPrediction",
 			name = "Vent Status Prediction",
-			description = "Displays an estimate for a single missing vent",
+			description = "Displays estimates for missing vents",
 			section = display
 	)
 	default boolean ventStatusPrediction()
