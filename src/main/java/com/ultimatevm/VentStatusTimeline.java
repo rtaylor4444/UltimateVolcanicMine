@@ -266,18 +266,20 @@ public class VentStatusTimeline {
                 }
             }
             if((timeline[i] & (1 << ESTIMATED_MOVEMENT_FLAG)) != 0) {
+                boolean isValueClipped = false, isConsecMoveSkip = (i - previousMovementTick > VENT_MOVE_TICK_TIME);
                 StatusState newPossibility = new StatusState(possibleStates.getLast());
 
+                //Don't do any freeze clipping unless two movements were skipped
+                if(isConsecMoveSkip) isValueClipped = newPossibility.doFreezeClipping(0);
+
                 //Only set if value wasnt freeze clipped
-                boolean isValueClipped = newPossibility.doFreezeClipping(0);
                 if(!isValueClipped) {
                     handleSameTickDirectionChangeMovement(newPossibility, i);
                     possibleStates.addLast(newPossibility);
                 }
                 //Set predicted state to the new up to date possibility
                 //If two consecutive movements are skipped just update the predicted state
-                if(i - previousMovementTick > VENT_MOVE_TICK_TIME)
-                    predictedState = possibleStates.getLast();
+                if(isConsecMoveSkip) predictedState = possibleStates.getLast();
             }
             if((timeline[i] & (1 << MOVEMENT_UPDATE_FLAG)) != 0) {
                 previousMovementTick = i;

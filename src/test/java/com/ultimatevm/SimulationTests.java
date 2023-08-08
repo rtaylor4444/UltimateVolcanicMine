@@ -445,9 +445,9 @@ public class SimulationTests {
 
         StatusState predictedState = predicter.getDisplayState();
         Assert.assertEquals(predictedState.getVents()[0].getLowerBoundStart(), 55);
-        Assert.assertEquals(predictedState.getVents()[0].getLowerBoundEnd(), 56);
+        Assert.assertEquals(predictedState.getVents()[0].getLowerBoundEnd(), 57);
         Assert.assertEquals(predictedState.getVents()[0].getUpperBoundStart(), 55);
-        Assert.assertEquals(predictedState.getVents()[0].getUpperBoundEnd(), 56);
+        Assert.assertEquals(predictedState.getVents()[0].getUpperBoundEnd(), 57);
     }
 
     public void simulateMovementIdentifySameTickNoPredictionBug() {
@@ -745,6 +745,27 @@ public class SimulationTests {
         doStabilityUpdate(73, 8);
         doMovementUpdateByValue(78, u, u, 31);
         doMovementUpdateByValue(88, u, u, 33);
+    }
+
+    public void simulatePrematureAFreezeClipPostReset() {
+        createPredicter(6, 0, 1);
+        doReset();
+        StatusState predictedState = predicter.getDisplayState();
+        doEarthquake(4);
+        doIdentifyVent(9, u, 32, u);
+        doMovementUpdateByValue(19, u, 34, u);
+        doMovementUpdateByValue(29, u, 36, u);
+        doMovementUpdateByValue(39, u, 38, u);
+        doMovementUpdateByValue(49, u, 40, u);
+        doMovementUpdateByValue(59, u, 42, u);
+        doMovementUpdateByValue(69, u, 43, u);
+        doMovementUpdateByValue(259, u, 44, u);
+
+        //A is in fact 38%
+        Assert.assertEquals(predictedState.getVents()[0].getLowerBoundStart(), 38);
+        Assert.assertEquals(predictedState.getVents()[0].getLowerBoundEnd(), 38);
+        Assert.assertEquals(predictedState.getVents()[0].getUpperBoundStart(), 38);
+        Assert.assertEquals(predictedState.getVents()[0].getUpperBoundEnd(), 38);
     }
 
 
