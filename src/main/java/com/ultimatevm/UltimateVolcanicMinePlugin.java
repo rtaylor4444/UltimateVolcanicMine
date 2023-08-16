@@ -234,6 +234,16 @@ public class UltimateVolcanicMinePlugin extends Plugin
 			if(currentTick > 5) ventStatusPredicter.log();
 		}
 
+		if(config.ventStatusPrediction()) {
+			ventStatusPredicter.updateDisplayState();
+			Widget widget = client.getWidget(WidgetID.VOLCANIC_MINE_GROUP_ID, HUD_VENT_A_PERCENTAGE);
+			if (widget != null) widget.setText(ventStatusPredicter.getVentStatusText(0, widget.getText()));
+			widget = client.getWidget(WidgetID.VOLCANIC_MINE_GROUP_ID, HUD_VENT_B_PERCENTAGE);
+			if (widget != null) widget.setText(ventStatusPredicter.getVentStatusText(1, widget.getText()));
+			widget = client.getWidget(WidgetID.VOLCANIC_MINE_GROUP_ID, HUD_VENT_C_PERCENTAGE);
+			if (widget != null) widget.setText(ventStatusPredicter.getVentStatusText(2, widget.getText()));
+		}
+
 		ventStatusPredicter.getTimeline().updateTick();
 		if(ventStatusPredicter.getCurrentTick() > VentStatusTimeline.VM_GAME_RESET_TIME) {
 			if(!ventStatusPredicter.getTimeline().isHasReset()) ventStatusPredicter.log();
@@ -321,16 +331,16 @@ public class UltimateVolcanicMinePlugin extends Plugin
 				widget.setText("Stability");
 		}
 
-
 		//Vent Status
-		if(config.ventStatusPrediction()) {
-			widget = client.getWidget(WidgetID.VOLCANIC_MINE_GROUP_ID, HUD_VENT_A_PERCENTAGE);
-			if (widget != null) widget.setText(ventStatusPredicter.getVentStatusText(0, widget.getText()));
-			widget = client.getWidget(WidgetID.VOLCANIC_MINE_GROUP_ID, HUD_VENT_B_PERCENTAGE);
-			if (widget != null) widget.setText(ventStatusPredicter.getVentStatusText(1, widget.getText()));
-			widget = client.getWidget(WidgetID.VOLCANIC_MINE_GROUP_ID, HUD_VENT_C_PERCENTAGE);
-			if (widget != null) widget.setText(ventStatusPredicter.getVentStatusText(2, widget.getText()));
-		}
+//		if(config.ventStatusPrediction()) {
+//			ventStatusPredicter.updateDisplayState();
+//			widget = client.getWidget(WidgetID.VOLCANIC_MINE_GROUP_ID, HUD_VENT_A_PERCENTAGE);
+//			if (widget != null) widget.setText(ventStatusPredicter.getVentStatusText(0, widget.getText()));
+//			widget = client.getWidget(WidgetID.VOLCANIC_MINE_GROUP_ID, HUD_VENT_B_PERCENTAGE);
+//			if (widget != null) widget.setText(ventStatusPredicter.getVentStatusText(1, widget.getText()));
+//			widget = client.getWidget(WidgetID.VOLCANIC_MINE_GROUP_ID, HUD_VENT_C_PERCENTAGE);
+//			if (widget != null) widget.setText(ventStatusPredicter.getVentStatusText(2, widget.getText()));
+//		}
 	}
 
 	@Subscribe

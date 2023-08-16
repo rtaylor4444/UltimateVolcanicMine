@@ -105,6 +105,7 @@ public class VentStatusTimelineTest {
 
     public void addIdentifiedVentTickTest() {
         VentStatusTimeline timeline = new VentStatusTimeline();
+        timeline.addInitialState(new StatusState());
         int[] timelineEvents = timeline.getTimeline();
         int[] identifiedVentTicks = timeline.getIdentifiedVentTicks();
         StatusState[] identifiedVentStates = timeline.getIdentifiedVentStates();
@@ -152,6 +153,7 @@ public class VentStatusTimelineTest {
 
     public void addIdentifiedVentTickReassignTest() {
         VentStatusTimeline timeline = new VentStatusTimeline();
+        timeline.addInitialState(new StatusState());
         int[] timelineEvents = timeline.getTimeline();
         int[] identifiedVentTicks = timeline.getIdentifiedVentTicks();
         StatusState[] identifiedVentStates = timeline.getIdentifiedVentStates();
@@ -183,6 +185,7 @@ public class VentStatusTimelineTest {
 
     public void addMovementTickTest() {
         VentStatusTimeline timeline = new VentStatusTimeline();
+        timeline.addInitialState(new StatusState());
         int[] timelineEvents = timeline.getTimeline();
         HashMap<Integer, StatusState> tickToMovementVentState = timeline.getMovementVentStates();
         StatusState state1 = new StatusState();
@@ -235,6 +238,7 @@ public class VentStatusTimelineTest {
     public void addEarthquakeEventTickTest() {
         //Earthquake event should be added and remove est move
         VentStatusTimeline MoveStartTimeline = new VentStatusTimeline();
+        MoveStartTimeline.addInitialState(new StatusState());
         advanceTicks(MoveStartTimeline, 10);
         MoveStartTimeline.addMovementTick(new StatusState(), 0);
         advanceTicks(MoveStartTimeline, 10);
@@ -245,6 +249,7 @@ public class VentStatusTimelineTest {
 
     public void addEstimatedMovementTickTest() {
         VentStatusTimeline MoveStartTimeline = new VentStatusTimeline();
+        MoveStartTimeline.addInitialState(new StatusState());
         int addedEstMoveFlag = (1 << VentStatusTimeline.ESTIMATED_MOVEMENT_FLAG);
 
         //Should pass even though neither a movement or stability update has occured
@@ -278,6 +283,7 @@ public class VentStatusTimelineTest {
 
         //Movement was skipped here remove the est move
         VentStatusTimeline MoveStartTimeline1 = new VentStatusTimeline();
+        MoveStartTimeline1.addInitialState(new StatusState());
         advanceTicks(MoveStartTimeline1, 10);
         MoveStartTimeline1.addMovementTick(new StatusState(), 0);
         advanceTicks(MoveStartTimeline1, 10);
@@ -289,6 +295,7 @@ public class VentStatusTimelineTest {
 
         //Movement was not skipped keep all est moves
         VentStatusTimeline MoveStartTimeline2 = new VentStatusTimeline();
+        MoveStartTimeline2.addInitialState(new StatusState());
         advanceTicks(MoveStartTimeline2, 10);
         MoveStartTimeline2.addMovementTick(new StatusState(), 0);
         for(int i = 0; i < 4; ++i) {
@@ -321,6 +328,7 @@ public class VentStatusTimelineTest {
 
         //Positioning of the est moves should be corrected
         VentStatusTimeline StabStartTimeline = new VentStatusTimeline();
+        StabStartTimeline.addInitialState(new StatusState());
         StatusState state = new StatusState();
         state.updateVentStatus(new int[]{u, 50, 50}, 0);
         advanceTicks(StabStartTimeline, 22);

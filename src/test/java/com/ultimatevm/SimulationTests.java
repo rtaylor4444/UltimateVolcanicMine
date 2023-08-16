@@ -52,6 +52,7 @@ public class SimulationTests {
         advanceTicks(tick-1);
         updateVentDirection(newDir);
         predicter.updateVentStatus(ventValues, directionBitState);
+        predicter.updateDisplayState();
         predicter.getTimeline().updateTick();
         ++currentTick;
     }
@@ -59,6 +60,7 @@ public class SimulationTests {
         advanceTicks(tick-1);
         predicter.updateVentStatus(ventValues, directionBitState);
         predicter.makeStatusState(change);
+        predicter.updateDisplayState();
         predicter.getTimeline().updateTick();
         ++currentTick;
     }
@@ -66,6 +68,7 @@ public class SimulationTests {
         advanceTicks(tick-1);
         identifyVent(A, B, C);
         predicter.updateVentStatus(ventValues, directionBitState);
+        predicter.updateDisplayState();
         predicter.getTimeline().updateTick();
         ++currentTick;
     }
@@ -74,6 +77,7 @@ public class SimulationTests {
         identifyVent(A, B, C);
         predicter.updateVentStatus(ventValues, directionBitState);
         predicter.makeStatusState(change);
+        predicter.updateDisplayState();
         predicter.getTimeline().updateTick();
         ++currentTick;
     }

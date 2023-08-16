@@ -3,6 +3,7 @@ package com.ultimatevm;
 import java.io.FileWriter;
 import java.io.IOException;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.LinkedList;
@@ -45,6 +46,7 @@ public class VentStatusTimeline {
     private int[] timeline;
     private int[] identifiedVentTick;
     private StatusState[] identifiedVentStates;
+    private TimelineCache[] timelineCaches;
     private int numIdentifiedVents;
     private boolean hasReset = false;
     StatusState initialState;
@@ -73,6 +75,7 @@ public class VentStatusTimeline {
         numIdentifiedVents = 0;
         initialState = null;
         initialStabInfo = null;
+        clearCache();
         identifiedVentTick = new int[StatusState.NUM_VENTS];
         identifiedVentStates = new StatusState[StatusState.NUM_VENTS];
         for(int i = 0; i < StatusState.NUM_VENTS; ++i) {
@@ -80,10 +83,20 @@ public class VentStatusTimeline {
             identifiedVentStates[i] = null;
         }
     }
+    public void clearCache() {
+        timelineCaches = new TimelineCache[StabilityUpdateInfo.getMaxRNGPossibleSize()];
+        for(int i = 0; i < timelineCaches.length; ++i)
+            timelineCaches[i] = new TimelineCache();
+    }
+    public void initalizeCache() {
+        for(int i = 0; i < timelineCaches.length; ++i)
+            timelineCaches[i].initalize(initialState, startingTick);
+    }
     public boolean addInitialState(StatusState startingState) {
         //Only add initial state once for pre reset and post reset
         if(initialState != null) return false;
         initialState = new StatusState(startingState);
+        initalizeCache();
         return true;
     }
     public void addIdentifiedVentTick(StatusState currentState, int bitState) {
@@ -105,10 +118,12 @@ public class VentStatusTimeline {
         updatePreviousVentValues(identifiedVentStates[ventIndex], currentTick);
     }
     private void updatePreviousVentValues(StatusState startingState, int tick) {
+        clearCache();
         StatusState curState = new StatusState(startingState);
         LinkedList<Integer> stabilityUpdateTicks = new LinkedList<>();
+        StatusState[] prevMoveTickStates = getPreviousMoveTickStates(tick);
         int numTicksNoMovement = 0, futureMovementTick = Integer.MAX_VALUE;
-        for(int i = tick; i >= startingTick; --i) {
+        for(int i = tick; i > startingTick; --i) {
             //Exit when there is a chain of missing movement updates
             if(numTicksNoMovement > (VENT_MOVE_TICK_TIME * 2)) break;
 
@@ -137,7 +152,7 @@ public class VentStatusTimeline {
                 StatusState movementState = tickToMovementVentState.get(i);
                 movementState.setVentsEqualTo(curState);
                 //exit if we can longer reverse the movement
-                if(!reverseMovement(curState, i-1)) break;
+                if(!reverseMovement(curState, prevMoveTickStates[(i-1) - startingTick], i-1)) break;
             } else ++numTicksNoMovement;
 
             if(isEarthquakeDelayMovement(i)) numTicksNoMovement = 0;
@@ -147,6 +162,7 @@ public class VentStatusTimeline {
                 changeStateDirection(curState, i);
             }
         }
+        initalizeCache();
     }
     private void clearMoveSkipEstimatedMove() {
         int minTick = Math.max(startingTick, currentTick - (int)(VENT_MOVE_TICK_TIME * 2.5f));
@@ -171,6 +187,7 @@ public class VentStatusTimeline {
         timeline[prevEstMoveTick] &= ~(1 << ESTIMATED_MOVEMENT_FLAG);
     }
     private void fixPreviousEstimatedMoves() {
+        clearCache();
         int updateTick = currentTick % VENT_MOVE_TICK_TIME;
         for(int i = currentTick-1; i >= currentMovementTick; --i) {
             //Clear estimated movement flag
@@ -178,6 +195,7 @@ public class VentStatusTimeline {
             if(i % VENT_MOVE_TICK_TIME == updateTick)
                 addEstimatedMovementTick(i);
         }
+        initalizeCache();
     }
 
     public void addDirectionChangeTick(int bitState) {
@@ -243,15 +261,17 @@ public class VentStatusTimeline {
         }
     }
     public StatusState getTimelinePredictionState() {
-        LinkedList<StatusState> possibleStates = new LinkedList<>();
-        StabilityUpdateInfo prevStabInfo = null;
-        StatusState predictedState = new StatusState(initialState);
-        int previousMovementTick = startingTick, numTicksNegativePredictedStability = 0;
-        possibleStates.push(predictedState);
-        for(int i = startingTick; i <= currentTick; ++i) {
-            if((timeline[i] & (1 << IDENTIFIED_VENT_FLAG)) != 0) {
-                int idFlags = timeline[i] & IDENTIFIED_BIT_MASK;
-                Iterator<StatusState> iterator = possibleStates.descendingIterator();
+        //Get the current cache to use
+        TimelineCache cache;
+        if(initialStabInfo == null) {
+            cache = timelineCaches[(-StabilityUpdateInfo.getMinRNGVariation())+1];
+        }
+        else cache = timelineCaches[(-initialStabInfo.getRNGUpdateMod())+1];
+
+        for(; cache.i <= currentTick; ++cache.i) {
+            if((timeline[cache.i] & (1 << IDENTIFIED_VENT_FLAG)) != 0) {
+                int idFlags = timeline[cache.i] & IDENTIFIED_BIT_MASK;
+                Iterator<StatusState> iterator = cache.possibleStates.descendingIterator();
                 while (iterator.hasNext()) {
                     StatusState curState = iterator.next();
                     if ((idFlags & 1) != 0) {
@@ -265,98 +285,100 @@ public class VentStatusTimeline {
                     }
                 }
             }
-            if((timeline[i] & (1 << ESTIMATED_MOVEMENT_FLAG)) != 0) {
-                boolean isValueClipped = false, isConsecMoveSkip = (i - previousMovementTick > VENT_MOVE_TICK_TIME);
-                StatusState newPossibility = new StatusState(possibleStates.getLast());
+            if((timeline[cache.i] & (1 << ESTIMATED_MOVEMENT_FLAG)) != 0) {
+                boolean isValueClipped = false, isConsecMoveSkip = (cache.i - cache.previousMovementTick > VENT_MOVE_TICK_TIME);
+                StatusState newPossibility = new StatusState(cache.possibleStates.getLast());
 
                 //Don't do any freeze clipping unless two movements were skipped
                 if(isConsecMoveSkip) isValueClipped = newPossibility.doFreezeClipping(0);
 
                 //Only set if value wasnt freeze clipped
                 if(!isValueClipped) {
-                    handleSameTickDirectionChangeMovement(newPossibility, i);
-                    possibleStates.addLast(newPossibility);
+                    handleSameTickDirectionChangeMovement(newPossibility, cache.i);
+                    cache.possibleStates.addLast(newPossibility);
                 }
                 //Set predicted state to the new up to date possibility
                 //If two consecutive movements are skipped just update the predicted state
-                if(isConsecMoveSkip) predictedState = possibleStates.getLast();
+                if(isConsecMoveSkip) cache.predictedState = cache.possibleStates.getLast();
             }
-            if((timeline[i] & (1 << MOVEMENT_UPDATE_FLAG)) != 0) {
-                previousMovementTick = i;
-                int moveBitState = timeline[i] & MOVEMENT_BIT_MASK;
+            if((timeline[cache.i] & (1 << MOVEMENT_UPDATE_FLAG)) != 0) {
+                cache.previousMovementTick = cache.i;
+                int moveBitState = timeline[cache.i] & MOVEMENT_BIT_MASK;
                 moveBitState >>= 6;
-                Iterator<StatusState> iterator = possibleStates.descendingIterator();
+                Iterator<StatusState> iterator = cache.possibleStates.descendingIterator();
                 while (iterator.hasNext()) {
                     StatusState curState = iterator.next();
                     //Remove possibility if a value was clipped
                     boolean isValueClipped = curState.doFreezeClipping(moveBitState);
-                    if(possibleStates.size() > 1 && isValueClipped) {
+                    if(cache.possibleStates.size() > 1 && isValueClipped) {
                         iterator.remove();
                         continue;
                     }
 
                     //Update our estimated vent values
-                    handleSameTickDirectionChangeMovement(curState, i);
-                    syncWithMovementState(curState, i);
+                    handleSameTickDirectionChangeMovement(curState, cache.i);
+                    syncWithMovementState(curState, cache.i);
                 }
-                predictedState = possibleStates.getLast();
+                cache.predictedState = cache.possibleStates.getLast();
             }
-            if((timeline[i] & (1 << STABILITY_UPDATE_FLAG)) != 0) {
-                Iterator<StatusState> iterator = possibleStates.descendingIterator();
-                StabilityUpdateInfo stabilityInfo = tickToStabilityUpdateState.get(i);
-                int initalRNGMod = initialStabInfo == null ? 0 : initialStabInfo.getRNGUpdateMod();
+            if((timeline[cache.i] & (1 << STABILITY_UPDATE_FLAG)) != 0) {
+                Iterator<StatusState> iterator = cache.possibleStates.descendingIterator();
+                StabilityUpdateInfo stabilityInfo = tickToStabilityUpdateState.get(cache.i);
+                int initalRNGMod = initialStabInfo == null ?
+                        StabilityUpdateInfo.getMinRNGVariation()
+                        : initialStabInfo.getRNGUpdateMod();
                 while (iterator.hasNext()) {
                     StatusState curState = iterator.next();
                     if(stabilityInfo.isValid()) {
                         //Use stability updates to set/narrow our possible values
                         if (stabilityInfo == initialStabInfo) {
                             curState.alignPredictedRangesWith(initialStabInfo.getStabilityUpdateState());
-                        } else stabilityInfo.updatePredictedState(curState, prevStabInfo, initalRNGMod);
+                        } else stabilityInfo.updatePredictedState(curState, cache.prevStabInfo, initalRNGMod);
                     }
 
-                    if((timeline[i] & (1 << HALF_SPACE_COMPLETED_FLAG)) != 0) {
-                        int ventsToClip = (timeline[i] & HALF_SPACE_VENTS_BIT_MASK) >> (HALF_SPACE_COMPLETED_FLAG+1);
-                        int clipInfo = (timeline[i] & HALF_SPACE_CLIP_BIT_MASK) >> (HALF_SPACE_COMPLETED_FLAG+4);
+                    if((timeline[cache.i] & (1 << HALF_SPACE_COMPLETED_FLAG)) != 0) {
+                        int ventsToClip = (timeline[cache.i] & HALF_SPACE_VENTS_BIT_MASK) >> (HALF_SPACE_COMPLETED_FLAG+1);
+                        int clipInfo = (timeline[cache.i] & HALF_SPACE_CLIP_BIT_MASK) >> (HALF_SPACE_COMPLETED_FLAG+4);
                         curState.doHalfSpaceClipping(ventsToClip, clipInfo);
                     }
                 }
 
-                removeInvalidPossibilities(possibleStates);
-                predictedState = possibleStates.getLast();
-                prevStabInfo = stabilityInfo;
-                numTicksNegativePredictedStability = 0;
+                removeInvalidPossibilities(cache.possibleStates);
+                cache.predictedState = cache.possibleStates.getLast();
+                cache.prevStabInfo = stabilityInfo;
+                cache.numTicksNegativePredictedStability = 0;
             }
-            if((timeline[i] & (1 << DIRECTION_CHANGED_FLAG)) != 0) {
+            if((timeline[cache.i] & (1 << DIRECTION_CHANGED_FLAG)) != 0) {
                 //Change our direction if it occured this tick
-                Iterator<StatusState> iterator = possibleStates.descendingIterator();
+                Iterator<StatusState> iterator = cache.possibleStates.descendingIterator();
                 while (iterator.hasNext()) {
-                    changeStateDirection(iterator.next(), i);
+                    changeStateDirection(iterator.next(), cache.i);
                 }
             }
 
-            int predictedChange = predictedState.getFutureStabilityChange(UltimateVolcanicMineConfig.PredictionScenario.WORST_CASE);
+            int predictedChange = cache.predictedState.getFutureStabilityChange(UltimateVolcanicMineConfig.PredictionScenario.WORST_CASE);
             if(predictedChange < StabilityUpdateInfo.getMinRNGVariation()-1)
-                ++numTicksNegativePredictedStability;
-            else numTicksNegativePredictedStability = 0;
+                ++cache.numTicksNegativePredictedStability;
+            else cache.numTicksNegativePredictedStability = 0;
 
             //Attempt to clip invalid predicted ranges
             //This scenario occurs when stability stays 100% for extended time
-            if(prevStabInfo != null) {
-                if (numTicksNegativePredictedStability < STABILITY_UPDATE_TICK_TIME * 2) continue;
+            if(cache.prevStabInfo != null) {
+                if (cache.numTicksNegativePredictedStability < STABILITY_UPDATE_TICK_TIME * 2) continue;
 
-                int ticksSinceLastUpdate = i - prevStabInfo.getTickTimeStamp();
+                int ticksSinceLastUpdate = cache.i - cache.prevStabInfo.getTickTimeStamp();
                 if (ticksSinceLastUpdate < STABILITY_UPDATE_TICK_TIME * 2) continue;
 
                 //Check and see if we meet requirements to display
                 //a predicted stability change
-                Iterator<StatusState> iterator = possibleStates.descendingIterator();
+                Iterator<StatusState> iterator = cache.possibleStates.descendingIterator();
                 while (iterator.hasNext()) {
                     StatusState curState = iterator.next();
                     curState.clipPredictedStabilityMismatch(StabilityUpdateInfo.getMinRNGVariation() - 1);
                 }
             }
         }
-        return predictedState;
+        return cache.predictedState;
     }
     public StatusState getCurrentPredictionState() {
         return StabilityUpdateInfo.getPredictionState(initialStabInfo, this);
@@ -425,36 +447,32 @@ public class VentStatusTimeline {
         }
         return false;
     }
-    private boolean reverseMovement(StatusState curState, int tick) {
-        //Check what vent values are known from the previous movement tick
-        StatusState prevMoveTickState = null;
-        int numTicksNoMovement = 0;
-        for(int i = tick; i >= startingTick; --i) {
-            //Exit when there is a chain of missing movement updates
-            if(numTicksNoMovement > (VENT_MOVE_TICK_TIME * 2)) break;
-
+    private StatusState[] getPreviousMoveTickStates(int tick) {
+        StatusState[] prevMoveTickStates = new StatusState[(tick+1) - startingTick];
+        StatusState curMoveState = null;
+        for(int i = startingTick; i <= tick; ++i) {
             if((timeline[i] & (1 << IDENTIFIED_VENT_FLAG)) != 0) {
                 int idFlags = timeline[i] & IDENTIFIED_BIT_MASK;
                 if((idFlags & 1) != 0) {
-                    prevMoveTickState = identifiedVentStates[0];
+                    curMoveState = identifiedVentStates[0];
                 }
                 if((idFlags & 2) != 0) {
-                    prevMoveTickState = identifiedVentStates[1];
+                    curMoveState = identifiedVentStates[1];
                 }
                 if((idFlags & 4) != 0) {
-                    prevMoveTickState = identifiedVentStates[2];
+                    curMoveState = identifiedVentStates[2];
                 }
-                break;
             }
 
             if((timeline[i] & (1 << MOVEMENT_UPDATE_FLAG)) != 0) {
-                prevMoveTickState = tickToMovementVentState.get(i);
-                break;
-            } else ++numTicksNoMovement;
+                curMoveState = tickToMovementVentState.get(i);
+            }
 
-            if(isEarthquakeDelayMovement(i)) numTicksNoMovement = 0;
+            prevMoveTickStates[i - startingTick] = curMoveState;
         }
-
+        return prevMoveTickStates;
+    }
+    private boolean reverseMovement(StatusState curState, StatusState prevMoveTickState, int tick) {
         //Set and mark known values
         int knownBitFlag = 0, unknownBitMask = 0;
         if(prevMoveTickState != null) {
