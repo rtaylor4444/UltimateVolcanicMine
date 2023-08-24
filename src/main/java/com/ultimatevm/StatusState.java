@@ -86,20 +86,15 @@ public class StatusState {
             vents[i].updateMovement(previousVentInfluence);
         }
     }
-    public int reverseMovement(int knownBitFlag) {
+    public int reverseMovement() {
         int currentVentInfluence = 0;
         for(int i = 0; i < vents.length; ++i) {
-            //Do reversed movement only if the previous value is unknown
-            if((knownBitFlag & (1 << i)) == 0) {
-                //Exit if the value cannot be reversed
-                int inf = vents[i].getReversedInfluence(currentVentInfluence);
-                if (inf == STARTING_VENT_VALUE) return -(i + 1);
+            //Exit if the value cannot be reversed
+            int inf = vents[i].getReversedInfluence(currentVentInfluence);
+            if (inf == STARTING_VENT_VALUE) return -(i + 1);
 
-                currentVentInfluence += inf;
-                vents[i].doReversedMovement(currentVentInfluence);
-            }
-            //Otherwise if known just update movement influence
-            else currentVentInfluence += vents[i].getEstimatedInfluence();
+            currentVentInfluence += inf;
+            vents[i].doReversedMovement(currentVentInfluence);
         }
         return 0;
     }

@@ -494,7 +494,7 @@ public class VentStatusTimeline {
         if(knownBitFlag == 7) return true;
 
         //TODO: Fix this code later to work with estimated ranges
-        int result = curState.reverseMovement(knownBitFlag & (~unknownBitMask));
+        int result = curState.reverseMovement();
         //A failed to reverse always exit
         if(result == -1) return false;
         //B failed to reverse
@@ -618,6 +618,7 @@ public class VentStatusTimeline {
     public int getCurrentTick() { return currentTick; }
     public int getCurrentStartingTick() {return startingTick;}
     public int getNumIdentifiedVents() { return numIdentifiedVents; }
+    public boolean hasEventOccuredThisTick() { return timeline[currentTick] != 0; }
     public final int[] getTimeline() { return timeline; }
     public final int[] getIdentifiedVentTicks() { return identifiedVentTick; }
     public final StatusState[] getIdentifiedVentStates() { return identifiedVentStates; }

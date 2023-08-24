@@ -31,6 +31,7 @@ public class VentStatus {
     private int movementDirection;
 
     //Estimated Bounds
+    private boolean isFreezeClipAccurate;
     private int lowerBoundStart, lowerBoundEnd;
     private int upperBoundStart, upperBoundEnd;
     private int totalBoundStart, totalBoundEnd;
@@ -129,6 +130,7 @@ public class VentStatus {
         this.upperBoundEnd = vent.upperBoundEnd;
         this.totalBoundStart = vent.totalBoundStart;
         this.totalBoundEnd = vent.totalBoundEnd;
+        this.isFreezeClipAccurate = vent.isFreezeClipAccurate;
     }
     public int update(int actualValue, int direction) {
         int bitState = 0;
@@ -143,6 +145,7 @@ public class VentStatus {
         if(isIdentified() || (bitState & VentChangeStateFlag.RESET.bitFlag) != 0) {
             lowerBoundStart = lowerBoundEnd = actualValue;
             upperBoundStart = upperBoundEnd = actualValue;
+            isFreezeClipAccurate = false;
         }
         if(!isIdentified()) return bitState;
 
@@ -383,11 +386,6 @@ public class VentStatus {
         if(newStart > newEnd) return new int[]{-1, -1};
         return new int[]{newStart, newEnd};
     }
-    public int getEstimatedInfluence() {
-        if(!isRangeDefined()) return -1;
-        if(isWithinRange(41,59)) return -1;
-        return 0;
-    }
     public void updateEstimatedMovementInfluence(int[] currentInf) {
         int minInf, maxInf;
         if(!isRangeDefined()) {
@@ -419,31 +417,76 @@ public class VentStatus {
     }
 
     public int getReversedInfluence(int outsideVentInfluence) {
-        //TODO: Fix this code later to work with estimated ranges
         //We know the value is the same as before so we can exit safely
         if(outsideVentInfluence < -1)
             return isIdentified() ? getMovementInfluenceOfValue(capVentValue(actualValue)) : 0;
-        if(!isIdentified()) return STARTING_VENT_VALUE;
+        //Cannot reverse a blank value
+        if(!isRangeDefined()) return STARTING_VENT_VALUE;
+
+        if(!isIdentified() && !isFreezeClipAccurate()) {
+            //Our ranges are estimated
+            if(!isTwoSeperateValues()) {
+                //Exit on huge single ranges that border on freeze non-freeze
+                if(lowerBoundStart < 41 && lowerBoundEnd > 59) return STARTING_VENT_VALUE;
+
+                int lowerStartInf = determineReversedInfluence(outsideVentInfluence, lowerBoundStart);
+                if(lowerStartInf == STARTING_VENT_VALUE) return STARTING_VENT_VALUE;
+                //Can simply exit since this is a single estimated value
+                if(isLowerBoundSingleValue()) return lowerStartInf;
+
+                int lowerEndInf = determineReversedInfluence(outsideVentInfluence, lowerBoundEnd);
+                if(lowerEndInf == STARTING_VENT_VALUE) return STARTING_VENT_VALUE;
+                //Exit on influence mismatch
+                if(lowerStartInf != lowerEndInf) return STARTING_VENT_VALUE;
+                return lowerStartInf;
+            }
+
+            //We have two seperate estimated ranges
+            int lowerStartInf = determineReversedInfluence(outsideVentInfluence, lowerBoundStart);
+            if(lowerStartInf == STARTING_VENT_VALUE) return STARTING_VENT_VALUE;
+
+            if(!isLowerBoundSingleValue()) {
+                int lowerEndInf = determineReversedInfluence(outsideVentInfluence, lowerBoundEnd);
+                if(lowerEndInf == STARTING_VENT_VALUE) return STARTING_VENT_VALUE;
+                //Exit on influence mismatch
+                if(lowerStartInf != lowerEndInf) return STARTING_VENT_VALUE;
+            }
+
+            int upperStartInf = determineReversedInfluence(outsideVentInfluence, upperBoundStart);
+            if(upperStartInf == STARTING_VENT_VALUE) return STARTING_VENT_VALUE;
+            //Exit on influence mismatch
+            if(lowerStartInf != upperStartInf) return STARTING_VENT_VALUE;
+
+            if(!isUpperBoundSingleValue()) {
+                int upperEndInf = determineReversedInfluence(outsideVentInfluence, upperBoundEnd);
+                if(upperEndInf == STARTING_VENT_VALUE) return STARTING_VENT_VALUE;
+                //Exit on influence mismatch
+                if(upperStartInf != upperEndInf) return STARTING_VENT_VALUE;
+            }
+            return lowerStartInf;
+        }
+
+        //We are dealing with a known single value
         //We cannot reverse bounded values; dont know how long they been bounded
         if(isBounded()) return STARTING_VENT_VALUE;
-
-        int[] infPossibilities = new int[BASE_MOVE_RATE];
-        for(int i = 0; i < BASE_MOVE_RATE; ++i) {
-            int move = (outsideVentInfluence + (BASE_MOVE_RATE - i)) * movementDirection;
-            infPossibilities[i] = getMovementInfluenceOfValue(capVentValue(actualValue - move));
-        }
-        //Exit on freeze, non-freeze mismatch cannot reverse reliably
-        //eg blocked 41 or unblocked 59
-        if(infPossibilities[0] != infPossibilities[1]) return STARTING_VENT_VALUE;
-        return getMovementInfluenceOfValue(capVentValue(actualValue - movementDirection));
+        //Attempt to reverse this value and determine influence
+        int value = isFreezeClipAccurate() ? getLowerBoundStart() : actualValue;
+        return determineReversedInfluence(outsideVentInfluence, value);
     }
     public void doReversedMovement(int outsideVentInfluence) {
-        //TODO: Fix this code later to work with estimated ranges
-        if(!isIdentified()) return;
-        int currentMoveRate = Math.max(0, BASE_MOVE_RATE + outsideVentInfluence);
-        actualValue = capVentValue(actualValue - (currentMoveRate * movementDirection));
-        lowerBoundStart = lowerBoundEnd = actualValue;
-        upperBoundStart = upperBoundEnd = actualValue;
+        if(!isRangeDefined()) return;
+        int currentMoveRate = Math.max(0, BASE_MOVE_RATE + outsideVentInfluence) * movementDirection;
+        if(!isIdentified() && !isFreezeClipAccurate()) {
+            if(!isBounded(lowerBoundStart)) lowerBoundStart = capVentValue(getLowerBoundStart() - currentMoveRate);
+            if(!isBounded(lowerBoundEnd)) lowerBoundEnd = capVentValue(getLowerBoundEnd() - currentMoveRate);
+            if(!isBounded(upperBoundStart)) upperBoundStart = capVentValue(getUpperBoundStart() - currentMoveRate);
+            if(!isBounded(upperBoundEnd)) upperBoundEnd = capVentValue(getUpperBoundEnd() - currentMoveRate);
+            return;
+        }
+        if(isIdentified()) actualValue = capVentValue(actualValue - currentMoveRate);
+        int value = isFreezeClipAccurate() ? capVentValue(getLowerBoundStart() - currentMoveRate) : actualValue;
+        lowerBoundStart = lowerBoundEnd = value;
+        upperBoundStart = upperBoundEnd = value;
     }
 
     public int getStabilityInfluence() {
@@ -451,14 +494,35 @@ public class VentStatus {
         return getStabilityInfluence(actualValue);
     }
     public boolean isBounded() {
-        return actualValue == 100 || actualValue == 0;
+        return isBounded(actualValue);
+    }
+    public void makeFreezeClipAccurate() {
+        if(ventName != 'A') return;
+        isFreezeClipAccurate = true;
     }
 
+    //Helpers
     private int capVentValue(int value) { return Math.min(MAX_VENT_VALUE, Math.max(MIN_VENT_VALUE, value));}
     private void setStartingRanges() {
+        isFreezeClipAccurate = false;
         clearRanges();
         setLowerBoundRange(totalBoundStart, totalBoundEnd);
         setUpperBoundRange(totalBoundStart, totalBoundEnd);
+    }
+    private boolean isBounded(int value) {
+        return value == 100 || value == 0;
+    }
+    private int determineReversedInfluence(int outsideVentInfluence, int value) {
+        int[] infPossibilities = new int[BASE_MOVE_RATE];
+        for(int i = 0; i < BASE_MOVE_RATE; ++i) {
+            int move = (outsideVentInfluence + (BASE_MOVE_RATE - i)) * movementDirection;
+            infPossibilities[i] = getMovementInfluenceOfValue(capVentValue(value - move));
+        }
+        //Exit on freeze, non-freeze mismatch cannot reverse reliably
+        //eg blocked 41 or unblocked 59
+        if(infPossibilities[0] != infPossibilities[1]) return STARTING_VENT_VALUE;
+        int move = Math.max(0, (outsideVentInfluence + BASE_MOVE_RATE)) * movementDirection;
+        return getMovementInfluenceOfValue(capVentValue(value - move));
     }
 
 
@@ -472,4 +536,10 @@ public class VentStatus {
     public int getUpperBoundEnd() { return upperBoundEnd; }
     public int getTotalBoundStart() { return totalBoundStart; }
     public int getTotalBoundEnd() { return totalBoundEnd; }
+    public boolean isFreezeClipAccurate() {
+        if(isTwoSeperateValues()) return false;
+        if(!isLowerBoundSingleValue() || !isUpperBoundSingleValue())
+            return false;
+        return isFreezeClipAccurate;
+    }
 }
