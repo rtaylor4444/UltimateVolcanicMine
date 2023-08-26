@@ -907,6 +907,7 @@ public class StatusStateTest {
         Assert.assertEquals(vent.getLowerBoundEnd(), 44);
         Assert.assertEquals(vent.getUpperBoundStart(), 42);
         Assert.assertEquals(vent.getUpperBoundEnd(), 44);
+        Assert.assertFalse(vent.isFreezeClipAccurate());
 
         //B is 41-59 with 1 move
         vent.clearRanges();
@@ -917,6 +918,7 @@ public class StatusStateTest {
         Assert.assertEquals(vent.getLowerBoundEnd(), 33);
         Assert.assertEquals(vent.getUpperBoundStart(), 30);
         Assert.assertEquals(vent.getUpperBoundEnd(), 33);
+        Assert.assertFalse(vent.isFreezeClipAccurate());
 
         //B is outside 41-59 with 1 move
         state.updateVentStatus(new int[]{u, 60, 50}, 0);
@@ -928,6 +930,7 @@ public class StatusStateTest {
         Assert.assertEquals(vent.getLowerBoundEnd(), 44);
         Assert.assertEquals(vent.getUpperBoundStart(), 42);
         Assert.assertEquals(vent.getUpperBoundEnd(), 44);
+        Assert.assertFalse(vent.isFreezeClipAccurate());
 
         //B is bounded with 1 move edge case - dont clip anything
         state.updateVentStatus(new int[]{u, 1, u}, 0);
@@ -939,6 +942,7 @@ public class StatusStateTest {
         Assert.assertEquals(vent.getLowerBoundEnd(), 33);
         Assert.assertEquals(vent.getUpperBoundStart(), 42);
         Assert.assertEquals(vent.getUpperBoundEnd(), 44);
+        Assert.assertFalse(vent.isFreezeClipAccurate());
 
         //B is outside 41-59 with 2 move
         vent.clearRanges();
@@ -949,6 +953,7 @@ public class StatusStateTest {
         Assert.assertEquals(vent.getLowerBoundEnd(), 33);
         Assert.assertEquals(vent.getUpperBoundStart(), 30);
         Assert.assertEquals(vent.getUpperBoundEnd(), 33);
+        Assert.assertFalse(vent.isFreezeClipAccurate());
 
         //B is bounded with 0 move - don't clip anything
         state.updateVentStatus(new int[]{u, 0, u}, 0);
@@ -960,6 +965,7 @@ public class StatusStateTest {
         Assert.assertEquals(vent.getLowerBoundEnd(), 33);
         Assert.assertEquals(vent.getUpperBoundStart(), 42);
         Assert.assertEquals(vent.getUpperBoundEnd(), 44);
+        Assert.assertFalse(vent.isFreezeClipAccurate());
     }
 
     public void doFreezeClippingBClippedATest() {
@@ -976,6 +982,7 @@ public class StatusStateTest {
         Assert.assertEquals(vent.getLowerBoundEnd(), u);
         Assert.assertEquals(vent.getUpperBoundStart(), u);
         Assert.assertEquals(vent.getUpperBoundEnd(), u);
+        Assert.assertFalse(vent.isFreezeClipAccurate());
     }
 
     public void doFreezeClippingCTest() {
@@ -997,6 +1004,7 @@ public class StatusStateTest {
         Assert.assertEquals(ventA.getLowerBoundEnd(), 44);
         Assert.assertEquals(ventA.getUpperBoundStart(), 42);
         Assert.assertEquals(ventA.getUpperBoundEnd(), 44);
+        Assert.assertFalse(ventA.isFreezeClipAccurate());
         Assert.assertEquals(ventB.getLowerBoundStart(), 42);
         Assert.assertEquals(ventB.getLowerBoundEnd(), 44);
         Assert.assertEquals(ventB.getUpperBoundStart(), 42);
@@ -1015,6 +1023,7 @@ public class StatusStateTest {
         Assert.assertEquals(ventA.getLowerBoundEnd(), 33);
         Assert.assertEquals(ventA.getUpperBoundStart(), 42);
         Assert.assertEquals(ventA.getUpperBoundEnd(), 44);
+        Assert.assertFalse(ventA.isFreezeClipAccurate());
         Assert.assertEquals(ventB.getLowerBoundStart(), 30);
         Assert.assertEquals(ventB.getLowerBoundEnd(), 33);
         Assert.assertEquals(ventB.getUpperBoundStart(), 42);
@@ -1033,6 +1042,7 @@ public class StatusStateTest {
         Assert.assertEquals(ventA.getLowerBoundEnd(), 44);
         Assert.assertEquals(ventA.getUpperBoundStart(), 42);
         Assert.assertEquals(ventA.getUpperBoundEnd(), 44);
+        Assert.assertFalse(ventA.isFreezeClipAccurate());
         Assert.assertEquals(ventB.getLowerBoundStart(), 30);
         Assert.assertEquals(ventB.getLowerBoundEnd(), 33);
         Assert.assertEquals(ventB.getUpperBoundStart(), 30);
@@ -1051,6 +1061,7 @@ public class StatusStateTest {
         Assert.assertEquals(ventA.getLowerBoundEnd(), 33);
         Assert.assertEquals(ventA.getUpperBoundStart(), 30);
         Assert.assertEquals(ventA.getUpperBoundEnd(), 33);
+        Assert.assertFalse(ventA.isFreezeClipAccurate());
         Assert.assertEquals(ventB.getLowerBoundStart(), 42);
         Assert.assertEquals(ventB.getLowerBoundEnd(), 44);
         Assert.assertEquals(ventB.getUpperBoundStart(), 42);
@@ -1069,6 +1080,7 @@ public class StatusStateTest {
         Assert.assertEquals(ventA.getLowerBoundEnd(), 33);
         Assert.assertEquals(ventA.getUpperBoundStart(), 42);
         Assert.assertEquals(ventA.getUpperBoundEnd(), 44);
+        Assert.assertFalse(ventA.isFreezeClipAccurate());
         Assert.assertEquals(ventB.getLowerBoundStart(), 30);
         Assert.assertEquals(ventB.getLowerBoundEnd(), 33);
         Assert.assertEquals(ventB.getUpperBoundStart(), 42);
@@ -1089,6 +1101,7 @@ public class StatusStateTest {
         Assert.assertEquals(ventA.getLowerBoundEnd(), 33);
         Assert.assertEquals(ventA.getUpperBoundStart(), 42);
         Assert.assertEquals(ventA.getUpperBoundEnd(), 44);
+        Assert.assertFalse(ventA.isFreezeClipAccurate());
         Assert.assertEquals(ventB.getLowerBoundStart(), 30);
         Assert.assertEquals(ventB.getLowerBoundEnd(), 33);
         Assert.assertEquals(ventB.getUpperBoundStart(), 42);
@@ -1107,6 +1120,7 @@ public class StatusStateTest {
         Assert.assertEquals(ventA.getLowerBoundEnd(), 44);
         Assert.assertEquals(ventA.getUpperBoundStart(), 42);
         Assert.assertEquals(ventA.getUpperBoundEnd(), 44);
+        Assert.assertFalse(ventA.isFreezeClipAccurate());
         Assert.assertEquals(ventB.getLowerBoundStart(), 30);
         Assert.assertEquals(ventB.getLowerBoundEnd(), 33);
         Assert.assertEquals(ventB.getUpperBoundStart(), 30);
@@ -1125,6 +1139,7 @@ public class StatusStateTest {
         Assert.assertEquals(ventA.getLowerBoundEnd(), 33);
         Assert.assertEquals(ventA.getUpperBoundStart(), 30);
         Assert.assertEquals(ventA.getUpperBoundEnd(), 33);
+        Assert.assertFalse(ventA.isFreezeClipAccurate());
         Assert.assertEquals(ventB.getLowerBoundStart(), 42);
         Assert.assertEquals(ventB.getLowerBoundEnd(), 44);
         Assert.assertEquals(ventB.getUpperBoundStart(), 42);
@@ -1143,6 +1158,7 @@ public class StatusStateTest {
         Assert.assertEquals(ventA.getLowerBoundEnd(), 33);
         Assert.assertEquals(ventA.getUpperBoundStart(), 30);
         Assert.assertEquals(ventA.getUpperBoundEnd(), 33);
+        Assert.assertFalse(ventA.isFreezeClipAccurate());
         Assert.assertEquals(ventB.getLowerBoundStart(), 30);
         Assert.assertEquals(ventB.getLowerBoundEnd(), 33);
         Assert.assertEquals(ventB.getUpperBoundStart(), 42);
@@ -1161,6 +1177,7 @@ public class StatusStateTest {
         Assert.assertEquals(ventA.getLowerBoundEnd(), 33);
         Assert.assertEquals(ventA.getUpperBoundStart(), 30);
         Assert.assertEquals(ventA.getUpperBoundEnd(), 33);
+        Assert.assertFalse(ventA.isFreezeClipAccurate());
         Assert.assertEquals(ventB.getLowerBoundStart(), 30);
         Assert.assertEquals(ventB.getLowerBoundEnd(), 33);
         Assert.assertEquals(ventB.getUpperBoundStart(), 30);
@@ -1181,10 +1198,42 @@ public class StatusStateTest {
         Assert.assertEquals(ventA.getLowerBoundEnd(), 33);
         Assert.assertEquals(ventA.getUpperBoundStart(), 30);
         Assert.assertEquals(ventA.getUpperBoundEnd(), 33);
+        Assert.assertFalse(ventA.isFreezeClipAccurate());
         Assert.assertEquals(ventB.getLowerBoundStart(), 30);
         Assert.assertEquals(ventB.getLowerBoundEnd(), 33);
         Assert.assertEquals(ventB.getUpperBoundStart(), 30);
         Assert.assertEquals(ventB.getUpperBoundEnd(), 33);
+    }
+
+    public void makeFreezeClipAccurateTest() {
+        StatusState state = new StatusState();
+        VentStatus vent = state.getVents()[0];
+        state.updateVentStatus(new int[]{u, 75, u}, 0);
+
+        //B is outside 41-59 with 2 move
+        vent.clearRanges();
+        vent.setLowerBoundRange(40, 42);
+        vent.setUpperBoundRange(40, 42);
+        Assert.assertFalse(state.doFreezeClipping(makeMoveBitState(1, 2, 0)));
+        Assert.assertEquals(vent.getLowerBoundStart(), 40);
+        Assert.assertEquals(vent.getLowerBoundEnd(), 40);
+        Assert.assertEquals(vent.getUpperBoundStart(), 40);
+        Assert.assertEquals(vent.getUpperBoundEnd(), 40);
+        Assert.assertTrue(vent.isFreezeClipAccurate());
+
+        state = new StatusState();
+        vent = state.getVents()[0];
+        state.updateVentStatus(new int[]{u, 75, u}, 0);
+
+        vent.clearRanges();
+        vent.setLowerBoundRange(58, 60);
+        vent.setUpperBoundRange(58, 60);
+        Assert.assertFalse(state.doFreezeClipping(makeMoveBitState(1, 2, 0)));
+        Assert.assertEquals(vent.getLowerBoundStart(), 60);
+        Assert.assertEquals(vent.getLowerBoundEnd(), 60);
+        Assert.assertEquals(vent.getUpperBoundStart(), 60);
+        Assert.assertEquals(vent.getUpperBoundEnd(), 60);
+        Assert.assertTrue(vent.isFreezeClipAccurate());
     }
 
     public void clipPredictedStabilityMismatchInvalidTest() {
@@ -1343,32 +1392,351 @@ public class StatusStateTest {
         Assert.assertEquals(vents[2].getUpperBoundEnd(), 100);
     }
 
-    public void reverseMovementResultTest() {
+    public void reverseMovementSingleKnownVentTest() {
+        int unknownMovement = 63;
+        int AMovement = 2, BMovement = 2 << 2, CMovement = 2 << 4;
+        int UnknownA = 3, UnknownB = 3 << 2, UnknownC = 3 << 4;
+
+        //No vents known test
         StatusState state = new StatusState();
-
-        //A reverse move should fail
         state.updateVentStatus(new int[]{u, u, u}, 0);
-        Assert.assertEquals(state.reverseMovement(), -1);
-        state.updateVentStatus(new int[]{u, 70, 70}, 0);
-        Assert.assertEquals(state.reverseMovement(), -1);
-        state.updateVentStatus(new int[]{u, 70, u}, 0);
-        Assert.assertEquals(state.reverseMovement(), -1);
-        state.updateVentStatus(new int[]{u, u, 70}, 0);
-        Assert.assertEquals(state.reverseMovement(), -1);
+        Assert.assertFalse(state.reverseMovement(unknownMovement));
 
-        //B reverse move should fail
-        state.updateVentStatus(new int[]{70, u, u}, 0);
-        Assert.assertEquals(state.reverseMovement(), -2);
-        state.updateVentStatus(new int[]{70, u, 70}, 0);
-        Assert.assertEquals(state.reverseMovement(), -2);
 
-        //C reverse move should fail
-        state.updateVentStatus(new int[]{70, 70, u}, 0);
-        Assert.assertEquals(state.reverseMovement(), -3);
+        //A vent known tests
+        //Unknown movement - should still be able to reverse
+        StatusState stateA = new StatusState();
+        stateA.updateVentStatus(new int[]{70, u, u}, 0);
+        Assert.assertTrue(stateA.reverseMovement(unknownMovement));
+        Assert.assertEquals(stateA.getVents()[0].getActualValue(), 72);
 
-        //No reverse move should fail
-        state.updateVentStatus(new int[]{70, 70, 70}, 0);
-        Assert.assertEquals(state.reverseMovement(), 0);
+        //Movement by 2 - should be able to reverse
+        stateA.updateVentStatus(new int[]{70, u, u}, 0);
+        Assert.assertTrue(stateA.reverseMovement(AMovement | UnknownB | UnknownC));
+        Assert.assertEquals(stateA.getVents()[0].getActualValue(), 72);
+
+
+        //B vent known tests
+        //Unknown movement - should fail to reverse
+        StatusState stateB = new StatusState();
+        stateB.updateVentStatus(new int[]{u, 70, u}, 0);
+        Assert.assertFalse(stateB.reverseMovement(unknownMovement));
+        Assert.assertEquals(stateB.getVents()[1].getActualValue(), 70);
+
+        //Movement by 2 - should be able to reverse
+        stateB.updateVentStatus(new int[]{u, 70, u}, 0);
+        Assert.assertTrue(stateB.reverseMovement(UnknownA | BMovement | UnknownC));
+        Assert.assertEquals(stateB.getVents()[1].getActualValue(), 72);
+
+        //Unknown movement but good estimates - should be able to reverse by 2
+        stateB.updateVentStatus(new int[]{u, 70, u}, 0);
+        stateB.getVents()[0].clearRanges();
+        stateB.getVents()[0].setLowerBoundRange(70, 70);
+        stateB.getVents()[0].setUpperBoundRange(70, 70);
+        Assert.assertTrue(stateB.reverseMovement(unknownMovement));
+        Assert.assertEquals(stateB.getVents()[1].getActualValue(), 72);
+
+        //Unknown movement but good estimates - should be able to reverse by 1
+        stateB.updateVentStatus(new int[]{u, 70, u}, 0);
+        stateB.getVents()[0].clearRanges();
+        stateB.getVents()[0].setLowerBoundRange(50, 50);
+        stateB.getVents()[0].setUpperBoundRange(50, 50);
+        Assert.assertTrue(stateB.reverseMovement(unknownMovement));
+        Assert.assertEquals(stateB.getVents()[1].getActualValue(), 71);
+
+
+        //C vent known tests
+        //Unknown movement - should fail to reverse
+        StatusState stateC = new StatusState();
+        stateC.updateVentStatus(new int[]{u, u, 70}, 0);
+        Assert.assertFalse(stateC.reverseMovement(unknownMovement));
+        Assert.assertEquals(stateC.getVents()[2].getActualValue(), 70);
+
+        //Movement by 2 - should be able to reverse
+        stateC.updateVentStatus(new int[]{u, u, 70}, 0);
+        Assert.assertTrue(stateC.reverseMovement(UnknownA | UnknownB | CMovement));
+        Assert.assertEquals(stateC.getVents()[2].getActualValue(), 72);
+
+        //Unknown movement but bad B estimates - should fail to reverse by 2
+        stateC.updateVentStatus(new int[]{u, u, 70}, 0);
+        stateC.getVents()[0].clearRanges();
+        stateC.getVents()[0].setLowerBoundRange(70, 70);
+        stateC.getVents()[0].setUpperBoundRange(70, 70);
+        Assert.assertFalse(stateC.reverseMovement(unknownMovement));
+        Assert.assertEquals(stateC.getVents()[2].getActualValue(), 70);
+        //Unknown movement but good estimates - should be able to reverse by 2
+        stateC.getVents()[1].clearRanges();
+        stateC.getVents()[1].setLowerBoundRange(70, 70);
+        stateC.getVents()[1].setUpperBoundRange(70, 70);
+        Assert.assertTrue(stateC.reverseMovement(unknownMovement));
+        Assert.assertEquals(stateC.getVents()[2].getActualValue(), 72);
+
+        //Unknown movement but bad B estimates - should fail to reverse by 1
+        stateC = new StatusState();
+        stateC.updateVentStatus(new int[]{u, u, 70}, 0);
+        stateC.getVents()[0].clearRanges();
+        stateC.getVents()[0].setLowerBoundRange(50, 50);
+        stateC.getVents()[0].setUpperBoundRange(50, 50);
+        Assert.assertFalse(stateC.reverseMovement(unknownMovement));
+        Assert.assertEquals(stateC.getVents()[2].getActualValue(), 70);
+        //Unknown movement but good estimates - should be able to reverse by 1
+        stateC.getVents()[1].clearRanges();
+        stateC.getVents()[1].setLowerBoundRange(70, 70);
+        stateC.getVents()[1].setUpperBoundRange(70, 70);
+        Assert.assertTrue(stateC.reverseMovement(unknownMovement));
+        Assert.assertEquals(stateC.getVents()[2].getActualValue(), 71);
+
+        //Unknown movement but bad B estimates - should fail to reverse by 1
+        stateC = new StatusState();
+        stateC.updateVentStatus(new int[]{u, u, 70}, 0);
+        stateC.getVents()[0].clearRanges();
+        stateC.getVents()[0].setLowerBoundRange(70, 70);
+        stateC.getVents()[0].setUpperBoundRange(70, 70);
+        Assert.assertFalse(stateC.reverseMovement(unknownMovement));
+        Assert.assertEquals(stateC.getVents()[2].getActualValue(), 70);
+        //Unknown movement but good estimates - should be able to reverse by 1
+        stateC.getVents()[1].clearRanges();
+        stateC.getVents()[1].setLowerBoundRange(50, 50);
+        stateC.getVents()[1].setUpperBoundRange(50, 50);
+        Assert.assertTrue(stateC.reverseMovement(unknownMovement));
+        Assert.assertEquals(stateC.getVents()[2].getActualValue(), 71);
+
+        //Unknown movement but bad B estimates - should fail to reverse by 0
+        stateC = new StatusState();
+        stateC.updateVentStatus(new int[]{u, u, 70}, 0);
+        stateC.getVents()[0].clearRanges();
+        stateC.getVents()[0].setLowerBoundRange(50, 50);
+        stateC.getVents()[0].setUpperBoundRange(50, 50);
+        Assert.assertFalse(stateC.reverseMovement(unknownMovement));
+        Assert.assertEquals(stateC.getVents()[2].getActualValue(), 70);
+        //Unknown movement but good estimates - should be able to reverse by 0
+        stateC.getVents()[1].clearRanges();
+        stateC.getVents()[1].setLowerBoundRange(50, 50);
+        stateC.getVents()[1].setUpperBoundRange(50, 50);
+        Assert.assertTrue(stateC.reverseMovement(unknownMovement));
+        Assert.assertEquals(stateC.getVents()[2].getActualValue(), 70);
+    }
+
+    public void reverseMovementDoubleKnownVentTest() {
+        int unknownMovement = 63;
+        int AMovement = 2, BMovement = 2 << 2, CMovement = 2 << 4;
+        int UnknownA = 3, UnknownB = 3 << 2, UnknownC = 3 << 4;
+
+        //AB vent known tests
+        //Unknown movement - should still be able to reverse
+        StatusState stateAB = new StatusState();
+        stateAB.updateVentStatus(new int[]{70, 70, u}, 0);
+        Assert.assertTrue(stateAB.reverseMovement(unknownMovement));
+        Assert.assertEquals(stateAB.getVents()[0].getActualValue(), 72);
+        Assert.assertEquals(stateAB.getVents()[1].getActualValue(), 72);
+
+        //Unknown B but known A - should still be able to reverse
+        stateAB.updateVentStatus(new int[]{70, 70, u}, 0);
+        Assert.assertTrue(stateAB.reverseMovement(AMovement | UnknownB | UnknownC));
+        Assert.assertEquals(stateAB.getVents()[0].getActualValue(), 72);
+        Assert.assertEquals(stateAB.getVents()[1].getActualValue(), 72);
+
+        //Unknown A but known B - should still be able to reverse
+        stateAB.updateVentStatus(new int[]{70, 70, u}, 0);
+        Assert.assertTrue(stateAB.reverseMovement(UnknownA | BMovement | UnknownC));
+        Assert.assertEquals(stateAB.getVents()[0].getActualValue(), 72);
+        Assert.assertEquals(stateAB.getVents()[1].getActualValue(), 72);
+
+        //Movement by 2 - should be able to reverse
+        stateAB.updateVentStatus(new int[]{70, 70, u}, 0);
+        Assert.assertTrue(stateAB.reverseMovement(AMovement | BMovement | UnknownC));
+        Assert.assertEquals(stateAB.getVents()[0].getActualValue(), 72);
+        Assert.assertEquals(stateAB.getVents()[1].getActualValue(), 72);
+
+
+        //AC vent known tests
+        //Unknown movement - should fail to reverse
+        StatusState stateAC = new StatusState();
+        stateAC.updateVentStatus(new int[]{70, u, 70}, 0);
+        Assert.assertFalse(stateAC.reverseMovement(unknownMovement));
+        Assert.assertEquals(stateAC.getVents()[0].getActualValue(), 72);
+        Assert.assertEquals(stateAC.getVents()[2].getActualValue(), 70);
+
+        //Unknown C but known A - should still fail to reverse
+        stateAC.updateVentStatus(new int[]{70, u, 70}, 0);
+        Assert.assertFalse(stateAC.reverseMovement(AMovement | UnknownB | UnknownC));
+        Assert.assertEquals(stateAC.getVents()[0].getActualValue(), 72);
+        Assert.assertEquals(stateAC.getVents()[2].getActualValue(), 70);
+
+        //Unknown A but known C - should be able to reverse
+        stateAC.updateVentStatus(new int[]{70, u, 70}, 0);
+        Assert.assertTrue(stateAC.reverseMovement(UnknownA | UnknownB | CMovement));
+        Assert.assertEquals(stateAC.getVents()[0].getActualValue(), 72);
+        Assert.assertEquals(stateAC.getVents()[2].getActualValue(), 72);
+
+        //Movement by 2 - should be able to reverse
+        stateAC.updateVentStatus(new int[]{70, u, 70}, 0);
+        Assert.assertTrue(stateAC.reverseMovement(AMovement | UnknownB | CMovement));
+        Assert.assertEquals(stateAC.getVents()[0].getActualValue(), 72);
+        Assert.assertEquals(stateAC.getVents()[2].getActualValue(), 72);
+
+        //Unknown movement but good estimates - should be able to reverse by 2
+        stateAC = new StatusState();
+        stateAC.updateVentStatus(new int[]{70, u, 70}, 0);
+        stateAC.getVents()[1].clearRanges();
+        stateAC.getVents()[1].setLowerBoundRange(70, 70);
+        stateAC.getVents()[1].setUpperBoundRange(70, 70);
+        Assert.assertTrue(stateAC.reverseMovement(unknownMovement));
+        Assert.assertEquals(stateAC.getVents()[0].getActualValue(), 72);
+        Assert.assertEquals(stateAC.getVents()[2].getActualValue(), 72);
+
+        //Unknown movement but good estimates - should be able to reverse by 1
+        stateAC = new StatusState();
+        stateAC.updateVentStatus(new int[]{70, u, 70}, 0);
+        stateAC.getVents()[1].clearRanges();
+        stateAC.getVents()[1].setLowerBoundRange(50, 50);
+        stateAC.getVents()[1].setUpperBoundRange(50, 50);
+        Assert.assertTrue(stateAC.reverseMovement(unknownMovement));
+        Assert.assertEquals(stateAC.getVents()[0].getActualValue(), 72);
+        Assert.assertEquals(stateAC.getVents()[2].getActualValue(), 71);
+
+
+        //BC vent known tests
+        //Unknown movement - should fail to reverse
+        StatusState stateBC = new StatusState();
+        stateBC.updateVentStatus(new int[]{u, 70, 70}, 0);
+        Assert.assertFalse(stateBC.reverseMovement(unknownMovement));
+        Assert.assertEquals(stateBC.getVents()[1].getActualValue(), 70);
+        Assert.assertEquals(stateBC.getVents()[2].getActualValue(), 70);
+
+        //Unknown C but known B - should still fail to reverse
+        stateBC.updateVentStatus(new int[]{u, 70, 70}, 0);
+        Assert.assertFalse(stateBC.reverseMovement(UnknownA | BMovement | UnknownC));
+        Assert.assertEquals(stateBC.getVents()[1].getActualValue(), 72);
+        Assert.assertEquals(stateBC.getVents()[2].getActualValue(), 70);
+
+        //Unknown B but known C - should still fail to reverse
+        stateBC.updateVentStatus(new int[]{u, 70, 70}, 0);
+        Assert.assertFalse(stateBC.reverseMovement(UnknownA | UnknownB | CMovement));
+        Assert.assertEquals(stateBC.getVents()[1].getActualValue(), 70);
+        Assert.assertEquals(stateBC.getVents()[2].getActualValue(), 70);
+
+        //Movement by 2 - should be able to reverse
+        stateBC.updateVentStatus(new int[]{u, 70, 70}, 0);
+        Assert.assertTrue(stateBC.reverseMovement(UnknownA | BMovement | CMovement));
+        Assert.assertEquals(stateBC.getVents()[1].getActualValue(), 72);
+        Assert.assertEquals(stateBC.getVents()[2].getActualValue(), 72);
+
+        //Unknown movement but good estimates - should be able to reverse by 2
+        stateBC = new StatusState();
+        stateBC.updateVentStatus(new int[]{u, 70, 70}, 0);
+        stateBC.getVents()[0].clearRanges();
+        stateBC.getVents()[0].setLowerBoundRange(70, 70);
+        stateBC.getVents()[0].setUpperBoundRange(70, 70);
+        Assert.assertTrue(stateBC.reverseMovement(unknownMovement));
+        Assert.assertEquals(stateBC.getVents()[1].getActualValue(), 72);
+        Assert.assertEquals(stateBC.getVents()[2].getActualValue(), 72);
+
+        //Unknown movement but good estimates - should be able to reverse by 1
+        stateBC = new StatusState();
+        stateBC.updateVentStatus(new int[]{u, 70, 70}, 0);
+        stateBC.getVents()[0].clearRanges();
+        stateBC.getVents()[0].setLowerBoundRange(50, 50);
+        stateBC.getVents()[0].setUpperBoundRange(50, 50);
+        Assert.assertTrue(stateBC.reverseMovement(unknownMovement));
+        Assert.assertEquals(stateBC.getVents()[1].getActualValue(), 71);
+        Assert.assertEquals(stateBC.getVents()[2].getActualValue(), 71);
+    }
+
+    public void reverseMovementFreezeClippedATest() {
+        int unknownMovement = 63;
+        int CMovement = 1 << 4;
+        int UnknownA = 3, UnknownB = 3 << 2, UnknownC = 3 << 4;
+
+        //Accurate Freeze Clip A vent tests
+        //Unknown movement - should still be able to reverse
+        StatusState stateFreezeA = new StatusState();
+        stateFreezeA.updateVentStatus(new int[]{u, u, u}, 0);
+        stateFreezeA.getVents()[0].clearRanges();
+        stateFreezeA.getVents()[0].setLowerBoundRange(40, 40);
+        stateFreezeA.getVents()[0].setUpperBoundRange(40, 40);
+        stateFreezeA.getVents()[0].makeFreezeClipAccurate();
+        Assert.assertTrue(stateFreezeA.reverseMovement(unknownMovement));
+        Assert.assertEquals(stateFreezeA.getVents()[0].getLowerBoundStart(), 41);
+        Assert.assertEquals(stateFreezeA.getVents()[0].getLowerBoundEnd(), 41);
+        Assert.assertEquals(stateFreezeA.getVents()[0].getUpperBoundStart(), 41);
+        Assert.assertEquals(stateFreezeA.getVents()[0].getUpperBoundEnd(), 41);
+
+        //Unknown movement AB - should still be able to reverse
+        StatusState stateFreezeA_B = new StatusState();
+        stateFreezeA_B.updateVentStatus(new int[]{u, 70, u}, 0);
+        stateFreezeA_B.getVents()[0].clearRanges();
+        stateFreezeA_B.getVents()[0].setLowerBoundRange(40, 40);
+        stateFreezeA_B.getVents()[0].setUpperBoundRange(40, 40);
+        stateFreezeA_B.getVents()[0].makeFreezeClipAccurate();
+        Assert.assertTrue(stateFreezeA_B.reverseMovement(unknownMovement));
+        Assert.assertEquals(stateFreezeA_B.getVents()[0].getLowerBoundStart(), 41);
+        Assert.assertEquals(stateFreezeA_B.getVents()[0].getLowerBoundEnd(), 41);
+        Assert.assertEquals(stateFreezeA_B.getVents()[0].getUpperBoundStart(), 41);
+        Assert.assertEquals(stateFreezeA_B.getVents()[0].getUpperBoundEnd(), 41);
+        Assert.assertEquals(stateFreezeA_B.getVents()[1].getActualValue(), 71);
+
+        //Unknown movement AC - should fail to reverse
+        StatusState stateFreezeA_C = new StatusState();
+        stateFreezeA_C.updateVentStatus(new int[]{u, u, 70}, 0);
+        stateFreezeA_C.getVents()[0].clearRanges();
+        stateFreezeA_C.getVents()[0].setLowerBoundRange(40, 40);
+        stateFreezeA_C.getVents()[0].setUpperBoundRange(40, 40);
+        stateFreezeA_C.getVents()[0].makeFreezeClipAccurate();
+        Assert.assertFalse(stateFreezeA_C.reverseMovement(unknownMovement));
+        Assert.assertEquals(stateFreezeA_C.getVents()[0].getLowerBoundStart(), 41);
+        Assert.assertEquals(stateFreezeA_C.getVents()[0].getLowerBoundEnd(), 41);
+        Assert.assertEquals(stateFreezeA_C.getVents()[0].getUpperBoundStart(), 41);
+        Assert.assertEquals(stateFreezeA_C.getVents()[0].getUpperBoundEnd(), 41);
+        Assert.assertEquals(stateFreezeA_C.getVents()[2].getActualValue(), 70);
+
+        //Unknown movement AC but good estimates - should be able to reverse by 1
+        stateFreezeA_C = new StatusState();
+        stateFreezeA_C.updateVentStatus(new int[]{u, u, 70}, 0);
+        stateFreezeA_C.getVents()[0].clearRanges();
+        stateFreezeA_C.getVents()[0].setLowerBoundRange(40, 40);
+        stateFreezeA_C.getVents()[0].setUpperBoundRange(40, 40);
+        stateFreezeA_C.getVents()[0].makeFreezeClipAccurate();
+        stateFreezeA_C.getVents()[1].clearRanges();
+        stateFreezeA_C.getVents()[1].setLowerBoundRange(70, 70);
+        stateFreezeA_C.getVents()[1].setUpperBoundRange(70, 70);
+        Assert.assertTrue(stateFreezeA_C.reverseMovement(unknownMovement));
+        Assert.assertEquals(stateFreezeA_C.getVents()[0].getLowerBoundStart(), 41);
+        Assert.assertEquals(stateFreezeA_C.getVents()[0].getLowerBoundEnd(), 41);
+        Assert.assertEquals(stateFreezeA_C.getVents()[0].getUpperBoundStart(), 41);
+        Assert.assertEquals(stateFreezeA_C.getVents()[0].getUpperBoundEnd(), 41);
+        Assert.assertEquals(stateFreezeA_C.getVents()[2].getActualValue(), 71);
+
+        //Unknown movement AC but good estimates - should be able to reverse by 0
+        stateFreezeA_C = new StatusState();
+        stateFreezeA_C.updateVentStatus(new int[]{u, u, 70}, 0);
+        stateFreezeA_C.getVents()[0].clearRanges();
+        stateFreezeA_C.getVents()[0].setLowerBoundRange(40, 40);
+        stateFreezeA_C.getVents()[0].setUpperBoundRange(40, 40);
+        stateFreezeA_C.getVents()[0].makeFreezeClipAccurate();
+        stateFreezeA_C.getVents()[1].clearRanges();
+        stateFreezeA_C.getVents()[1].setLowerBoundRange(50, 50);
+        stateFreezeA_C.getVents()[1].setUpperBoundRange(50, 50);
+        Assert.assertTrue(stateFreezeA_C.reverseMovement(unknownMovement));
+        Assert.assertEquals(stateFreezeA_C.getVents()[0].getLowerBoundStart(), 41);
+        Assert.assertEquals(stateFreezeA_C.getVents()[0].getLowerBoundEnd(), 41);
+        Assert.assertEquals(stateFreezeA_C.getVents()[0].getUpperBoundStart(), 41);
+        Assert.assertEquals(stateFreezeA_C.getVents()[0].getUpperBoundEnd(), 41);
+        Assert.assertEquals(stateFreezeA_C.getVents()[2].getActualValue(), 70);
+
+        //Movement by 1 - should be able to reverse
+        stateFreezeA_C = new StatusState();
+        stateFreezeA_C.updateVentStatus(new int[]{u, u, 70}, 0);
+        stateFreezeA_C.getVents()[0].clearRanges();
+        stateFreezeA_C.getVents()[0].setLowerBoundRange(40, 40);
+        stateFreezeA_C.getVents()[0].setUpperBoundRange(40, 40);
+        stateFreezeA_C.getVents()[0].makeFreezeClipAccurate();
+        Assert.assertTrue(stateFreezeA_C.reverseMovement(UnknownA | UnknownB | CMovement));
+        Assert.assertEquals(stateFreezeA_C.getVents()[0].getLowerBoundStart(), 41);
+        Assert.assertEquals(stateFreezeA_C.getVents()[0].getLowerBoundEnd(), 41);
+        Assert.assertEquals(stateFreezeA_C.getVents()[0].getUpperBoundStart(), 41);
+        Assert.assertEquals(stateFreezeA_C.getVents()[0].getUpperBoundEnd(), 41);
+        Assert.assertEquals(stateFreezeA_C.getVents()[2].getActualValue(), 71);
     }
 
     public void trimDoubleVentSeperateRangesTest() {

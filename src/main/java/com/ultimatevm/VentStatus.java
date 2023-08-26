@@ -490,6 +490,7 @@ public class VentStatus {
     }
 
     public int getStabilityInfluence() {
+        if(isFreezeClipAccurate()) return getStabilityInfluence(lowerBoundStart);
         if(!isIdentified()) return 0;
         return getStabilityInfluence(actualValue);
     }
@@ -498,6 +499,8 @@ public class VentStatus {
     }
     public void makeFreezeClipAccurate() {
         if(ventName != 'A') return;
+        if(getLowerBoundStart() != 40 && getLowerBoundStart() != 60) return;
+        if(!canBeFreezeClipAccurate()) return;
         isFreezeClipAccurate = true;
     }
 
@@ -536,10 +539,13 @@ public class VentStatus {
     public int getUpperBoundEnd() { return upperBoundEnd; }
     public int getTotalBoundStart() { return totalBoundStart; }
     public int getTotalBoundEnd() { return totalBoundEnd; }
-    public boolean isFreezeClipAccurate() {
+    public boolean canBeFreezeClipAccurate() {
+        if(isIdentified()) return false;
         if(isTwoSeperateValues()) return false;
-        if(!isLowerBoundSingleValue() || !isUpperBoundSingleValue())
-            return false;
+        return (isLowerBoundSingleValue() || isUpperBoundSingleValue());
+    }
+    public boolean isFreezeClipAccurate() {
+        if(!canBeFreezeClipAccurate()) return false;
         return isFreezeClipAccurate;
     }
 }

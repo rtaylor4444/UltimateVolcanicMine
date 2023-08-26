@@ -82,7 +82,6 @@ public class StabilityUpdateInfo {
     }
 
     public void calcStabilityChange() {
-        stabilityUpdateState.clearAllRanges();
         stabilityUpdateState.calcPredictedVentValues(initialChange - RNGUpdateMod);
     }
     public void updateVentValues(StatusState updatedState) {
@@ -91,6 +90,7 @@ public class StabilityUpdateInfo {
         calcStabilityChange();
     }
     public void updatePredictedState(StatusState predictedState, StabilityUpdateInfo prevStabInfo, int initalRNGMod) {
+        if(predictedState.getVents()[0].isFreezeClipAccurate()) updateVentValues(predictedState);
         if(prevStabInfo == null || stabilityUpdateState.getNumIdentifiedVents() == prevStabInfo.getStabilityUpdateState().getNumIdentifiedVents()) {
             predictedState.setOverlappingRangesWith(getAllPossiblePredictedValuesState());
             trimDoubleVentRanges(predictedState);
@@ -107,7 +107,6 @@ public class StabilityUpdateInfo {
     }
     public StatusState getPossiblePredictedValuesState(int rngMod) {
         StatusState possibleState = new StatusState(stabilityUpdateState);
-        possibleState.clearAllRanges();
         possibleState.calcPredictedVentValues(initialChange - rngMod);
         return possibleState;
     }
@@ -127,7 +126,7 @@ public class StabilityUpdateInfo {
         }
     }
     private void trimDoubleVentRanges(StatusState predictedState) {
-        if(predictedState.getNumIdentifiedVents() != 1) return;
+        if(predictedState.getNumKnownVents() != 1) return;
         StatusState mergedTrimmings = new StatusState();
         mergedTrimmings.clearAllRanges();
         for(int i = 0; i < getMaxRNGPossibleSize(); ++i) {

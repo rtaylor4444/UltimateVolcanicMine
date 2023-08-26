@@ -485,6 +485,8 @@ public class SimulationTests {
 
     public void simulateOverwrittenADoubleVent() {
         createPredicter(6, 0, 1);
+        StatusState predictedState = predicter.getDisplayState();
+
         doMovementUpdateByValue(8, u, 84, u);
         doDirectionChange(9, 4);
         doMovementUpdateByValue(18, u, 83, u);
@@ -504,7 +506,6 @@ public class SimulationTests {
         doDirectionChange(141, 4);
         doSameTickMovementStabilityUpdate(148, u, 67, u, -5);
 
-        StatusState predictedState = predicter.getDisplayState();
         Assert.assertEquals(predictedState.getVents()[0].getLowerBoundStart(), 18);
         Assert.assertEquals(predictedState.getVents()[0].getLowerBoundEnd(), 18);
         Assert.assertEquals(predictedState.getVents()[0].getUpperBoundStart(), 18);

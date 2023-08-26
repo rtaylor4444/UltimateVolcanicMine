@@ -101,6 +101,10 @@ public class VentStatusPredicter {
             if((changeStates[i] & VentChangeStateFlag.RESET.bitFlag()) != 0){
                 bitState |= 512;
             }
+
+            //By default set movement state to 3(dont know move) if the vent is unknown
+            if(!displayState.getVents()[i].isIdentified())
+                movementBitState |= (3 << (i * 2));
         }
 
         //Reset when all vents are set to unidentified
