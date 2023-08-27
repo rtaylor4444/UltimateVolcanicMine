@@ -1845,6 +1845,177 @@ public class StatusStateTest {
 
     }
 
+    public void getFutureStabilityChangeTest() {
+        UltimateVolcanicMineConfig.PredictionScenario worstCase = UltimateVolcanicMineConfig.PredictionScenario.WORST_CASE;
+        UltimateVolcanicMineConfig.PredictionScenario bestCase = UltimateVolcanicMineConfig.PredictionScenario.BEST_CASE;
+        StatusState state = new StatusState();
+
+        //No vents known shouldnt have a change
+        state.updateVentStatus(new int[]{u, u, u}, 0);
+        Assert.assertEquals(state.getFutureStabilityChange(worstCase), u);
+
+
+        //1 vent tests
+        //should fail due to undefined ranges
+        state.updateVentStatus(new int[]{u, 50, u}, 0);
+        state.clearAllRanges();
+        Assert.assertEquals(state.getFutureStabilityChange(worstCase), u);
+        state.getVents()[0].setLowerBoundRange(50, 50);
+        state.getVents()[0].setUpperBoundRange(50, 50);
+        Assert.assertEquals(state.getFutureStabilityChange(worstCase), u);
+        state.clearAllRanges();
+        state.getVents()[2].setLowerBoundRange(50, 50);
+        state.getVents()[2].setUpperBoundRange(50, 50);
+        Assert.assertEquals(state.getFutureStabilityChange(worstCase), u);
+
+        //should fail due to huge single range
+        state.getVents()[0].setLowerBoundRange(40, 60);
+        state.getVents()[0].setUpperBoundRange(40, 60);
+        Assert.assertEquals(state.getFutureStabilityChange(worstCase), u);
+        state.clearAllRanges();
+        state.getVents()[0].setLowerBoundRange(50, 50);
+        state.getVents()[0].setUpperBoundRange(50, 50);
+        state.getVents()[2].setLowerBoundRange(40, 60);
+        state.getVents()[2].setUpperBoundRange(40, 60);
+        Assert.assertEquals(state.getFutureStabilityChange(worstCase), u);
+
+        //should fail due to huge double range
+        state.clearAllRanges();
+        state.getVents()[2].setLowerBoundRange(50, 50);
+        state.getVents()[2].setUpperBoundRange(50, 50);
+        state.getVents()[0].setLowerBoundRange(40, 40);
+        state.getVents()[0].setUpperBoundRange(50, 57);
+        Assert.assertEquals(state.getFutureStabilityChange(worstCase), u);
+        state.getVents()[0].clearRanges();
+        state.getVents()[0].setLowerBoundRange(43, 50);
+        state.getVents()[0].setUpperBoundRange(60, 60);
+        Assert.assertEquals(state.getFutureStabilityChange(worstCase), u);
+        state.clearAllRanges();
+        state.getVents()[0].setLowerBoundRange(50, 50);
+        state.getVents()[0].setUpperBoundRange(50, 50);
+        state.getVents()[2].setLowerBoundRange(40, 40);
+        state.getVents()[2].setUpperBoundRange(50, 57);
+        Assert.assertEquals(state.getFutureStabilityChange(worstCase), u);
+        state.getVents()[2].clearRanges();
+        state.getVents()[2].setLowerBoundRange(43, 50);
+        state.getVents()[2].setUpperBoundRange(60, 60);
+        Assert.assertEquals(state.getFutureStabilityChange(worstCase), u);
+
+        //should fail due to two double ranges
+        state.clearAllRanges();
+        state.getVents()[2].setLowerBoundRange(40, 40);
+        state.getVents()[2].setUpperBoundRange(60, 60);
+        state.getVents()[0].setLowerBoundRange(40, 40);
+        state.getVents()[0].setUpperBoundRange(60, 60);
+        Assert.assertEquals(state.getFutureStabilityChange(worstCase), u);
+
+        //will pass with a single range and one small double range
+        state.clearAllRanges();
+        state.getVents()[0].setLowerBoundRange(47, 53);
+        state.getVents()[0].setUpperBoundRange(47, 53);
+        state.getVents()[2].setLowerBoundRange(38, 40);
+        state.getVents()[2].setUpperBoundRange(57, 59);
+        Assert.assertEquals(state.getFutureStabilityChange(worstCase), 20);
+        Assert.assertEquals(state.getFutureStabilityChange(bestCase), 21);
+        state.clearAllRanges();
+        state.getVents()[2].setLowerBoundRange(47, 53);
+        state.getVents()[2].setUpperBoundRange(47, 53);
+        state.getVents()[0].setLowerBoundRange(38, 40);
+        state.getVents()[0].setUpperBoundRange(57, 59);
+        Assert.assertEquals(state.getFutureStabilityChange(worstCase), 20);
+        Assert.assertEquals(state.getFutureStabilityChange(bestCase), 21);
+
+        //will pass with two single ranges
+        state.clearAllRanges();
+        state.getVents()[2].setLowerBoundRange(47, 53);
+        state.getVents()[2].setUpperBoundRange(47, 53);
+        state.getVents()[0].setLowerBoundRange(47, 53);
+        state.getVents()[0].setUpperBoundRange(47, 53);
+        Assert.assertEquals(state.getFutureStabilityChange(worstCase), 23);
+        Assert.assertEquals(state.getFutureStabilityChange(bestCase), 23);
+
+
+        //1 vent + freeze clip accurate tests
+        //should fail due to undefined ranges
+        state.clearAllRanges();
+        state.getVents()[0].setLowerBoundRange(40, 40);
+        state.getVents()[0].setUpperBoundRange(40, 40);
+        state.getVents()[0].makeFreezeClipAccurate();
+        Assert.assertEquals(state.getFutureStabilityChange(worstCase), u);
+
+        //should fail due to huge single range
+        state.getVents()[2].setLowerBoundRange(40, 60);
+        state.getVents()[2].setUpperBoundRange(40, 60);
+        Assert.assertEquals(state.getFutureStabilityChange(worstCase), u);
+
+        //should fail due to huge double range
+        state.getVents()[2].clearRanges();
+        state.getVents()[2].setLowerBoundRange(40, 40);
+        state.getVents()[2].setUpperBoundRange(50, 57);
+        Assert.assertEquals(state.getFutureStabilityChange(worstCase), u);
+        state.getVents()[2].clearRanges();
+        state.getVents()[2].setLowerBoundRange(43, 50);
+        state.getVents()[2].setUpperBoundRange(60, 60);
+        Assert.assertEquals(state.getFutureStabilityChange(worstCase), u);
+
+        //will pass with one small double range
+        state.getVents()[2].clearRanges();
+        state.getVents()[2].setLowerBoundRange(38, 40);
+        state.getVents()[2].setUpperBoundRange(57, 59);
+        Assert.assertEquals(state.getFutureStabilityChange(worstCase), 17);
+        Assert.assertEquals(state.getFutureStabilityChange(bestCase), 18);
+
+        //will pass with one larger single range
+        state.getVents()[2].clearRanges();
+        state.getVents()[2].setLowerBoundRange(47, 53);
+        state.getVents()[2].setUpperBoundRange(47, 53);
+        Assert.assertEquals(state.getFutureStabilityChange(worstCase), 20);
+        Assert.assertEquals(state.getFutureStabilityChange(bestCase), 20);
+
+
+        //2 vents tests
+        //should fail due to undefined ranges
+        state.clearAllRanges();
+        state.updateVentStatus(new int[]{50, 50, u}, 0);
+        Assert.assertEquals(state.getFutureStabilityChange(worstCase), u);
+
+        //should fail due to huge single range
+        state.getVents()[2].setLowerBoundRange(40, 60);
+        state.getVents()[2].setUpperBoundRange(40, 60);
+        Assert.assertEquals(state.getFutureStabilityChange(worstCase), u);
+
+        //should fail due to huge double range
+        state.getVents()[2].clearRanges();
+        state.getVents()[2].setLowerBoundRange(40, 40);
+        state.getVents()[2].setUpperBoundRange(50, 57);
+        Assert.assertEquals(state.getFutureStabilityChange(worstCase), u);
+        state.getVents()[2].clearRanges();
+        state.getVents()[2].setLowerBoundRange(43, 50);
+        state.getVents()[2].setUpperBoundRange(60, 60);
+        Assert.assertEquals(state.getFutureStabilityChange(worstCase), u);
+
+        //will pass with one small double range
+        state.getVents()[2].clearRanges();
+        state.getVents()[2].setLowerBoundRange(38, 40);
+        state.getVents()[2].setUpperBoundRange(57, 59);
+        Assert.assertEquals(state.getFutureStabilityChange(worstCase), 20);
+        Assert.assertEquals(state.getFutureStabilityChange(bestCase), 21);
+
+        //will pass with one larger single range
+        state.getVents()[2].clearRanges();
+        state.getVents()[2].setLowerBoundRange(47, 53);
+        state.getVents()[2].setUpperBoundRange(47, 53);
+        Assert.assertEquals(state.getFutureStabilityChange(worstCase), 23);
+        Assert.assertEquals(state.getFutureStabilityChange(bestCase), 23);
+
+
+        //3 vents tests
+        //will always pass
+        state.updateVentStatus(new int[]{50, 50, 50}, 0);
+        Assert.assertEquals(state.getFutureStabilityChange(worstCase), 23);
+        Assert.assertEquals(state.getFutureStabilityChange(bestCase), 23);
+    }
+
     public float getPercent(int value) {
         float percentValue = 50 - Math.abs(50 - value);
         return percentValue / 50.0f;

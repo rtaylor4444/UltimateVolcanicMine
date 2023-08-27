@@ -357,13 +357,31 @@ public class StatusState {
         }
     }
     public int getFutureStabilityChange(UltimateVolcanicMineConfig.PredictionScenario scenario) {
-        if(numIdentifiedVents < NUM_VENTS - 1) return STARTING_VENT_VALUE;
+        //Check if our estimates are precise enough for predicted stability changes
+        if(!isEnoughVentsIdentified()) return STARTING_VENT_VALUE;
+        int[] unknownIndices = getUnknownVentIndices();
+        int numDoubleRanges = 0, rangeLengthThreshold = 6;
+        for(int i = 0; i < unknownIndices.length; ++i) {
+            if(!vents[unknownIndices[i]].isRangeDefined())
+                return STARTING_VENT_VALUE;
+            if(vents[unknownIndices[i]].isTwoSeperateValues())
+                ++numDoubleRanges;
+
+            int lowerLength = vents[unknownIndices[i]].getLowerBoundEnd();
+            lowerLength -= vents[unknownIndices[i]].getLowerBoundStart();
+            if(lowerLength > rangeLengthThreshold) return STARTING_VENT_VALUE;
+
+            int upperLength = vents[unknownIndices[i]].getUpperBoundEnd();
+            upperLength -= vents[unknownIndices[i]].getUpperBoundStart();
+            if(upperLength > rangeLengthThreshold) return STARTING_VENT_VALUE;
+        }
+        if(numDoubleRanges > 1) return STARTING_VENT_VALUE;
+
+        //If all is good calculate the predicted stability change
         int totalVentValue = 0;
         ArrayList<VentStatus> estimatedVents = new ArrayList<>();
         for(int i = 0; i < NUM_VENTS; ++i) {
-            if(!vents[i].isRangeDefined())
-                return STARTING_VENT_VALUE;
-            if(vents[i].isIdentified())
+            if(vents[i].isIdentified() || vents[i].isFreezeClipAccurate())
                 totalVentValue += vents[i].getStabilityInfluence();
             else
                 estimatedVents.add(vents[i]);
