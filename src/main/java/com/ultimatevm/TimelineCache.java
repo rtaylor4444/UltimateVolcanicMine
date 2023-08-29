@@ -8,6 +8,7 @@ public class TimelineCache {
     public StatusState predictedState;
     public int startingTick, i;
     public int previousMovementTick, numTicksNegativePredictedStability;
+    public int mostRecentIdentifyTick;
 
     TimelineCache() {
 
@@ -17,6 +18,7 @@ public class TimelineCache {
         prevStabInfo = null;
         predictedState = new StatusState(initialState);
         i = startingTick = previousMovementTick = startTick;
+        mostRecentIdentifyTick = startTick;
         numTicksNegativePredictedStability = 0;
         possibleStates.push(predictedState);
     }

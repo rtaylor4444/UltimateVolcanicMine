@@ -289,6 +289,7 @@ public class VentStatusTimeline {
             if((timeline[cache.i] & (1 << IDENTIFIED_VENT_FLAG)) != 0) {
                 int idFlags = timeline[cache.i] & IDENTIFIED_BIT_MASK;
                 Iterator<StatusState> iterator = cache.possibleStates.descendingIterator();
+                cache.mostRecentIdentifyTick = cache.i;
                 while (iterator.hasNext()) {
                     StatusState curState = iterator.next();
                     if ((idFlags & 1) != 0) {
@@ -303,7 +304,8 @@ public class VentStatusTimeline {
                 }
             }
             if((timeline[cache.i] & (1 << ESTIMATED_MOVEMENT_FLAG)) != 0) {
-                boolean isValueClipped = false, isConsecMoveSkip = (cache.i - cache.previousMovementTick > VENT_MOVE_TICK_TIME);
+                int mostRecentEvent = Math.max(cache.mostRecentIdentifyTick, cache.previousMovementTick);
+                boolean isValueClipped = false, isConsecMoveSkip = (cache.i - mostRecentEvent > VENT_MOVE_TICK_TIME);
                 StatusState newPossibility = new StatusState(cache.possibleStates.getLast());
 
                 //Don't do any freeze clipping unless two movements were skipped

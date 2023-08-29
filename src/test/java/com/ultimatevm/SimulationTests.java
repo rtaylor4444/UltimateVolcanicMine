@@ -45,6 +45,7 @@ public class SimulationTests {
         advanceTicks(tick-1);
         identifyVent(A, B, C);
         predicter.updateVentStatus(ventValues, directionBitState);
+        predicter.updateDisplayState();
         predicter.getTimeline().updateTick();
         ++currentTick;
     }
@@ -92,6 +93,7 @@ public class SimulationTests {
     private void doEarthquake(int tick) {
         advanceTicks(tick-1);
         predicter.markEarthquakeEvent();
+        predicter.updateDisplayState();
     }
     private void doReset() {
         predicter.reset();
@@ -220,9 +222,9 @@ public class SimulationTests {
         StatusState predictedState = predicter.getDisplayState();
         //Ensure freeze setting + stability clipping works properly
         Assert.assertEquals(predictedState.getVents()[0].getLowerBoundStart(), 60);
-        Assert.assertEquals(predictedState.getVents()[0].getLowerBoundEnd(), 60);
+        Assert.assertEquals(predictedState.getVents()[0].getLowerBoundEnd(), 62);
         Assert.assertEquals(predictedState.getVents()[0].getUpperBoundStart(), 60);
-        Assert.assertEquals(predictedState.getVents()[0].getUpperBoundEnd(), 60);
+        Assert.assertEquals(predictedState.getVents()[0].getUpperBoundEnd(), 62);
     }
 
     public void simulateAFreezeRangeNoStabilityUpdate() {
@@ -771,6 +773,31 @@ public class SimulationTests {
         Assert.assertEquals(predictedState.getVents()[0].getLowerBoundEnd(), 38);
         Assert.assertEquals(predictedState.getVents()[0].getUpperBoundStart(), 38);
         Assert.assertEquals(predictedState.getVents()[0].getUpperBoundEnd(), 38);
+    }
+
+    public void simulateIncorrectEstimatedMoveFreezeClip() {
+        createPredicter(0, 0, 1);
+        doReset();
+        StatusState predictedState = predicter.getDisplayState();
+
+        doIdentifyVent(1, u, u, 56);
+        doIdentifyVent(14, u, 42, 56);
+        doMovementUpdateByValue(29, u, 41, 56);
+
+        //Value should not get freeze clipped here
+        Assert.assertFalse(predictedState.getVents()[0].isFreezeClipAccurate());
+
+        doDirectionChange(33, 2);
+        doMovementUpdateByValue(39, u, 42, 56);
+        doMovementUpdateByValue(49, u, 43, 56);
+        doMovementUpdateByValue(59, u, 44, 56);
+        doMovementUpdateByValue(69, u, 45, 56);
+        doMovementUpdateByValue(89, u, 46, 56);
+        doEarthquake(114);
+        doMovementUpdateByValue(279, u, 47, 56);
+
+        //Value should get freeze clipped here
+        Assert.assertTrue(predictedState.getVents()[0].isFreezeClipAccurate());
     }
 
 
