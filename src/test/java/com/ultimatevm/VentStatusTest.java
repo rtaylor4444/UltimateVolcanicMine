@@ -22,6 +22,7 @@ public class VentStatusTest {
     }
 
     public void copyConstructorTest() {
+        StabilityUpdateInfo.resetPlayers();
         VentStatus vent = new VentStatus('A');
         vent.doVMReset();
         vent.update(VentStatus.STARTING_VENT_VALUE, 1);
@@ -41,12 +42,14 @@ public class VentStatusTest {
         Assert.assertEquals(newVent.getUpperBoundStart(), 60+VentStatus.BASE_MOVE_RATE);
         Assert.assertEquals(newVent.getUpperBoundEnd(), 60+VentStatus.BASE_MOVE_RATE);
         Assert.assertTrue(newVent.isFreezeClipAccurate());
-        //For reset total bounds are 0-100%
-        Assert.assertEquals(vent.getTotalBoundStart(), VentStatus.MIN_VENT_VALUE+VentStatus.BASE_MOVE_RATE);
-        Assert.assertEquals(vent.getTotalBoundEnd(), VentStatus.MAX_VENT_VALUE);
+        //For solo reset total bounds are 25-75%
+        Assert.assertEquals(vent.getTotalBoundStart(), VentStatus.MIN_RESET_SOLO_VENT_VALUE+VentStatus.BASE_MOVE_RATE);
+        Assert.assertEquals(vent.getTotalBoundEnd(), VentStatus.MAX_RESET_SOLO_VENT_VALUE+VentStatus.BASE_MOVE_RATE);
+        StabilityUpdateInfo.setNumPlayers(2);
     }
 
     public void setEqualToTest() {
+        StabilityUpdateInfo.resetPlayers();
         VentStatus vent = new VentStatus('A');
         vent.doVMReset();
         vent.update(VentStatus.STARTING_VENT_VALUE, 1);
@@ -66,12 +69,14 @@ public class VentStatusTest {
         Assert.assertEquals(newVent.getUpperBoundStart(), 60+VentStatus.BASE_MOVE_RATE);
         Assert.assertEquals(newVent.getUpperBoundEnd(), 60+VentStatus.BASE_MOVE_RATE);
         Assert.assertTrue(newVent.isFreezeClipAccurate());
-        //For reset total bounds are 0-100%
-        Assert.assertEquals(vent.getTotalBoundStart(), VentStatus.MIN_VENT_VALUE+VentStatus.BASE_MOVE_RATE);
-        Assert.assertEquals(vent.getTotalBoundEnd(), VentStatus.MAX_VENT_VALUE);
+        //For solo reset total bounds are 25-75%
+        Assert.assertEquals(vent.getTotalBoundStart(), VentStatus.MIN_RESET_SOLO_VENT_VALUE+VentStatus.BASE_MOVE_RATE);
+        Assert.assertEquals(vent.getTotalBoundEnd(), VentStatus.MAX_RESET_SOLO_VENT_VALUE+VentStatus.BASE_MOVE_RATE);
+        StabilityUpdateInfo.setNumPlayers(2);
     }
 
     public void doVMResetTest() {
+        StabilityUpdateInfo.setNumPlayers(2);
         VentStatus vent = new VentStatus('A');
         Assert.assertEquals(vent.getTotalBoundStart(), VentStatus.MIN_STARTING_VENT_VALUE);
         Assert.assertEquals(vent.getTotalBoundEnd(), VentStatus.MAX_STARTING_VENT_VALUE);
@@ -89,6 +94,28 @@ public class VentStatusTest {
         //For reset total bounds are 0-100%
         Assert.assertEquals(vent.getTotalBoundStart(), VentStatus.MIN_VENT_VALUE);
         Assert.assertEquals(vent.getTotalBoundEnd(), VentStatus.MAX_VENT_VALUE);
+    }
+
+    public void doVMSoloResetTest() {
+        StabilityUpdateInfo.resetPlayers();
+        VentStatus vent = new VentStatus('A');
+        Assert.assertEquals(vent.getTotalBoundStart(), VentStatus.MIN_STARTING_VENT_VALUE);
+        Assert.assertEquals(vent.getTotalBoundEnd(), VentStatus.MAX_STARTING_VENT_VALUE);
+        vent.update(VentStatus.PERFECT_VENT_VALUE, 1);
+        vent.updateMovement(new int[]{0, 0});
+
+        vent.doVMReset();
+        Assert.assertEquals(vent.getName(), 'A');
+        Assert.assertEquals(vent.getDirection(), 1);
+        Assert.assertEquals(vent.getActualValue(), VentStatus.STARTING_VENT_VALUE);
+        Assert.assertEquals(vent.getLowerBoundStart(), VentStatus.MIN_RESET_SOLO_VENT_VALUE);
+        Assert.assertEquals(vent.getLowerBoundEnd(), VentStatus.MAX_RESET_SOLO_VENT_VALUE);
+        Assert.assertEquals(vent.getUpperBoundStart(), VentStatus.MIN_RESET_SOLO_VENT_VALUE);
+        Assert.assertEquals(vent.getUpperBoundEnd(), VentStatus.MAX_RESET_SOLO_VENT_VALUE);
+        //For solo reset total bounds are 25-75%
+        Assert.assertEquals(vent.getTotalBoundStart(), VentStatus.MIN_RESET_SOLO_VENT_VALUE);
+        Assert.assertEquals(vent.getTotalBoundEnd(), VentStatus.MAX_RESET_SOLO_VENT_VALUE);
+        StabilityUpdateInfo.setNumPlayers(2);
     }
 
     public void doVMResetFreezeClipAccurateTest() {
@@ -1583,6 +1610,7 @@ public class VentStatusTest {
     }
 
     public void doReversedMovementBoundedTest() {
+        StabilityUpdateInfo.setNumPlayers(2);
         VentStatus vent = new VentStatus('A');
         vent.doVMReset();
         vent.doReversedMovement(0);
@@ -1591,6 +1619,7 @@ public class VentStatusTest {
         Assert.assertEquals(vent.getUpperBoundStart(), 0);
         Assert.assertEquals(vent.getLowerBoundEnd(), 100);
         Assert.assertEquals(vent.getUpperBoundEnd(), 100);
+        StabilityUpdateInfo.resetPlayers();
     }
 
     public void doReversedMovementIdentifiedTest() {

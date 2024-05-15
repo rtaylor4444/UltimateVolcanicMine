@@ -7,6 +7,8 @@ public class VentStatus {
     public static final int MAX_VENT_VALUE = 100;
     public static final int MIN_STARTING_VENT_VALUE = 30;
     public static final int MAX_STARTING_VENT_VALUE = 70;
+    public static final int MAX_RESET_SOLO_VENT_VALUE = 75;
+    public static final int MIN_RESET_SOLO_VENT_VALUE = 25;
     public static final float VENT_STABILITY_WEIGHT = 16.0f;
     public static int BASE_MOVE_RATE = 2;
     public static int[][] pointsToLowerRanges = null, pointsToUpperRanges = null;
@@ -117,6 +119,10 @@ public class VentStatus {
         actualValue = STARTING_VENT_VALUE;
         totalBoundStart = MIN_VENT_VALUE;
         totalBoundEnd = MAX_VENT_VALUE;
+        if(StabilityUpdateInfo.isSolo()) {
+            totalBoundStart = MIN_RESET_SOLO_VENT_VALUE;
+            totalBoundEnd = MAX_RESET_SOLO_VENT_VALUE;
+        }
         setStartingRanges();
     }
     public void setEqualTo(VentStatus vent) {

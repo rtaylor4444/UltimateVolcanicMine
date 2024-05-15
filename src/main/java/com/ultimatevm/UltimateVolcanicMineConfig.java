@@ -246,6 +246,17 @@ public interface UltimateVolcanicMineConfig extends Config
 	{
 		return true;
 	}
+	@ConfigItem(
+			position = 7,
+			keyName = "postResetVentFixNotifier",
+			name = "Post Reset Vent Fix notifier",
+			description = "Notifies on dangerous stability change 3 mins or prior after the reset",
+			section = notifications
+	)
+	default boolean postResetVentFixNotifier()
+	{
+		return true;
+	}
 
 	@ConfigSection(
 			name = "Predicted Pre Reset Fix",

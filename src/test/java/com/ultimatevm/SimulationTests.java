@@ -329,7 +329,7 @@ public class SimulationTests {
     }
 
     public void simulateMovementSkipNonFreezeRangeA() {
-        createPredicter(2, 0, 1);
+        createPredicter(2, 0, 2);
         StatusState predictedState = predicter.getDisplayState();
         doReset();
         doIdentifyVent(25, u, 48, u);
@@ -429,7 +429,7 @@ public class SimulationTests {
     }
 
     public void simulateA4159NotAppear() {
-        createPredicter(0, 0, 1);
+        createPredicter(0, 0, 2);
         doReset();
         doIdentifyVent(15, u, 65, u);
         doMovementUpdateByValue(20, u, 63, u);
@@ -517,7 +517,7 @@ public class SimulationTests {
 
     public void simulateDoubleVentCorrectAClipped() {
         //proof we cannot rely on estimated moves!
-        createPredicter(6, 0, 1);
+        createPredicter(6, 0, 2);
         doReset();
         doIdentifyVent(7, u, 59, u);
         doMovementUpdateByValue(9, u, 60, u);
@@ -547,7 +547,7 @@ public class SimulationTests {
     }
 
     public void simulateDoubleVentTrim() {
-        createPredicter(1, 0, 1);
+        createPredicter(1, 0, 2);
         doReset();
         StatusState predictedState = predicter.getDisplayState();
         doIdentifyVent(2, 75, u, u);
@@ -596,7 +596,7 @@ public class SimulationTests {
     }
 
     public void simulateSameTickMoveDirectionChangeBug() {
-        createPredicter(1, 0, 1);
+        createPredicter(1, 0, 2);
         doReset();
         doIdentifyVent(14, u, 48, u);
         doMovementUpdateByValue(20, u, 47, u);
@@ -644,7 +644,7 @@ public class SimulationTests {
     }
 
     public void simulateIncorrectPostResetDoubleVentC() {
-        createPredicter(1, 0, 1);
+        createPredicter(1, 0, 2);
         doReset();
         StatusState predictedState = predicter.getDisplayState();
         doIdentifyVent(6, u, u, 30);
@@ -683,7 +683,7 @@ public class SimulationTests {
     }
 
     public void simulate2ndIncorrectPostResetDoubleVentC() {
-        createPredicter(1, 0, 1);
+        createPredicter(1, 0, 2);
         doReset();
         StatusState predictedState = predicter.getDisplayState();
         doIdentifyVent(2, u, u, 11);

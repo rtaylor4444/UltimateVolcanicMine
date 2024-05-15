@@ -4,6 +4,7 @@ public class StabilityUpdateInfo {
     static private int numPlayers = 1;
     static public void resetPlayers() { numPlayers = 1;}
     static public int getNumPlayers() { return numPlayers; }
+    static public boolean isSolo() { return numPlayers == 1;}
     static public void setNumPlayers(int players) {
         numPlayers = Math.max(numPlayers, players);
     }
