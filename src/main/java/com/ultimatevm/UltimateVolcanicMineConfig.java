@@ -255,7 +255,7 @@ public interface UltimateVolcanicMineConfig extends Config
 	)
 	default boolean postResetVentFixNotifier()
 	{
-		return true;
+		return false;
 	}
 
 	@ConfigSection(
