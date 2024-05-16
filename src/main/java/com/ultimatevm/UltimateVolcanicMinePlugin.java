@@ -218,7 +218,7 @@ public class UltimateVolcanicMinePlugin extends Plugin
 				VM_notifier.notify(notifier, VMNotifier.NotificationEvents.VM_PRE_RESET_VENT_FIX, ventStatusPredicter.getCurrentTick());
 
 			//Check if we should have all 3 vents fixed (post-reset)
-			boolean isPostResetTime = (estimatedTimeRemaining <= VentStatusTimeline.VM_GAME_RESET_TIME && estimatedTimeRemaining > 305);
+			boolean isPostResetTime = (estimatedTimeRemaining <= (VentStatusTimeline.VM_GAME_RESET_TIME-15) && estimatedTimeRemaining > 305);
 			if(currentStability + (stabilityTracker.getCurrentChange() * 4) <= 0 && isPostResetTime)
 				VM_notifier.notify(notifier, VMNotifier.NotificationEvents.VM_POST_RESET_VENT_FIX, ventStatusPredicter.getCurrentTick());
 		}
