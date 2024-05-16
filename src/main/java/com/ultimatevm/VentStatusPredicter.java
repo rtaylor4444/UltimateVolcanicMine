@@ -3,15 +3,12 @@ package com.ultimatevm;
 import static com.ultimatevm.StatusState.*;
 import static com.ultimatevm.VentStatus.*;
 
-import java.util.ArrayList;
-
 public class VentStatusPredicter {
     public static final int SLOWEST_VENT_UPDATE_TICK = VentStatusTimeline.VENT_MOVE_TICK_TIME-1;
     public static final int HIGHEST_STABLE_RNG_PLAYER_COUNT = 8;
 
     private VentStatusTimeline timeline;
     private StatusState displayState;
-    private boolean hasDoneFinalLog;
     private int numTicksNoMove;
 
 
@@ -21,7 +18,6 @@ public class VentStatusPredicter {
     public void initialize() {
         timeline = new VentStatusTimeline();
         displayState = new StatusState();
-        hasDoneFinalLog = false;
     }
     public void reset() {
         if(!timeline.isHasReset()) displayState.forceReset();
@@ -149,9 +145,4 @@ public class VentStatusPredicter {
     public final VentStatusTimeline getTimeline() { return timeline; }
     public final int getCurrentTick() { return timeline.getCurrentTick(); }
     public boolean isMovementUpdateTick() { return getCurrentTick() % VentStatusTimeline.VENT_MOVE_TICK_TIME == SLOWEST_VENT_UPDATE_TICK;}
-    public void log() {
-        if(hasDoneFinalLog) return;
-        timeline.log();
-        if(timeline.isHasReset()) hasDoneFinalLog = true;
-    }
 }

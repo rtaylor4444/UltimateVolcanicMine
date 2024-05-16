@@ -1,9 +1,5 @@
 package com.ultimatevm;
 
-import java.io.FileWriter;
-import java.io.IOException;
-
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.LinkedList;
@@ -37,10 +33,6 @@ public class VentStatusTimeline {
     //clip |vents| space completed?
     //0 0 0 0 0 0  0
 
-    private static final String FILE_PATH =
-            "C:\\Users\\cyanw\\IdeaProjects\\UltimateVolcanicMine\\src\\main\\resources\\game_log.txt";
-    FileWriter logWriter;
-
     private int currentTick, startingTick;
     private int currentMovementTick, firstStabilityUpdateTick;
     private int[] timeline;
@@ -55,11 +47,9 @@ public class VentStatusTimeline {
     HashMap<Integer, StabilityUpdateInfo> tickToStabilityUpdateState;
 
     public VentStatusTimeline() {
-        createLog();
         initialize();
     }
     public void initialize() {
-        startLog();
         currentTick = 0;
         timeline = new int[VM_GAME_FULL_TIME];
         tickToMovementVentState = new HashMap<>();
@@ -592,133 +582,4 @@ public class VentStatusTimeline {
 
     //Modifiers
     public void updateTick() { ++currentTick; }
-
-    //Logging
-    private void createLog() {
-        try {
-            logWriter = new FileWriter(FILE_PATH, false);
-        } catch (IOException ignored) {
-
-        }
-    }
-    private void startLog() {
-        try {
-            logWriter.close();
-            logWriter = new FileWriter(FILE_PATH, false);
-        } catch (IOException ignored) {
-
-        }
-    }
-    private String getVentPercentText(VentStatus vent) {
-        StringBuilder builder = new StringBuilder();
-        if(vent.isTwoSeperateValues()) {
-            if(vent.isLowerBoundSingleValue())
-                builder.append(vent.getLowerBoundStart()).append("%");
-            else {
-                builder.append(vent.getLowerBoundStart()).append("-");
-                builder.append(vent.getLowerBoundEnd());
-            }
-            builder.append(" ");
-            if(vent.isUpperBoundSingleValue())
-                builder.append(vent.getUpperBoundStart()).append("%");
-            else {
-                builder.append(vent.getUpperBoundStart()).append("-");
-                builder.append(vent.getUpperBoundEnd());
-            }
-        } else {
-            if(vent.isLowerBoundSingleValue())
-                builder.append(vent.getLowerBoundStart()).append("%");
-            else {
-                builder.append(vent.getLowerBoundStart()).append("-");
-                builder.append(vent.getLowerBoundEnd()).append("%");
-            }
-        }
-        return builder.toString();
-    }
-    private void logState(StatusState state) {
-        VentStatus[] vents = state.getVents();
-        try {
-            logWriter.write("A: " + getVentPercentText(vents[0]) + "\n");
-            logWriter.write("Direction " + vents[0].getDirection() + "\n");
-            logWriter.write("B: " + getVentPercentText(vents[1]) + "\n");
-            logWriter.write("Direction " + vents[1].getDirection() + "\n");
-            logWriter.write("C: " + getVentPercentText(vents[2]) + "\n");
-            logWriter.write("Direction " + vents[2].getDirection() + "\n");
-            logWriter.write("\n");
-            logWriter.flush();
-        } catch (IOException ignored) {
-
-        }
-    }
-    private void logText(String text) {
-        try {
-            logWriter.write(text + "\n");
-            logWriter.flush();
-        } catch (IOException ignored) {
-
-        }
-    }
-    public void log() {
-        StatusState predictedState = new StatusState(initialState);
-        StabilityUpdateInfo prevStabInfo = null;
-        logText("Starting player count was: " + StabilityUpdateInfo.getNumPlayers());
-        for(int i = startingTick; i <= currentTick; ++i) {
-            if((timeline[i] & (1 << IDENTIFIED_VENT_FLAG)) != 0) {
-                int idFlags = timeline[i] & IDENTIFIED_BIT_MASK;
-                if((idFlags & 1) != 0) {
-                    logText("On tick: " + i + " A Vent was identified to be "
-                            + identifiedVentStates[0].getVents()[0].getActualValue());
-                    predictedState.getVents()[0].setEqualTo(identifiedVentStates[0].getVents()[0]);
-                }
-                if((idFlags & 2) != 0) {
-                    logText("On tick: " + i + " B Vent was identified to be "
-                            + identifiedVentStates[1].getVents()[1].getActualValue());
-                    predictedState.getVents()[1].setEqualTo(identifiedVentStates[1].getVents()[1]);
-                }
-                if((idFlags & 4) != 0) {
-                    logText("On tick: " + i + " C Vent was identified to be "
-                            + identifiedVentStates[2].getVents()[2].getActualValue());
-                    predictedState.getVents()[2].setEqualTo(identifiedVentStates[2].getVents()[2]);
-                }
-            }
-            if((timeline[i] & (1 << EARTHQUAKE_EVENT_FLAG)) != 0) {
-                logText("On tick: " + i + " there was an earthquake event");
-            }
-            if((timeline[i] & (1 << ESTIMATED_MOVEMENT_FLAG)) != 0) {
-                logText("On tick: " + i + " we added estimated movement");
-            }
-            if((timeline[i] & (1 << MOVEMENT_UPDATE_FLAG)) != 0) {
-                logText("On tick: " + i + " there was a movement update");
-                StatusState moveState = tickToMovementVentState.get(i);
-                logState(moveState);
-                if(moveState.isAllVentsIdentified()) {
-                    logText("Calculated Stability: " + StatusState.calcStabilityChange(moveState));
-                }
-                int moveBitState = timeline[i] & MOVEMENT_BIT_MASK;
-                predictedState.doFreezeClipping(moveBitState >> 6);
-                handleSameTickDirectionChangeMovement(predictedState, i);
-                syncWithMovementState(predictedState, i);
-            }
-            if((timeline[i] & (1 << STABILITY_UPDATE_FLAG)) != 0) {
-                StabilityUpdateInfo stabilityInfo = tickToStabilityUpdateState.get(i);
-                logText("On tick: " + i + " there was a stability update of " + stabilityInfo.getInitialChange());
-                stabilityInfo.updatePredictedState(predictedState, prevStabInfo, initialStabInfo.getRNGUpdateMod());
-                prevStabInfo = stabilityInfo;
-                if((timeline[i] & (1 << HALF_SPACE_COMPLETED_FLAG)) != 0) {
-                    int ventsToClip = (timeline[i] & HALF_SPACE_VENTS_BIT_MASK) >> (HALF_SPACE_COMPLETED_FLAG+1);
-                    int clipInfo = (timeline[i] & HALF_SPACE_CLIP_BIT_MASK) >> (HALF_SPACE_COMPLETED_FLAG+4);
-                    predictedState.doHalfSpaceClipping(ventsToClip, clipInfo);
-                    logText("On tick: " + i + " half space clipping occurred");
-                }
-            }
-            if((timeline[i] & (1 << DIRECTION_CHANGED_FLAG)) != 0) {
-                int directionFlags = timeline[i] & DIRECTION_CHANGED_BIT_MASK;
-                directionFlags >>= 3;
-                if((directionFlags & 1) != 0) logText("On tick: " + i + " A Vent direction has changed");
-                if((directionFlags & 2) != 0) logText("On tick: " + i + " B Vent direction has changed");
-                if((directionFlags & 4) != 0) logText("On tick: " + i + " C Vent direction has changed");
-                changeStateDirection(predictedState, i);
-            }
-        }
-    }
 }
