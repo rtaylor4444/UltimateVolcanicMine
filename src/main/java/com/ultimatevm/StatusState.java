@@ -25,6 +25,18 @@ public class StatusState {
     public static int calcStabilityChange(int totalVentInfluence) {
         return STABILITY_CHANGE_CONSTANT + totalVentInfluence;
     }
+    public static int makeMoveBitState(StatusState curr, StatusState prev) {
+        boolean isAMoveValid = curr.getVents()[0].isIdentified() && prev.getVents()[0].isIdentified();
+        boolean isBMoveValid = curr.getVents()[1].isIdentified() && prev.getVents()[1].isIdentified();
+        boolean isCMoveValid = curr.getVents()[2].isIdentified() && prev.getVents()[2].isIdentified();
+
+        int aMove = 3, bMove = 3, cMove = 3;
+        if(isAMoveValid) aMove = Math.min(3, Math.abs(curr.getVents()[0].getActualValue() - prev.getVents()[0].getActualValue()));
+        if(isBMoveValid) bMove = Math.min(3, Math.abs(curr.getVents()[1].getActualValue() - prev.getVents()[1].getActualValue()));
+        if(isCMoveValid) cMove = Math.min(3, Math.abs(curr.getVents()[2].getActualValue() - prev.getVents()[2].getActualValue()));
+        int bitState = aMove | (bMove << 2) | (cMove << 4);
+        return bitState << 6;
+    }
 
     public StatusState() {
         hasReset = false;
@@ -86,22 +98,37 @@ public class StatusState {
             vents[i].updateMovement(previousVentInfluence);
         }
     }
-    public int reverseMovement(int knownBitFlag) {
-        int currentVentInfluence = 0;
+    public boolean reverseMovement(int bitMoveState) {
+        if(!isEnoughVentsKnown()) return false;
+        int currentVentInfluence = 0, numReverseFailures = 0;
         for(int i = 0; i < vents.length; ++i) {
-            //Do reversed movement only if the previous value is unknown
-            if((knownBitFlag & (1 << i)) == 0) {
-                //Exit if the value cannot be reversed
-                int inf = vents[i].getReversedInfluence(currentVentInfluence);
-                if (inf == STARTING_VENT_VALUE) return -(i + 1);
+            int curMove = bitMoveState & (3 << (i * 2));
+            curMove = (curMove >> (i * 2));
+            boolean isKnownVent = vents[i].isIdentified() || vents[i].isFreezeClipAccurate();
 
+            //Attempt to reverse the value if its move is unknown
+            if(curMove == 3) {
+                //If there was a previous failure we cannot reverse this
+                int inf = STARTING_VENT_VALUE;
+                if(numReverseFailures == 0) inf = vents[i].getReversedInfluence(currentVentInfluence);
+
+                //Check if the value cannot be reversed
+                if (inf == STARTING_VENT_VALUE) {
+                    ++numReverseFailures;
+                    //If this is a vent we care about reversing exit
+                    if(isKnownVent) return false;
+                    continue;
+                }
                 currentVentInfluence += inf;
                 vents[i].doReversedMovement(currentVentInfluence);
             }
-            //Otherwise if known just update movement influence
-            else currentVentInfluence += vents[i].getEstimatedInfluence();
+            else {
+                //Set to its previous state
+                vents[i].update(vents[i].getActualValue() - (curMove * vents[i].getDirection()), vents[i].getDirection());
+                currentVentInfluence += VentStatus.getMovementInfluenceOfValue(vents[i].getActualValue());
+            }
         }
-        return 0;
+        return true;
     }
     public void mergePredictedRangesWith(StatusState state) {
         for(int i = 0; i < NUM_VENTS; ++i) {
@@ -202,6 +229,9 @@ public class StatusState {
                     break;
             }
         }
+        //Make freeze clip accurate A
+        vents[0].makeFreezeClipAccurate();
+
         return clippedValueState != 0;
     }
     public void forceReset() {
@@ -245,12 +275,22 @@ public class StatusState {
         }
         return indices;
     }
+    public int[] getUnknownVentIndices() {
+        int curIndex = 0;
+        int[] indices = new int[NUM_VENTS - getNumKnownVents()];
+        for(int i = 0; i < vents.length; ++i) {
+            if(this.vents[i].isIdentified()) continue;
+            if(this.vents[i].isFreezeClipAccurate()) continue;
+            indices[curIndex++] = i;
+        }
+        return indices;
+    }
     public boolean calcPredictedVentValues(int change) {
         stabilityChange = change;
-        if(isAllVentsIdentified()) return false;
-        if(!isEnoughVentsIdentified()) return false;
-        int[] indices = getUnidentifiedVentIndices();
-        if(numIdentifiedVents == 1) return calcDoubleVentValue(new VentStatus[]{vents[indices[0]], vents[indices[1]]}, change);
+        if(isAllVentsKnown()) return false;
+        if(!isEnoughVentsKnown()) return false;
+        int[] indices = getUnknownVentIndices();
+        if(getNumKnownVents() == 1) return calcDoubleVentValue(new VentStatus[]{vents[indices[0]], vents[indices[1]]}, change);
         return calcSingleVentValue(vents[indices[0]], change);
     }
     public void alignPredictedRangesWith(StatusState state) {
@@ -263,8 +303,8 @@ public class StatusState {
         }
     }
     public void trimDoubleVentRanges(int change) {
-        if(numIdentifiedVents != 1) return;
-        int[] ventIndices = getUnidentifiedVentIndices();
+        if(getNumKnownVents() != 1) return;
+        int[] ventIndices = getUnknownVentIndices();
         int pointsNeeded = getTotalVentUpdate(change) - getIdentifiedVentTotalValue();
         trimRangesBasedOn(pointsNeeded, vents[ventIndices[1]], vents[ventIndices[0]]);
         trimRangesBasedOn(pointsNeeded, vents[ventIndices[0]], vents[ventIndices[1]]);
@@ -317,13 +357,31 @@ public class StatusState {
         }
     }
     public int getFutureStabilityChange(UltimateVolcanicMineConfig.PredictionScenario scenario) {
-        if(numIdentifiedVents < NUM_VENTS - 1) return STARTING_VENT_VALUE;
+        //Check if our estimates are precise enough for predicted stability changes
+        if(!isEnoughVentsIdentified()) return STARTING_VENT_VALUE;
+        int[] unknownIndices = getUnknownVentIndices();
+        int numDoubleRanges = 0, rangeLengthThreshold = 6;
+        for(int i = 0; i < unknownIndices.length; ++i) {
+            if(!vents[unknownIndices[i]].isRangeDefined())
+                return STARTING_VENT_VALUE;
+            if(vents[unknownIndices[i]].isTwoSeperateValues())
+                ++numDoubleRanges;
+
+            int lowerLength = vents[unknownIndices[i]].getLowerBoundEnd();
+            lowerLength -= vents[unknownIndices[i]].getLowerBoundStart();
+            if(lowerLength > rangeLengthThreshold) return STARTING_VENT_VALUE;
+
+            int upperLength = vents[unknownIndices[i]].getUpperBoundEnd();
+            upperLength -= vents[unknownIndices[i]].getUpperBoundStart();
+            if(upperLength > rangeLengthThreshold) return STARTING_VENT_VALUE;
+        }
+        if(numDoubleRanges > 1) return STARTING_VENT_VALUE;
+
+        //If all is good calculate the predicted stability change
         int totalVentValue = 0;
         ArrayList<VentStatus> estimatedVents = new ArrayList<>();
         for(int i = 0; i < NUM_VENTS; ++i) {
-            if(!vents[i].isRangeDefined())
-                return STARTING_VENT_VALUE;
-            if(vents[i].isIdentified())
+            if(vents[i].isIdentified() || vents[i].isFreezeClipAccurate())
                 totalVentValue += vents[i].getStabilityInfluence();
             else
                 estimatedVents.add(vents[i]);
@@ -631,10 +689,16 @@ public class StatusState {
     //Accessors
     public boolean hasDoneVMReset() { return hasReset; }
     public boolean isEnoughVentsIdentified() { return numIdentifiedVents > 0; }
+    public boolean isEnoughVentsKnown() { return getNumKnownVents() > 0; }
     public boolean isAllVentsIdentified() { return numIdentifiedVents == NUM_VENTS; }
+    public boolean isAllVentsKnown() { return getNumKnownVents() == NUM_VENTS; }
     public final VentStatus[] getVents() { return vents; }
     public int getStabilityChange() { return stabilityChange; }
     public int getNumIdentifiedVents() { return numIdentifiedVents; }
+    public int getNumKnownVents() {
+        int knownCount = vents[0].isFreezeClipAccurate() ? 1 : 0;
+        return knownCount + numIdentifiedVents;
+    }
     public boolean areRangesDefined() {
         //All ranges must be defined for this
         int[] missingVentIndices = getUnidentifiedVentIndices();

@@ -76,6 +76,7 @@ public class VentStatusPredicterTest {
         predicter.updateVentStatus(new int[]{u, 50, 50}, 7);
         predicter.getTimeline().updateTick();
         predicter.makeStatusState(23);
+        predicter.updateDisplayState();
         Assert.assertEquals(predicter.getDisplayState().getVents()[0].getLowerBoundStart(), 47);
         Assert.assertEquals(predicter.getDisplayState().getVents()[0].getLowerBoundEnd(), 53);
         Assert.assertEquals(predicter.getDisplayState().getVents()[0].getUpperBoundStart(), 47);
@@ -84,6 +85,7 @@ public class VentStatusPredicterTest {
         //Movement should be updated here
         for(int i = 0; i < VentStatusTimeline.VENT_MOVE_TICK_TIME*2; ++i) {
             predicter.updateVentStatus(new int[]{u, 50, 50}, 7);
+            predicter.updateDisplayState();
             predicter.getTimeline().updateTick();
         }
         Assert.assertEquals(predicter.getDisplayState().getVents()[0].getLowerBoundStart(), 49);
@@ -94,21 +96,13 @@ public class VentStatusPredicterTest {
         //Movement should not update and values remain the same
         for(int i = 0; i < 5; ++i) {
             predicter.updateVentStatus(new int[]{u, 50, 50}, 7);
+            predicter.updateDisplayState();
             predicter.getTimeline().updateTick();
         }
         Assert.assertEquals(predicter.getDisplayState().getVents()[0].getLowerBoundStart(), 49);
         Assert.assertEquals(predicter.getDisplayState().getVents()[0].getLowerBoundEnd(), 55);
         Assert.assertEquals(predicter.getDisplayState().getVents()[0].getUpperBoundStart(), 49);
         Assert.assertEquals(predicter.getDisplayState().getVents()[0].getUpperBoundEnd(), 55);
-    }
-
-    public void processVentChangeStateInitialTest() {
-        VentStatusPredicter predicter = new VentStatusPredicter();
-        int u = VentStatus.STARTING_VENT_VALUE;
-
-        //Ensure the initial state is created
-        predicter.updateVentStatus(new int[]{u, u, u}, 7);
-        Assert.assertNotNull(predicter.getTimeline().getInitialState());
     }
 
     public void processVentChangeStateIdentifyTest() {

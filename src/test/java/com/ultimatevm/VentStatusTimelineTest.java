@@ -27,7 +27,7 @@ public class VentStatusTimelineTest {
         Assert.assertNotNull(timeline.getIdentifiedVentTicks());
         Assert.assertNotNull(timeline.getIdentifiedVentStates());
         Assert.assertNull(timeline.getInitialState());
-        for(int i = 0; i < StatusState.NUM_VENTS; ++i) {
+        for(int i = 0; i < StatusState.NUM_VENTS+1; ++i) {
             Assert.assertEquals(timeline.getIdentifiedVentTicks()[i], -1);
             Assert.assertNull(timeline.getIdentifiedVentStates()[i]);
         }
@@ -41,9 +41,9 @@ public class VentStatusTimelineTest {
 
         timeline.addInitialState(new StatusState());
         timeline.addIdentifiedVentTick(new StatusState(), 1);
-        timeline.addMovementTick(new StatusState(), makeMoveBitState(0,0,0));
         timeline.addStabilityUpdateTick(new StatusState(), 23);
         timeline.updateTick();
+        timeline.addMovementTick(new StatusState(), makeMoveBitState(0,0,0));
 
         //Everything should be reset back to starting values
         timeline.initialize();
@@ -54,7 +54,7 @@ public class VentStatusTimelineTest {
         Assert.assertNotEquals(timelineEvents, timeline.getTimeline());
         Assert.assertNotEquals(tickToMovementVentState, timeline.getMovementVentStates());
         Assert.assertNotEquals(tickToStabilityUpdateState, timeline.getStabilityUpdateStates());
-        for(int i = 0; i < StatusState.NUM_VENTS; ++i) {
+        for(int i = 0; i < StatusState.NUM_VENTS+1; ++i) {
             Assert.assertEquals(timeline.getIdentifiedVentTicks()[i], -1);
             Assert.assertNull(timeline.getIdentifiedVentStates()[i]);
         }
@@ -83,7 +83,7 @@ public class VentStatusTimelineTest {
         Assert.assertEquals(tickToStabilityUpdateState, timeline.getStabilityUpdateStates());
         //Identified vents and states should be cleared
         Assert.assertEquals(timeline.getNumIdentifiedVents(), 0);
-        for(int i = 0; i < StatusState.NUM_VENTS; ++i) {
+        for(int i = 0; i < StatusState.NUM_VENTS+1; ++i) {
             Assert.assertEquals(timeline.getIdentifiedVentTicks()[i], -1);
             Assert.assertNull(timeline.getIdentifiedVentStates()[i]);
         }
@@ -105,6 +105,7 @@ public class VentStatusTimelineTest {
 
     public void addIdentifiedVentTickTest() {
         VentStatusTimeline timeline = new VentStatusTimeline();
+        timeline.addInitialState(new StatusState());
         int[] timelineEvents = timeline.getTimeline();
         int[] identifiedVentTicks = timeline.getIdentifiedVentTicks();
         StatusState[] identifiedVentStates = timeline.getIdentifiedVentStates();
@@ -152,6 +153,7 @@ public class VentStatusTimelineTest {
 
     public void addIdentifiedVentTickReassignTest() {
         VentStatusTimeline timeline = new VentStatusTimeline();
+        timeline.addInitialState(new StatusState());
         int[] timelineEvents = timeline.getTimeline();
         int[] identifiedVentTicks = timeline.getIdentifiedVentTicks();
         StatusState[] identifiedVentStates = timeline.getIdentifiedVentStates();
@@ -183,24 +185,32 @@ public class VentStatusTimelineTest {
 
     public void addMovementTickTest() {
         VentStatusTimeline timeline = new VentStatusTimeline();
+        timeline.addInitialState(new StatusState());
         int[] timelineEvents = timeline.getTimeline();
         HashMap<Integer, StatusState> tickToMovementVentState = timeline.getMovementVentStates();
         StatusState state1 = new StatusState();
         int onFlag = (1 << VentStatusTimeline.MOVEMENT_UPDATE_FLAG);
 
-        timeline.addMovementTick(state1, makeMoveBitState(0,0,0));
-        //Should successfully be added
+        //This should fail to be added since 0 tick move is impossible
+        timeline.addMovementTick(state1, makeMoveBitState(3,3,3));
         StatusState addedState = tickToMovementVentState.get(0);
+        Assert.assertNull(addedState);
+
+        //Should successfully be added
+        advanceTicks(timeline, 10);
+        int moveBitState = makeMoveBitState(3,3,3);
+        timeline.addMovementTick(state1, moveBitState);
+        addedState = tickToMovementVentState.get(10);
         Assert.assertNotNull(addedState);
-        Assert.assertEquals(timelineEvents[0], onFlag);
+        Assert.assertEquals(timelineEvents[10], onFlag | moveBitState);
         //New copied instance should be added
         Assert.assertNotEquals(addedState, state1);
 
         //Make sure movement bit state is added
-        advanceTicks(timeline, 1);
-        int moveBitState = makeMoveBitState(2,2,2);
+        advanceTicks(timeline, 10);
+        moveBitState = makeMoveBitState(2,2,2);
         timeline.addMovementTick(state1, moveBitState);
-        Assert.assertEquals(timelineEvents[1], onFlag | moveBitState);
+        Assert.assertEquals(timelineEvents[20], onFlag | moveBitState);
     }
 
     public void addStabilityUpdateTickTest() {
@@ -235,6 +245,7 @@ public class VentStatusTimelineTest {
     public void addEarthquakeEventTickTest() {
         //Earthquake event should be added and remove est move
         VentStatusTimeline MoveStartTimeline = new VentStatusTimeline();
+        MoveStartTimeline.addInitialState(new StatusState());
         advanceTicks(MoveStartTimeline, 10);
         MoveStartTimeline.addMovementTick(new StatusState(), 0);
         advanceTicks(MoveStartTimeline, 10);
@@ -245,32 +256,38 @@ public class VentStatusTimelineTest {
 
     public void addEstimatedMovementTickTest() {
         VentStatusTimeline MoveStartTimeline = new VentStatusTimeline();
+        MoveStartTimeline.addInitialState(new StatusState());
         int addedEstMoveFlag = (1 << VentStatusTimeline.ESTIMATED_MOVEMENT_FLAG);
 
+        //Should fail since estimated movements cannot occur on the starting tick
+        Assert.assertFalse(MoveStartTimeline.addEstimatedMovementTick());
+
         //Should pass even though neither a movement or stability update has occured
+        advanceTicks(MoveStartTimeline, 10);
         Assert.assertTrue(MoveStartTimeline.addEstimatedMovementTick());
-        Assert.assertEquals(MoveStartTimeline.getTimeline()[0], addedEstMoveFlag);
+        Assert.assertEquals(MoveStartTimeline.getTimeline()[10], addedEstMoveFlag);
 
         //Should pass even though no stability update
         advanceTicks(MoveStartTimeline, 10);
         MoveStartTimeline.addMovementTick(new StatusState(), 0);
         advanceTicks(MoveStartTimeline, 10);
         Assert.assertTrue(MoveStartTimeline.addEstimatedMovementTick());
-        Assert.assertEquals(MoveStartTimeline.getTimeline()[20], addedEstMoveFlag);
+        Assert.assertEquals(MoveStartTimeline.getTimeline()[30], addedEstMoveFlag);
 
         //Should pass even though no movement update
         VentStatusTimeline StabStartTimeline = new VentStatusTimeline();
         StatusState state = new StatusState();
         state.updateVentStatus(new int[]{u, 50, 50}, 0);
+        advanceTicks(StabStartTimeline, 10);
         StabStartTimeline.addStabilityUpdateTick(state, 20);
         Assert.assertTrue(StabStartTimeline.addEstimatedMovementTick());
-        Assert.assertEquals(StabStartTimeline.getTimeline()[0], (1 << VentStatusTimeline.STABILITY_UPDATE_FLAG) | addedEstMoveFlag);
+        Assert.assertEquals(StabStartTimeline.getTimeline()[10], (1 << VentStatusTimeline.STABILITY_UPDATE_FLAG) | addedEstMoveFlag);
 
         //Should fail since an earthquake occured on the same tick
         advanceTicks(MoveStartTimeline, 10);
         MoveStartTimeline.addEarthquakeEventTick();
         Assert.assertFalse(MoveStartTimeline.addEstimatedMovementTick());
-        Assert.assertEquals(MoveStartTimeline.getTimeline()[30], (1 << VentStatusTimeline.EARTHQUAKE_EVENT_FLAG));
+        Assert.assertEquals(MoveStartTimeline.getTimeline()[40], (1 << VentStatusTimeline.EARTHQUAKE_EVENT_FLAG));
     }
 
     public void clearMoveSkipEstimatedMoveTest() {
@@ -278,6 +295,7 @@ public class VentStatusTimelineTest {
 
         //Movement was skipped here remove the est move
         VentStatusTimeline MoveStartTimeline1 = new VentStatusTimeline();
+        MoveStartTimeline1.addInitialState(new StatusState());
         advanceTicks(MoveStartTimeline1, 10);
         MoveStartTimeline1.addMovementTick(new StatusState(), 0);
         advanceTicks(MoveStartTimeline1, 10);
@@ -289,6 +307,7 @@ public class VentStatusTimelineTest {
 
         //Movement was not skipped keep all est moves
         VentStatusTimeline MoveStartTimeline2 = new VentStatusTimeline();
+        MoveStartTimeline2.addInitialState(new StatusState());
         advanceTicks(MoveStartTimeline2, 10);
         MoveStartTimeline2.addMovementTick(new StatusState(), 0);
         for(int i = 0; i < 4; ++i) {
@@ -321,6 +340,7 @@ public class VentStatusTimelineTest {
 
         //Positioning of the est moves should be corrected
         VentStatusTimeline StabStartTimeline = new VentStatusTimeline();
+        StabStartTimeline.addInitialState(new StatusState());
         StatusState state = new StatusState();
         state.updateVentStatus(new int[]{u, 50, 50}, 0);
         advanceTicks(StabStartTimeline, 22);
@@ -454,6 +474,7 @@ public class VentStatusTimelineTest {
 
     public void updatePreviousVentValuesTest() {
         VentStatusTimeline timeline = new VentStatusTimeline();
+        int[] timelineEvents = timeline.getTimeline();
         StatusState state = new StatusState();
         state.updateVentStatus(new int[]{u,u,u}, 0);
         timeline.addInitialState(state);
@@ -471,7 +492,7 @@ public class VentStatusTimelineTest {
         //Do movement ticks
         for(int i = 0; i < 2; ++i) {
             state.updateVentStatus(new int[]{u,74-i,u}, 1);
-            timeline.addMovementTick(state, makeMoveBitState(0, 1, 0));
+            timeline.addMovementTick(state, makeMoveBitState(3, 1, 3));
             //Do same tick stability update
             if(i == 0) timeline.addStabilityUpdateTick(state, 16);
             advanceTicks(timeline, 10);
@@ -494,8 +515,11 @@ public class VentStatusTimelineTest {
         StatusState tick20StabState = tickToStabilityUpdateState.get(20).getStabilityUpdateState();
         Assert.assertEquals(tick20StabState.getVents()[0].getActualValue(), u);
         //Movement ticks should have the correct values
+        int validMovementBit = makeMoveBitState(1, 1, 3);
         Assert.assertEquals(tickToMovementVentState.get(41).getVents()[0].getActualValue(), 49);
+        Assert.assertEquals(timelineEvents[41] & VentStatusTimeline.MOVEMENT_BIT_MASK, validMovementBit);
         Assert.assertEquals(tickToMovementVentState.get(51).getVents()[0].getActualValue(), 50);
+        Assert.assertEquals(timelineEvents[51] & VentStatusTimeline.MOVEMENT_BIT_MASK, validMovementBit);
         //Second stability update will have a value
         StatusState tick41StabState = tickToStabilityUpdateState.get(41).getStabilityUpdateState();
         Assert.assertEquals(tick41StabState.getVents()[0].getActualValue(), 49);
@@ -522,17 +546,17 @@ public class VentStatusTimelineTest {
         StatusState tick20StabState = tickToStabilityUpdateState.get(20).getStabilityUpdateState();
         Assert.assertEquals(tick20StabState.getVents()[0].getActualValue(), u);
         Assert.assertEquals(tick20StabState.getVents()[1].getActualValue(), u);
-        Assert.assertFalse(tick20StabState.getVents()[2].isRangeDefined());
+        Assert.assertEquals(tick20StabState.getVents()[2].getActualValue(), u);
 
         //Do movement tick
         advanceTicks(timeline, 1);
         state.updateVentStatus(new int[]{49,50,u}, 0);
-        timeline.addMovementTick(state, makeMoveBitState(1, 0, 0));
+        timeline.addMovementTick(state, makeMoveBitState(1, 0, 3));
 
         //Stability update will be updated with new values
         Assert.assertEquals(tick20StabState.getVents()[0].getActualValue(), 50);
         Assert.assertEquals(tick20StabState.getVents()[1].getActualValue(), 50);
-        Assert.assertTrue(tick20StabState.getVents()[2].isRangeDefined());
+        Assert.assertEquals(tick20StabState.getVents()[2].getActualValue(), u);
     }
 
     public void updatePreviousVentValuesMissingMovementTest() {
@@ -551,7 +575,7 @@ public class VentStatusTimelineTest {
         //Do movement tick
         advanceTicks(timeline, 4);
         state.updateVentStatus(new int[]{u,59,u}, 0);
-        timeline.addMovementTick(state, makeMoveBitState(0, 1, 0));
+        timeline.addMovementTick(state, makeMoveBitState(3, 1, 3));
 
         //1st Stability update should be changed
         HashMap<Integer, StabilityUpdateInfo> tickToStabilityUpdateState = timeline.getStabilityUpdateStates();
@@ -563,7 +587,7 @@ public class VentStatusTimelineTest {
         //Skipped movement updates due to a freeze
         advanceTicks(timeline, 30);
         state.updateVentStatus(new int[]{u,58,u}, 0);
-        timeline.addMovementTick(state, makeMoveBitState(0, 1, 0));
+        timeline.addMovementTick(state, makeMoveBitState(3, 1, 3));
         //Reachable Stability update
         advanceTicks(timeline, 10);
         timeline.addStabilityUpdateTick(state, 18);
@@ -586,9 +610,11 @@ public class VentStatusTimelineTest {
 
     public void updatePreviousVentValuesReverseFailTest() {
         VentStatusTimeline timeline = new VentStatusTimeline();
+        int[] timelineEvents = timeline.getTimeline();
         StatusState state = new StatusState();
         state.updateVentStatus(new int[]{u,u,u}, 7);
         timeline.addInitialState(state);
+        int validMoveBitState = makeMoveBitState(1, 3, 3);
 
         //Vent A is identified
         advanceTicks(timeline, 38);
@@ -597,16 +623,16 @@ public class VentStatusTimelineTest {
         //Do movement tick
         advanceTicks(timeline, 2);
         state.updateVentStatus(new int[]{54,u,u}, 7);
-        timeline.addMovementTick(state, makeMoveBitState(1, 0, 0));
+        timeline.addMovementTick(state, validMoveBitState);
         //Do movement tick + stability update
         advanceTicks(timeline, 10);
         state.updateVentStatus(new int[]{55,u,u}, 7);
-        timeline.addMovementTick(state, makeMoveBitState(1, 0, 0));
+        timeline.addMovementTick(state, validMoveBitState);
         timeline.addStabilityUpdateTick(state, 18);
         //Identification + movement tick
         advanceTicks(timeline, 10);
         state.updateVentStatus(new int[]{56,41,u}, 7);
-        timeline.addMovementTick(state, makeMoveBitState(1, 0, 0));
+        timeline.addMovementTick(state, validMoveBitState);
         timeline.addIdentifiedVentTick(state, 2);
 
 
@@ -616,6 +642,14 @@ public class VentStatusTimelineTest {
         Assert.assertEquals(tick50StabState.getVents()[0].getActualValue(), 55);
         Assert.assertEquals(tick50StabState.getVents()[1].getActualValue(), u);
         Assert.assertEquals(tick50StabState.getVents()[2].getActualValue(), u);
+        //Movement ticks should also remain the same
+        HashMap<Integer, StatusState> tickToMovementVentState = timeline.getMovementVentStates();
+        Assert.assertEquals(tickToMovementVentState.get(40).getVents()[1].getActualValue(), u);
+        Assert.assertEquals(timelineEvents[40] & VentStatusTimeline.MOVEMENT_BIT_MASK, validMoveBitState);
+        Assert.assertEquals(tickToMovementVentState.get(50).getVents()[1].getActualValue(), u);
+        Assert.assertEquals(timelineEvents[50] & VentStatusTimeline.MOVEMENT_BIT_MASK, validMoveBitState);
+        Assert.assertEquals(tickToMovementVentState.get(60).getVents()[1].getActualValue(), 41);
+        Assert.assertEquals(timelineEvents[60] & VentStatusTimeline.MOVEMENT_BIT_MASK, validMoveBitState);
     }
 
     public void getCurrentPredictionStateTest() {
@@ -830,6 +864,316 @@ public class VentStatusTimelineTest {
         //Should not be freeze clipped here
         predictedState = timeline.getCurrentPredictionState();
         Assert.assertTrue(predictedState.getVents()[0].isRangeDefined());
+    }
+
+    //Safe - reverse movement tests
+    public void reverseMovementATest() {
+        VentStatusTimeline timeline = new VentStatusTimeline();
+        int[] timelineEvents = timeline.getTimeline();
+        HashMap<Integer, StabilityUpdateInfo> tickToStabilityUpdateState = timeline.getStabilityUpdateStates();
+        HashMap<Integer, StatusState> tickToMovementVentState = timeline.getMovementVentStates();
+        StatusState state = new StatusState();
+        state.doVMReset();
+        state.updateVentStatus(new int[]{u,u,u}, 0);
+        timeline.addInitialState(state);
+
+        //Tick 5: Identify C Vent
+        advanceTicks(timeline, 5);
+        state.updateVentStatus(new int[]{u,u,70}, 0);
+        timeline.addIdentifiedVentTick(state, 4);
+        state = timeline.getTimelinePredictionState();
+        //Tick 8: Movement tick
+        advanceTicks(timeline, 3);
+        state.updateVentStatus(new int[]{u,u,68}, 0);
+        timeline.addMovementTick(state, makeMoveBitState(3, 3, 2));
+        state = timeline.getTimelinePredictionState();
+        //Tick 18: Movement tick
+        advanceTicks(timeline, 10);
+        state.updateVentStatus(new int[]{u,u,66}, 0);
+        timeline.addMovementTick(state, makeMoveBitState(3, 3, 2));
+        state = timeline.getTimelinePredictionState();
+        //Tick 23: Stability update
+        advanceTicks(timeline, 5);
+        timeline.addStabilityUpdateTick(state, -1);
+        state = timeline.getTimelinePredictionState();
+        //Tick 28: Movement tick
+        advanceTicks(timeline, 5);
+        state.updateVentStatus(new int[]{u,u,64}, 0);
+        timeline.addMovementTick(state, makeMoveBitState(3, 3, 2));
+        state = timeline.getTimelinePredictionState();
+        //Tick 38: Movement tick
+        advanceTicks(timeline, 10);
+        state.updateVentStatus(new int[]{u,u,62}, 0);
+        timeline.addMovementTick(state, makeMoveBitState(3, 3, 2));
+        state = timeline.getTimelinePredictionState();
+        //Tick 48: Same tick movement stability update
+        advanceTicks(timeline, 10);
+        state.updateVentStatus(new int[]{u,u,60}, 0);
+        timeline.addMovementTick(state, makeMoveBitState(3, 3, 2));
+        timeline.addStabilityUpdateTick(state, -3);
+        state = timeline.getTimelinePredictionState();
+        //Tick 53: Identify A Vent
+        advanceTicks(timeline, 5);
+        state.updateVentStatus(new int[]{14,u,60}, 0);
+        timeline.addIdentifiedVentTick(state, 1);
+        state = timeline.getTimelinePredictionState();
+
+        //Ensure we get an accurate estimate for B
+        Assert.assertEquals(state.getVents()[1].getLowerBoundStart(), 10);
+        Assert.assertEquals(state.getVents()[1].getLowerBoundEnd(), 12);
+        Assert.assertEquals(state.getVents()[1].getUpperBoundStart(), 10);
+        Assert.assertEquals(state.getVents()[1].getUpperBoundEnd(), 12);
+        //Check that all values reversed to movement states correctly
+        int validMovementBit = makeMoveBitState(2, 3, 2);
+        Assert.assertEquals(tickToMovementVentState.get(8).getVents()[0].getActualValue(), 22);
+        Assert.assertEquals(timelineEvents[8] & VentStatusTimeline.MOVEMENT_BIT_MASK, validMovementBit);
+        Assert.assertEquals(tickToMovementVentState.get(18).getVents()[0].getActualValue(), 20);
+        Assert.assertEquals(timelineEvents[18] & VentStatusTimeline.MOVEMENT_BIT_MASK, validMovementBit);
+        Assert.assertEquals(tickToMovementVentState.get(28).getVents()[0].getActualValue(), 18);
+        Assert.assertEquals(timelineEvents[28] & VentStatusTimeline.MOVEMENT_BIT_MASK, validMovementBit);
+        Assert.assertEquals(tickToMovementVentState.get(38).getVents()[0].getActualValue(), 16);
+        Assert.assertEquals(timelineEvents[38] & VentStatusTimeline.MOVEMENT_BIT_MASK, validMovementBit);
+        Assert.assertEquals(tickToMovementVentState.get(48).getVents()[0].getActualValue(), 14);
+        Assert.assertEquals(timelineEvents[48] & VentStatusTimeline.MOVEMENT_BIT_MASK, validMovementBit);
+        //Check that all values revered to stability update states correctly
+        Assert.assertEquals(tickToStabilityUpdateState.get(23).getStabilityUpdateState().getVents()[0].getActualValue(), 20);
+        Assert.assertEquals(tickToStabilityUpdateState.get(48).getStabilityUpdateState().getVents()[0].getActualValue(), 14);
+    }
+
+    public void reverseMovementBTest() {
+        VentStatusTimeline timeline = new VentStatusTimeline();
+        int[] timelineEvents = timeline.getTimeline();
+        HashMap<Integer, StabilityUpdateInfo> tickToStabilityUpdateState = timeline.getStabilityUpdateStates();
+        HashMap<Integer, StatusState> tickToMovementVentState = timeline.getMovementVentStates();
+        StatusState state = new StatusState();
+        state.doVMReset();
+        state.updateVentStatus(new int[]{u,u,u}, 0);
+        timeline.addInitialState(state);
+
+        //Tick 5: Identify C Vent
+        advanceTicks(timeline, 5);
+        state.updateVentStatus(new int[]{u,u,70}, 0);
+        timeline.addIdentifiedVentTick(state, 4);
+        state = timeline.getTimelinePredictionState();
+        //Tick 8: Movement tick
+        advanceTicks(timeline, 3);
+        state.updateVentStatus(new int[]{u,u,68}, 0);
+        timeline.addMovementTick(state, makeMoveBitState(3, 3, 2));
+        state = timeline.getTimelinePredictionState();
+        //Tick 18: Movement tick
+        advanceTicks(timeline, 10);
+        state.updateVentStatus(new int[]{u,u,66}, 0);
+        timeline.addMovementTick(state, makeMoveBitState(3, 3, 2));
+        state = timeline.getTimelinePredictionState();
+        //Tick 23: Stability update
+        advanceTicks(timeline, 5);
+        timeline.addStabilityUpdateTick(state, -1);
+        state = timeline.getTimelinePredictionState();
+        //Tick 28: Movement tick
+        advanceTicks(timeline, 5);
+        state.updateVentStatus(new int[]{u,u,64}, 0);
+        timeline.addMovementTick(state, makeMoveBitState(3, 3, 2));
+        state = timeline.getTimelinePredictionState();
+        //Tick 38: Movement tick
+        advanceTicks(timeline, 10);
+        state.updateVentStatus(new int[]{u,u,62}, 0);
+        timeline.addMovementTick(state, makeMoveBitState(3, 3, 2));
+        state = timeline.getTimelinePredictionState();
+        //Tick 48: Same tick movement stability update
+        advanceTicks(timeline, 10);
+        state.updateVentStatus(new int[]{u,u,60}, 0);
+        timeline.addMovementTick(state, makeMoveBitState(3, 3, 2));
+        timeline.addStabilityUpdateTick(state, -3);
+        state = timeline.getTimelinePredictionState();
+        //Tick 53: Identify B Vent
+        advanceTicks(timeline, 5);
+        state.updateVentStatus(new int[]{u,14,60}, 0);
+        timeline.addIdentifiedVentTick(state, 2);
+        state = timeline.getTimelinePredictionState();
+
+        //Ensure we get an accurate estimate for A
+        Assert.assertEquals(state.getVents()[0].getLowerBoundStart(), 10);
+        Assert.assertEquals(state.getVents()[0].getLowerBoundEnd(), 12);
+        Assert.assertEquals(state.getVents()[0].getUpperBoundStart(), 10);
+        Assert.assertEquals(state.getVents()[0].getUpperBoundEnd(), 12);
+        //Check that all values reversed to movement states correctly
+        int validMovementBit = makeMoveBitState(3, 2, 2);
+        Assert.assertEquals(tickToMovementVentState.get(8).getVents()[1].getActualValue(), 22);
+        Assert.assertEquals(timelineEvents[8] & VentStatusTimeline.MOVEMENT_BIT_MASK, validMovementBit);
+        Assert.assertEquals(tickToMovementVentState.get(18).getVents()[1].getActualValue(), 20);
+        Assert.assertEquals(timelineEvents[18] & VentStatusTimeline.MOVEMENT_BIT_MASK, validMovementBit);
+        Assert.assertEquals(tickToMovementVentState.get(28).getVents()[1].getActualValue(), 18);
+        Assert.assertEquals(timelineEvents[28] & VentStatusTimeline.MOVEMENT_BIT_MASK, validMovementBit);
+        Assert.assertEquals(tickToMovementVentState.get(38).getVents()[1].getActualValue(), 16);
+        Assert.assertEquals(timelineEvents[38] & VentStatusTimeline.MOVEMENT_BIT_MASK, validMovementBit);
+        Assert.assertEquals(tickToMovementVentState.get(48).getVents()[1].getActualValue(), 14);
+        Assert.assertEquals(timelineEvents[48] & VentStatusTimeline.MOVEMENT_BIT_MASK, validMovementBit);
+        //Check that all values revered to stability update states correctly
+        Assert.assertEquals(tickToStabilityUpdateState.get(23).getStabilityUpdateState().getVents()[1].getActualValue(), 20);
+        Assert.assertEquals(tickToStabilityUpdateState.get(48).getStabilityUpdateState().getVents()[1].getActualValue(), 14);
+    }
+
+    public void reverseMovementCTest() {
+        VentStatusTimeline timeline = new VentStatusTimeline();
+        int[] timelineEvents = timeline.getTimeline();
+        HashMap<Integer, StabilityUpdateInfo> tickToStabilityUpdateState = timeline.getStabilityUpdateStates();
+        HashMap<Integer, StatusState> tickToMovementVentState = timeline.getMovementVentStates();
+        StatusState state = new StatusState();
+        state.doVMReset();
+        state.updateVentStatus(new int[]{u,u,u}, 0);
+        timeline.addInitialState(state);
+
+        //Tick 5: Identify B Vent
+        advanceTicks(timeline, 5);
+        state.updateVentStatus(new int[]{u,70,u}, 0);
+        timeline.addIdentifiedVentTick(state, 2);
+        state = timeline.getTimelinePredictionState();
+        //Tick 8: Movement tick
+        advanceTicks(timeline, 3);
+        state.updateVentStatus(new int[]{u,68,u}, 0);
+        timeline.addMovementTick(state, makeMoveBitState(3, 2, 3));
+        state = timeline.getTimelinePredictionState();
+        //Tick 18: Movement tick
+        advanceTicks(timeline, 10);
+        state.updateVentStatus(new int[]{u,66,u}, 0);
+        timeline.addMovementTick(state, makeMoveBitState(3, 2, 3));
+        state = timeline.getTimelinePredictionState();
+        //Tick 23: Stability update
+        advanceTicks(timeline, 5);
+        timeline.addStabilityUpdateTick(state, -1);
+        state = timeline.getTimelinePredictionState();
+        //Tick 28: Movement tick
+        advanceTicks(timeline, 5);
+        state.updateVentStatus(new int[]{u,64,u}, 0);
+        timeline.addMovementTick(state, makeMoveBitState(3, 2, 3));
+        state = timeline.getTimelinePredictionState();
+        //Tick 38: Movement tick
+        advanceTicks(timeline, 10);
+        state.updateVentStatus(new int[]{u,62,u}, 0);
+        timeline.addMovementTick(state, makeMoveBitState(3, 2, 3));
+        state = timeline.getTimelinePredictionState();
+        //Tick 48: Same tick movement stability update
+        advanceTicks(timeline, 10);
+        state.updateVentStatus(new int[]{u,60,u}, 0);
+        timeline.addMovementTick(state, makeMoveBitState(3, 2, 3));
+        timeline.addStabilityUpdateTick(state, -3);
+        state = timeline.getTimelinePredictionState();
+        //Tick 53: Identify C Vent
+        advanceTicks(timeline, 5);
+        state.updateVentStatus(new int[]{u,60,14}, 0);
+        timeline.addIdentifiedVentTick(state, 4);
+        state = timeline.getTimelinePredictionState();
+
+        //Ensure we get an accurate estimate for A
+        Assert.assertEquals(state.getVents()[0].getLowerBoundStart(), 10);
+        Assert.assertEquals(state.getVents()[0].getLowerBoundEnd(), 12);
+        Assert.assertEquals(state.getVents()[0].getUpperBoundStart(), 10);
+        Assert.assertEquals(state.getVents()[0].getUpperBoundEnd(), 12);
+        //Check that all values reversed to movement states correctly
+        int validMovementBit = makeMoveBitState(3, 2, 2);
+        Assert.assertEquals(tickToMovementVentState.get(8).getVents()[2].getActualValue(), 22);
+        Assert.assertEquals(timelineEvents[8] & VentStatusTimeline.MOVEMENT_BIT_MASK, validMovementBit);
+        Assert.assertEquals(tickToMovementVentState.get(18).getVents()[2].getActualValue(), 20);
+        Assert.assertEquals(timelineEvents[18] & VentStatusTimeline.MOVEMENT_BIT_MASK, validMovementBit);
+        Assert.assertEquals(tickToMovementVentState.get(28).getVents()[2].getActualValue(), 18);
+        Assert.assertEquals(timelineEvents[28] & VentStatusTimeline.MOVEMENT_BIT_MASK, validMovementBit);
+        Assert.assertEquals(tickToMovementVentState.get(38).getVents()[2].getActualValue(), 16);
+        Assert.assertEquals(timelineEvents[38] & VentStatusTimeline.MOVEMENT_BIT_MASK, validMovementBit);
+        Assert.assertEquals(tickToMovementVentState.get(48).getVents()[2].getActualValue(), 14);
+        Assert.assertEquals(timelineEvents[48] & VentStatusTimeline.MOVEMENT_BIT_MASK, validMovementBit);
+        //Check that all values revered to stability update states correctly
+        Assert.assertEquals(tickToStabilityUpdateState.get(23).getStabilityUpdateState().getVents()[2].getActualValue(), 20);
+        Assert.assertEquals(tickToStabilityUpdateState.get(48).getStabilityUpdateState().getVents()[2].getActualValue(), 14);
+    }
+
+    public void reverseMovementFreezeClipAccurateATest() {
+        VentStatusTimeline timeline = new VentStatusTimeline();
+        int[] timelineEvents = timeline.getTimeline();
+        HashMap<Integer, StabilityUpdateInfo> tickToStabilityUpdateState = timeline.getStabilityUpdateStates();
+        HashMap<Integer, StatusState> tickToMovementVentState = timeline.getMovementVentStates();
+        StatusState state = new StatusState();
+        state.doVMReset();
+        state.updateVentStatus(new int[]{u,u,u}, 0);
+        timeline.addInitialState(state);
+
+        //Tick 5: Identify B Vent
+        advanceTicks(timeline, 5);
+        state.updateVentStatus(new int[]{u,70,u}, 0);
+        timeline.addIdentifiedVentTick(state, 2);
+        state = timeline.getTimelinePredictionState();
+        //Tick 8: Movement tick
+        advanceTicks(timeline, 3);
+        state.updateVentStatus(new int[]{u,69,u}, 0);
+        timeline.addMovementTick(state, makeMoveBitState(3, 1, 3));
+        state = timeline.getTimelinePredictionState();
+        //Tick 18: Movement tick
+        advanceTicks(timeline, 10);
+        state.updateVentStatus(new int[]{u,68,u}, 0);
+        timeline.addMovementTick(state, makeMoveBitState(3, 1, 3));
+        state = timeline.getTimelinePredictionState();
+        //Tick 23: Stability update
+        advanceTicks(timeline, 5);
+        timeline.addStabilityUpdateTick(state, 4);
+        state = timeline.getTimelinePredictionState();
+        //Tick 28: Movement tick
+        advanceTicks(timeline, 5);
+        state.updateVentStatus(new int[]{u,67,u}, 0);
+        timeline.addMovementTick(state, makeMoveBitState(3, 1, 3));
+        state = timeline.getTimelinePredictionState();
+        //Tick 38: Movement tick
+        advanceTicks(timeline, 10);
+        state.updateVentStatus(new int[]{u,66,u}, 0);
+        timeline.addMovementTick(state, makeMoveBitState(3, 1, 3));
+        state = timeline.getTimelinePredictionState();
+        //Tick 48: Same tick movement stability update
+        advanceTicks(timeline, 10);
+        state.updateVentStatus(new int[]{u,65,u}, 0);
+        timeline.addMovementTick(state, makeMoveBitState(3, 1, 3));
+        timeline.addStabilityUpdateTick(state, 2);
+        state = timeline.getTimelinePredictionState();
+        //Tick 58: Movement tick - freeze clipped A found here
+        advanceTicks(timeline, 10);
+        state.updateVentStatus(new int[]{u,63,u}, 0);
+        timeline.addMovementTick(state, makeMoveBitState(3, 2, 3));
+        state = timeline.getTimelinePredictionState();
+
+        //We should have a freeze clipped accurate A
+        Assert.assertTrue(state.getVents()[0].isFreezeClipAccurate());
+        //Ensure data is set properly
+        Assert.assertNotNull(timeline.getIdentifiedVentStates()[3]);
+        Assert.assertEquals(timeline.getIdentifiedVentTicks()[3], 58);
+        //Ensure data isnt set a second time + we only reverse once
+        StatusState freezeClipAState = timeline.getIdentifiedVentStates()[3];
+        advanceTicks(timeline, 1);
+        state = timeline.getTimelinePredictionState();
+        Assert.assertEquals(timeline.getIdentifiedVentStates()[3], freezeClipAState);
+        Assert.assertEquals(timeline.getIdentifiedVentTicks()[3], 58);
+
+        //Check that all values reversed to movement states correctly
+        int validMovementBit = makeMoveBitState(3, 1, 3);
+        Assert.assertTrue(tickToMovementVentState.get(8).getVents()[0].isFreezeClipAccurate());
+        Assert.assertEquals(tickToMovementVentState.get(8).getVents()[0].getLowerBoundStart(), 44);
+        Assert.assertEquals(timelineEvents[8] & VentStatusTimeline.MOVEMENT_BIT_MASK, validMovementBit);
+        Assert.assertTrue(tickToMovementVentState.get(18).getVents()[0].isFreezeClipAccurate());
+        Assert.assertEquals(tickToMovementVentState.get(18).getVents()[0].getLowerBoundStart(), 43);
+        Assert.assertEquals(timelineEvents[18] & VentStatusTimeline.MOVEMENT_BIT_MASK, validMovementBit);
+        Assert.assertTrue(tickToMovementVentState.get(28).getVents()[0].isFreezeClipAccurate());
+        Assert.assertEquals(tickToMovementVentState.get(28).getVents()[0].getLowerBoundStart(), 42);
+        Assert.assertEquals(timelineEvents[28] & VentStatusTimeline.MOVEMENT_BIT_MASK, validMovementBit);
+        Assert.assertTrue(tickToMovementVentState.get(38).getVents()[0].isFreezeClipAccurate());
+        Assert.assertEquals(tickToMovementVentState.get(38).getVents()[0].getLowerBoundStart(), 41);
+        Assert.assertEquals(timelineEvents[38] & VentStatusTimeline.MOVEMENT_BIT_MASK, validMovementBit);
+        Assert.assertTrue(tickToMovementVentState.get(48).getVents()[0].isFreezeClipAccurate());
+        Assert.assertEquals(tickToMovementVentState.get(48).getVents()[0].getLowerBoundStart(), 40);
+        Assert.assertEquals(timelineEvents[48] & VentStatusTimeline.MOVEMENT_BIT_MASK, validMovementBit);
+        Assert.assertTrue(tickToMovementVentState.get(58).getVents()[0].isFreezeClipAccurate());
+        Assert.assertEquals(tickToMovementVentState.get(58).getVents()[0].getLowerBoundStart(), 38);
+        Assert.assertEquals(timelineEvents[58] & VentStatusTimeline.MOVEMENT_BIT_MASK, makeMoveBitState(3, 2, 3));
+        //Check that all values reversed to stability update states correctly
+        Assert.assertTrue(tickToStabilityUpdateState.get(23).getStabilityUpdateState().getVents()[0].isFreezeClipAccurate());
+        Assert.assertEquals(tickToStabilityUpdateState.get(23).getStabilityUpdateState().getVents()[0].getLowerBoundStart(), 43);
+        Assert.assertTrue(tickToStabilityUpdateState.get(48).getStabilityUpdateState().getVents()[0].isFreezeClipAccurate());
+        Assert.assertEquals(tickToStabilityUpdateState.get(48).getStabilityUpdateState().getVents()[0].getLowerBoundStart(), 40);
     }
 
     public void checkHalfSpaceInvalidKnownVentsTest() {
@@ -1058,23 +1402,23 @@ public class VentStatusTimelineTest {
         //49: Same tick movement and stability update of 11
         advanceTicks(timeline, 2);
         state.updateVentStatus(new int[]{64,u,u}, 2);
-        timeline.addMovementTick(state, makeMoveBitState(2, 0, 0));
+        timeline.addMovementTick(state, makeMoveBitState(2, 3, 3));
         timeline.addStabilityUpdateTick(state, 11);
         //59: Movement update
         advanceTicks(timeline, 10);
         state.updateVentStatus(new int[]{62,u,u}, 2);
-        timeline.addMovementTick(state, makeMoveBitState(2, 0, 0));
+        timeline.addMovementTick(state, makeMoveBitState(2, 3, 3));
         //69: Movement update
         advanceTicks(timeline, 10);
         state.updateVentStatus(new int[]{60,u,u}, 2);
-        timeline.addMovementTick(state, makeMoveBitState(2, 0, 0));
+        timeline.addMovementTick(state, makeMoveBitState(2, 3, 3));
         //74: Stability update of 10
         advanceTicks(timeline, 5);
         timeline.addStabilityUpdateTick(state, 10);
         //79: Movement update
         advanceTicks(timeline, 5);
         state.updateVentStatus(new int[]{58,u,u}, 2);
-        timeline.addMovementTick(state, makeMoveBitState(2, 0, 0));
+        timeline.addMovementTick(state, makeMoveBitState(2, 3, 3));
         //80: B Vent was identified to be 77
         advanceTicks(timeline, 1);
         state.updateVentStatus(new int[]{58,77,u}, 2);
@@ -1089,11 +1433,11 @@ public class VentStatusTimelineTest {
         //89: Movement update
         advanceTicks(timeline, 9);
         state.updateVentStatus(new int[]{57,78,u}, 2);
-        timeline.addMovementTick(state, makeMoveBitState(1, 1, 0));
+        timeline.addMovementTick(state, makeMoveBitState(1, 1, 3));
         //99: Same tick movement and stability update of 10
         advanceTicks(timeline, 10);
         state.updateVentStatus(new int[]{56,79,u}, 2);
-        timeline.addMovementTick(state, makeMoveBitState(1, 1, 0));
+        timeline.addMovementTick(state, makeMoveBitState(1, 1, 3));
         timeline.addStabilityUpdateTick(state, 10);
 
         predictedState = timeline.getCurrentPredictionState();
@@ -1120,11 +1464,11 @@ public class VentStatusTimelineTest {
         //37: Movement update
         advanceTicks(timeline, 3);
         state.updateVentStatus(new int[]{43,u,u}, 4);
-        timeline.addMovementTick(state, makeMoveBitState(1, 0, 0));
+        timeline.addMovementTick(state, makeMoveBitState(1, 3, 3));
         //47: Same tick movement and stability update of 16
         advanceTicks(timeline, 10);
         state.updateVentStatus(new int[]{42,u,u}, 4);
-        timeline.addMovementTick(state, makeMoveBitState(1, 0, 0));
+        timeline.addMovementTick(state, makeMoveBitState(1, 3, 3));
         timeline.addStabilityUpdateTick(state, 16);
         //50: A's direction was changed
         advanceTicks(timeline, 3);
@@ -1132,18 +1476,18 @@ public class VentStatusTimelineTest {
         //57: Movement update
         advanceTicks(timeline, 7);
         state.updateVentStatus(new int[]{43,u,u}, 5);
-        timeline.addMovementTick(state, makeMoveBitState(1, 0, 0));
+        timeline.addMovementTick(state, makeMoveBitState(1, 3, 3));
         //67: Movement update
         advanceTicks(timeline, 10);
         state.updateVentStatus(new int[]{44,u,u}, 5);
-        timeline.addMovementTick(state, makeMoveBitState(1, 0, 0));
+        timeline.addMovementTick(state, makeMoveBitState(1, 3, 3));
         //72: Stability update of 16
         advanceTicks(timeline, 5);
         timeline.addStabilityUpdateTick(state, 16);
         //77: Movement update
         advanceTicks(timeline, 5);
         state.updateVentStatus(new int[]{45,u,u}, 5);
-        timeline.addMovementTick(state, makeMoveBitState(1, 0, 0));
+        timeline.addMovementTick(state, makeMoveBitState(1, 3, 3));
         //80: B Vent was identified to be 47
         advanceTicks(timeline, 3);
         state.updateVentStatus(new int[]{45,47,u}, 5);
@@ -1151,162 +1495,162 @@ public class VentStatusTimelineTest {
         //87: Movement update
         advanceTicks(timeline, 7);
         state.updateVentStatus(new int[]{46,47,u}, 5);
-        timeline.addMovementTick(state, makeMoveBitState(1, 0, 0));
+        timeline.addMovementTick(state, makeMoveBitState(1, 0, 3));
         //97: Movement update
         advanceTicks(timeline, 10);
         state.updateVentStatus(new int[]{47,47,u}, 5);
-        timeline.addMovementTick(state, makeMoveBitState(1, 0, 0));
+        timeline.addMovementTick(state, makeMoveBitState(1, 0, 3));
         //107: Movement update
         advanceTicks(timeline, 10);
         state.updateVentStatus(new int[]{48,47,u}, 5);
-        timeline.addMovementTick(state, makeMoveBitState(1, 0, 0));
+        timeline.addMovementTick(state, makeMoveBitState(1, 0, 3));
         //117: Movement update
         advanceTicks(timeline, 10);
         state.updateVentStatus(new int[]{49,47,u}, 5);
-        timeline.addMovementTick(state, makeMoveBitState(1, 0, 0));
+        timeline.addMovementTick(state, makeMoveBitState(1, 0, 3));
         //127: Movement update
         advanceTicks(timeline, 10);
         state.updateVentStatus(new int[]{50,47,u}, 5);
-        timeline.addMovementTick(state, makeMoveBitState(1, 0, 0));
+        timeline.addMovementTick(state, makeMoveBitState(1, 0, 3));
         //137: Movement update
         advanceTicks(timeline, 10);
         state.updateVentStatus(new int[]{51,47,u}, 5);
-        timeline.addMovementTick(state, makeMoveBitState(1, 0, 0));
+        timeline.addMovementTick(state, makeMoveBitState(1, 0, 3));
         //147: Movement update
         advanceTicks(timeline, 10);
         state.updateVentStatus(new int[]{52,47,u}, 5);
-        timeline.addMovementTick(state, makeMoveBitState(1, 0, 0));
+        timeline.addMovementTick(state, makeMoveBitState(1, 0, 3));
         //157: Movement update
         advanceTicks(timeline, 10);
         state.updateVentStatus(new int[]{53,47,u}, 5);
-        timeline.addMovementTick(state, makeMoveBitState(1, 0, 0));
+        timeline.addMovementTick(state, makeMoveBitState(1, 0, 3));
         //167: Movement update
         advanceTicks(timeline, 10);
         state.updateVentStatus(new int[]{54,47,u}, 5);
-        timeline.addMovementTick(state, makeMoveBitState(1, 0, 0));
+        timeline.addMovementTick(state, makeMoveBitState(1, 0, 3));
         //177: Movement update
         advanceTicks(timeline, 10);
         state.updateVentStatus(new int[]{55,47,u}, 5);
-        timeline.addMovementTick(state, makeMoveBitState(1, 0, 0));
+        timeline.addMovementTick(state, makeMoveBitState(1, 0, 3));
         //187: Movement update
         advanceTicks(timeline, 10);
         state.updateVentStatus(new int[]{56,47,u}, 5);
-        timeline.addMovementTick(state, makeMoveBitState(1, 0, 0));
+        timeline.addMovementTick(state, makeMoveBitState(1, 0, 3));
         //197: Movement update
         advanceTicks(timeline, 10);
         state.updateVentStatus(new int[]{57,47,u}, 5);
-        timeline.addMovementTick(state, makeMoveBitState(1, 0, 0));
+        timeline.addMovementTick(state, makeMoveBitState(1, 0, 3));
         //207: Movement update
         advanceTicks(timeline, 10);
         state.updateVentStatus(new int[]{58,47,u}, 5);
-        timeline.addMovementTick(state, makeMoveBitState(1, 0, 0));
+        timeline.addMovementTick(state, makeMoveBitState(1, 0, 3));
         //217: Movement update
         advanceTicks(timeline, 10);
         state.updateVentStatus(new int[]{59,47,u}, 5);
-        timeline.addMovementTick(state, makeMoveBitState(1, 0, 0));
+        timeline.addMovementTick(state, makeMoveBitState(1, 0, 3));
         //227: Movement update
         advanceTicks(timeline, 10);
         state.updateVentStatus(new int[]{60,47,u}, 5);
-        timeline.addMovementTick(state, makeMoveBitState(1, 0, 0));
+        timeline.addMovementTick(state, makeMoveBitState(1, 0, 3));
         //237: Movement update
         advanceTicks(timeline, 10);
         state.updateVentStatus(new int[]{62,46,u}, 5);
-        timeline.addMovementTick(state, makeMoveBitState(2, 1, 0));
+        timeline.addMovementTick(state, makeMoveBitState(2, 1, 3));
         //247: Movement update
         advanceTicks(timeline, 10);
         state.updateVentStatus(new int[]{64,45,u}, 5);
-        timeline.addMovementTick(state, makeMoveBitState(2, 1, 0));
+        timeline.addMovementTick(state, makeMoveBitState(2, 1, 3));
         //257: Movement update
         advanceTicks(timeline, 10);
         state.updateVentStatus(new int[]{66,44,u}, 5);
-        timeline.addMovementTick(state, makeMoveBitState(2, 1, 0));
+        timeline.addMovementTick(state, makeMoveBitState(2, 1, 3));
         //267: Movement update
         advanceTicks(timeline, 10);
         state.updateVentStatus(new int[]{68,43,u}, 5);
-        timeline.addMovementTick(state, makeMoveBitState(2, 1, 0));
+        timeline.addMovementTick(state, makeMoveBitState(2, 1, 3));
         //275: A's direction was changed
         advanceTicks(timeline, 8);
         timeline.addDirectionChangeTick(1 << 3);
         //277: Movement update
         advanceTicks(timeline, 2);
         state.updateVentStatus(new int[]{66,42,u}, 4);
-        timeline.addMovementTick(state, makeMoveBitState(2, 1, 0));
+        timeline.addMovementTick(state, makeMoveBitState(2, 1, 3));
         //287: Movement update
         advanceTicks(timeline, 10);
         state.updateVentStatus(new int[]{64,41,u}, 4);
-        timeline.addMovementTick(state, makeMoveBitState(2, 1, 0));
+        timeline.addMovementTick(state, makeMoveBitState(2, 1, 3));
         //297: Movement update
         advanceTicks(timeline, 10);
         state.updateVentStatus(new int[]{62,40,u}, 4);
-        timeline.addMovementTick(state, makeMoveBitState(2, 1, 0));
+        timeline.addMovementTick(state, makeMoveBitState(2, 1, 3));
         //307: Movement update
         advanceTicks(timeline, 10);
         state.updateVentStatus(new int[]{60,38,u}, 4);
-        timeline.addMovementTick(state, makeMoveBitState(2, 2, 0));
+        timeline.addMovementTick(state, makeMoveBitState(2, 2, 3));
         //317: Movement update
         advanceTicks(timeline, 10);
         state.updateVentStatus(new int[]{58,36,u}, 4);
-        timeline.addMovementTick(state, makeMoveBitState(2, 2, 0));
+        timeline.addMovementTick(state, makeMoveBitState(2, 2, 3));
         //327: Movement update
         advanceTicks(timeline, 10);
         state.updateVentStatus(new int[]{57,35,u}, 4);
-        timeline.addMovementTick(state, makeMoveBitState(1, 1, 0));
+        timeline.addMovementTick(state, makeMoveBitState(1, 1, 3));
         //337: Movement update
         advanceTicks(timeline, 10);
         state.updateVentStatus(new int[]{56,34,u}, 4);
-        timeline.addMovementTick(state, makeMoveBitState(1, 1, 0));
+        timeline.addMovementTick(state, makeMoveBitState(1, 1, 3));
         //347: Movement update
         advanceTicks(timeline, 10);
         state.updateVentStatus(new int[]{55,33,u}, 4);
-        timeline.addMovementTick(state, makeMoveBitState(1, 1, 0));
+        timeline.addMovementTick(state, makeMoveBitState(1, 1, 3));
         //357: Movement update
         advanceTicks(timeline, 10);
         state.updateVentStatus(new int[]{54,32,u}, 4);
-        timeline.addMovementTick(state, makeMoveBitState(1, 1, 0));
+        timeline.addMovementTick(state, makeMoveBitState(1, 1, 3));
         //367: Movement update
         advanceTicks(timeline, 10);
         state.updateVentStatus(new int[]{53,31,u}, 4);
-        timeline.addMovementTick(state, makeMoveBitState(1, 1, 0));
+        timeline.addMovementTick(state, makeMoveBitState(1, 1, 3));
         //377: Movement update
         advanceTicks(timeline, 10);
         state.updateVentStatus(new int[]{52,30,u}, 4);
-        timeline.addMovementTick(state, makeMoveBitState(1, 1, 0));
+        timeline.addMovementTick(state, makeMoveBitState(1, 1, 3));
         //387: Movement update
         advanceTicks(timeline, 10);
         state.updateVentStatus(new int[]{51,29,u}, 4);
-        timeline.addMovementTick(state, makeMoveBitState(1, 1, 0));
+        timeline.addMovementTick(state, makeMoveBitState(1, 1, 3));
         //397: Movement update
         advanceTicks(timeline, 10);
         state.updateVentStatus(new int[]{50,28,u}, 4);
-        timeline.addMovementTick(state, makeMoveBitState(1, 1, 0));
+        timeline.addMovementTick(state, makeMoveBitState(1, 1, 3));
         //407: Movement update
         advanceTicks(timeline, 10);
         state.updateVentStatus(new int[]{49,27,u}, 4);
-        timeline.addMovementTick(state, makeMoveBitState(1, 1, 0));
+        timeline.addMovementTick(state, makeMoveBitState(1, 1, 3));
         //417: Movement update
         advanceTicks(timeline, 10);
         state.updateVentStatus(new int[]{48,26,u}, 4);
-        timeline.addMovementTick(state, makeMoveBitState(1, 1, 0));
+        timeline.addMovementTick(state, makeMoveBitState(1, 1, 3));
         //427: Movement update
         advanceTicks(timeline, 10);
         state.updateVentStatus(new int[]{47,25,u}, 4);
-        timeline.addMovementTick(state, makeMoveBitState(1, 1, 0));
+        timeline.addMovementTick(state, makeMoveBitState(1, 1, 3));
         //437: Movement update
         advanceTicks(timeline, 10);
         state.updateVentStatus(new int[]{46,24,u}, 4);
-        timeline.addMovementTick(state, makeMoveBitState(1, 1, 0));
+        timeline.addMovementTick(state, makeMoveBitState(1, 1, 3));
         //447: Movement update
         advanceTicks(timeline, 10);
         state.updateVentStatus(new int[]{45,23,u}, 4);
-        timeline.addMovementTick(state, makeMoveBitState(1, 1, 0));
+        timeline.addMovementTick(state, makeMoveBitState(1, 1, 3));
         //457: Movement update
         advanceTicks(timeline, 10);
         state.updateVentStatus(new int[]{44,22,u}, 4);
-        timeline.addMovementTick(state, makeMoveBitState(1, 1, 0));
+        timeline.addMovementTick(state, makeMoveBitState(1, 1, 3));
         //467: Movement update
         advanceTicks(timeline, 10);
         state.updateVentStatus(new int[]{43,21,u}, 4);
-        timeline.addMovementTick(state, makeMoveBitState(1, 1, 0));
+        timeline.addMovementTick(state, makeMoveBitState(1, 1, 3));
         //472: Stability update of -2
         advanceTicks(timeline, 5);
         timeline.addStabilityUpdateTick(state, -2);
@@ -1335,175 +1679,175 @@ public class VentStatusTimelineTest {
         //39: Movement update
         advanceTicks(timeline, 5);
         state.updateVentStatus(new int[]{53,u,u}, 5);
-        timeline.addMovementTick(state, makeMoveBitState(1, 0, 0));
+        timeline.addMovementTick(state, makeMoveBitState(1, 3, 3));
         //49: Same tick movement and stability update of 20
         advanceTicks(timeline, 10);
         state.updateVentStatus(new int[]{54,u,u}, 5);
-        timeline.addMovementTick(state, makeMoveBitState(1, 0, 0));
+        timeline.addMovementTick(state, makeMoveBitState(1, 3, 3));
         timeline.addStabilityUpdateTick(state, 20);
         //59: Same tick B Vent was identified to be 46 and movement
         advanceTicks(timeline, 10);
         state.updateVentStatus(new int[]{55,46,u}, 5);
         timeline.addIdentifiedVentTick(state, 2);
-        timeline.addMovementTick(state, makeMoveBitState(1, 0, 0));
+        timeline.addMovementTick(state, makeMoveBitState(1, 3, 3));
         //69: Earthquake and movement skip
         advanceTicks(timeline, 10);
         timeline.addEarthquakeEventTick();
         //79: Movement update
         advanceTicks(timeline, 10);
         state.updateVentStatus(new int[]{56,46,u}, 5);
-        timeline.addMovementTick(state, makeMoveBitState(1, 0, 0));
+        timeline.addMovementTick(state, makeMoveBitState(1, 0, 3));
         //89: Movement update
         advanceTicks(timeline, 10);
         state.updateVentStatus(new int[]{57,46,u}, 5);
-        timeline.addMovementTick(state, makeMoveBitState(1, 0, 0));
+        timeline.addMovementTick(state, makeMoveBitState(1, 0, 3));
         //109: Movement update
         advanceTicks(timeline, 20);
         state.updateVentStatus(new int[]{58,46,u}, 5);
-        timeline.addMovementTick(state, makeMoveBitState(1, 0, 0));
+        timeline.addMovementTick(state, makeMoveBitState(1, 0, 3));
         //119: Movement update
         advanceTicks(timeline, 10);
         state.updateVentStatus(new int[]{59,46,u}, 5);
-        timeline.addMovementTick(state, makeMoveBitState(1, 0, 0));
+        timeline.addMovementTick(state, makeMoveBitState(1, 0, 3));
         //129: Movement update
         advanceTicks(timeline, 10);
         state.updateVentStatus(new int[]{60,46,u}, 5);
-        timeline.addMovementTick(state, makeMoveBitState(1, 0, 0));
+        timeline.addMovementTick(state, makeMoveBitState(1, 0, 3));
         //139: Movement update
         advanceTicks(timeline, 10);
         state.updateVentStatus(new int[]{62,45,u}, 5);
-        timeline.addMovementTick(state, makeMoveBitState(2, 1, 0));
+        timeline.addMovementTick(state, makeMoveBitState(2, 1, 3));
         //149: Movement update
         advanceTicks(timeline, 10);
         state.updateVentStatus(new int[]{64,44,u}, 5);
-        timeline.addMovementTick(state, makeMoveBitState(2, 1, 0));
+        timeline.addMovementTick(state, makeMoveBitState(2, 1, 3));
         //159: Movement update
         advanceTicks(timeline, 10);
         state.updateVentStatus(new int[]{66,43,u}, 5);
-        timeline.addMovementTick(state, makeMoveBitState(2, 1, 0));
+        timeline.addMovementTick(state, makeMoveBitState(2, 1, 3));
         //169: Movement update
         advanceTicks(timeline, 10);
         state.updateVentStatus(new int[]{68,42,u}, 5);
-        timeline.addMovementTick(state, makeMoveBitState(2, 1, 0));
+        timeline.addMovementTick(state, makeMoveBitState(2, 1, 3));
         //179: Movement update
         advanceTicks(timeline, 10);
         state.updateVentStatus(new int[]{70,41,u}, 5);
-        timeline.addMovementTick(state, makeMoveBitState(2, 1, 0));
+        timeline.addMovementTick(state, makeMoveBitState(2, 1, 3));
         //189: Movement update
         advanceTicks(timeline, 10);
         state.updateVentStatus(new int[]{72,40,u}, 5);
-        timeline.addMovementTick(state, makeMoveBitState(2, 1, 0));
+        timeline.addMovementTick(state, makeMoveBitState(2, 1, 3));
         //199: Movement update
         advanceTicks(timeline, 10);
         state.updateVentStatus(new int[]{74,38,u}, 5);
-        timeline.addMovementTick(state, makeMoveBitState(2, 2, 0));
+        timeline.addMovementTick(state, makeMoveBitState(2, 2, 3));
         //209: Movement update
         advanceTicks(timeline, 10);
         state.updateVentStatus(new int[]{76,36,u}, 5);
-        timeline.addMovementTick(state, makeMoveBitState(2, 2, 0));
+        timeline.addMovementTick(state, makeMoveBitState(2, 2, 3));
         //219: Movement update
         advanceTicks(timeline, 10);
         state.updateVentStatus(new int[]{78,34,u}, 5);
-        timeline.addMovementTick(state, makeMoveBitState(2, 2, 0));
+        timeline.addMovementTick(state, makeMoveBitState(2, 2, 3));
         //229: Movement update
         advanceTicks(timeline, 10);
         state.updateVentStatus(new int[]{80,32,u}, 5);
-        timeline.addMovementTick(state, makeMoveBitState(2, 2, 0));
+        timeline.addMovementTick(state, makeMoveBitState(2, 2, 3));
         //231: Vent A direction change
         advanceTicks(timeline, 2);
         timeline.addDirectionChangeTick(1 << 3);
         //239: Movement update
         advanceTicks(timeline, 8);
         state.updateVentStatus(new int[]{78,30,u}, 4);
-        timeline.addMovementTick(state, makeMoveBitState(2, 2, 0));
+        timeline.addMovementTick(state, makeMoveBitState(2, 2, 3));
         //249: Movement update
         advanceTicks(timeline, 10);
         state.updateVentStatus(new int[]{76,28,u}, 4);
-        timeline.addMovementTick(state, makeMoveBitState(2, 2, 0));
+        timeline.addMovementTick(state, makeMoveBitState(2, 2, 3));
         //259: Movement update
         advanceTicks(timeline, 10);
         state.updateVentStatus(new int[]{74,26,u}, 4);
-        timeline.addMovementTick(state, makeMoveBitState(2, 2, 0));
+        timeline.addMovementTick(state, makeMoveBitState(2, 2, 3));
         //269: Movement update
         advanceTicks(timeline, 10);
         state.updateVentStatus(new int[]{72,24,u}, 4);
-        timeline.addMovementTick(state, makeMoveBitState(2, 2, 0));
+        timeline.addMovementTick(state, makeMoveBitState(2, 2, 3));
         //279: Movement update
         advanceTicks(timeline, 10);
         state.updateVentStatus(new int[]{70,22,u}, 4);
-        timeline.addMovementTick(state, makeMoveBitState(2, 2, 0));
+        timeline.addMovementTick(state, makeMoveBitState(2, 2, 3));
         //289: Movement update
         advanceTicks(timeline, 10);
         state.updateVentStatus(new int[]{68,20,u}, 4);
-        timeline.addMovementTick(state, makeMoveBitState(2, 2, 0));
+        timeline.addMovementTick(state, makeMoveBitState(2, 2, 3));
         //299: Movement update
         advanceTicks(timeline, 10);
         state.updateVentStatus(new int[]{66,18,u}, 4);
-        timeline.addMovementTick(state, makeMoveBitState(2, 2, 0));
+        timeline.addMovementTick(state, makeMoveBitState(2, 2, 3));
         //309: Movement update
         advanceTicks(timeline, 10);
         state.updateVentStatus(new int[]{64,16,u}, 4);
-        timeline.addMovementTick(state, makeMoveBitState(2, 2, 0));
+        timeline.addMovementTick(state, makeMoveBitState(2, 2, 3));
         //319: Movement update
         advanceTicks(timeline, 10);
         state.updateVentStatus(new int[]{62,14,u}, 4);
-        timeline.addMovementTick(state, makeMoveBitState(2, 2, 0));
+        timeline.addMovementTick(state, makeMoveBitState(2, 2, 3));
         //329: Movement update
         advanceTicks(timeline, 10);
         state.updateVentStatus(new int[]{60,12,u}, 4);
-        timeline.addMovementTick(state, makeMoveBitState(2, 2, 0));
+        timeline.addMovementTick(state, makeMoveBitState(2, 2, 3));
         //339: Movement update
         advanceTicks(timeline, 10);
         state.updateVentStatus(new int[]{58,10,u}, 4);
-        timeline.addMovementTick(state, makeMoveBitState(2, 2, 0));
+        timeline.addMovementTick(state, makeMoveBitState(2, 2, 3));
         //349: Movement update
         advanceTicks(timeline, 10);
         state.updateVentStatus(new int[]{57,9,u}, 4);
-        timeline.addMovementTick(state, makeMoveBitState(1, 1, 0));
+        timeline.addMovementTick(state, makeMoveBitState(1, 1, 3));
         //359: Movement update
         advanceTicks(timeline, 10);
         state.updateVentStatus(new int[]{56,8,u}, 4);
-        timeline.addMovementTick(state, makeMoveBitState(1, 1, 0));
+        timeline.addMovementTick(state, makeMoveBitState(1, 1, 3));
         //369: Movement update
         advanceTicks(timeline, 10);
         state.updateVentStatus(new int[]{55,7,u}, 4);
-        timeline.addMovementTick(state, makeMoveBitState(1, 1, 0));
+        timeline.addMovementTick(state, makeMoveBitState(1, 1, 3));
         //379: Movement update
         advanceTicks(timeline, 10);
         state.updateVentStatus(new int[]{54,6,u}, 4);
-        timeline.addMovementTick(state, makeMoveBitState(1, 1, 0));
+        timeline.addMovementTick(state, makeMoveBitState(1, 1, 3));
         //389: Movement update
         advanceTicks(timeline, 10);
         state.updateVentStatus(new int[]{53,5,u}, 4);
-        timeline.addMovementTick(state, makeMoveBitState(1, 1, 0));
+        timeline.addMovementTick(state, makeMoveBitState(1, 1, 3));
         //409: Movement update
         advanceTicks(timeline, 20);
         state.updateVentStatus(new int[]{52,4,u}, 4);
-        timeline.addMovementTick(state, makeMoveBitState(1, 1, 0));
+        timeline.addMovementTick(state, makeMoveBitState(1, 1, 3));
         //419: Movement update
         advanceTicks(timeline, 10);
         state.updateVentStatus(new int[]{51,3,u}, 4);
-        timeline.addMovementTick(state, makeMoveBitState(1, 1, 0));
+        timeline.addMovementTick(state, makeMoveBitState(1, 1, 3));
         //429: Movement update
         advanceTicks(timeline, 10);
         state.updateVentStatus(new int[]{50,2,u}, 4);
-        timeline.addMovementTick(state, makeMoveBitState(1, 1, 0));
+        timeline.addMovementTick(state, makeMoveBitState(1, 1, 3));
         //439: Movement update
         advanceTicks(timeline, 10);
         state.updateVentStatus(new int[]{49,1,u}, 4);
-        timeline.addMovementTick(state, makeMoveBitState(1, 1, 0));
+        timeline.addMovementTick(state, makeMoveBitState(1, 1, 3));
         //449: Movement update
         advanceTicks(timeline, 10);
         state.updateVentStatus(new int[]{48,0,u}, 4);
-        timeline.addMovementTick(state, makeMoveBitState(1, 0, 0));
+        timeline.addMovementTick(state, makeMoveBitState(1, 0, 3));
         //459: Movement update
         advanceTicks(timeline, 10);
         state.updateVentStatus(new int[]{47,0,u}, 4);
-        timeline.addMovementTick(state, makeMoveBitState(1, 0, 0));
+        timeline.addMovementTick(state, makeMoveBitState(1, 0, 3));
         //469: Movement update
         advanceTicks(timeline, 10);
         state.updateVentStatus(new int[]{46,0,u}, 4);
-        timeline.addMovementTick(state, makeMoveBitState(1, 0, 0));
+        timeline.addMovementTick(state, makeMoveBitState(1, 0, 3));
         //474: Stability update of -1
         advanceTicks(timeline, 5);
         timeline.addStabilityUpdateTick(state, -1);

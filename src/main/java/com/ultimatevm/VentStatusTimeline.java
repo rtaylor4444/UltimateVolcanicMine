@@ -38,6 +38,7 @@ public class VentStatusTimeline {
     private int[] timeline;
     private int[] identifiedVentTick;
     private StatusState[] identifiedVentStates;
+    private TimelineCache[] timelineCaches;
     private int numIdentifiedVents;
     private boolean hasReset = false;
     StatusState initialState;
@@ -64,17 +65,28 @@ public class VentStatusTimeline {
         numIdentifiedVents = 0;
         initialState = null;
         initialStabInfo = null;
-        identifiedVentTick = new int[StatusState.NUM_VENTS];
-        identifiedVentStates = new StatusState[StatusState.NUM_VENTS];
-        for(int i = 0; i < StatusState.NUM_VENTS; ++i) {
+        clearCache();
+        identifiedVentTick = new int[StatusState.NUM_VENTS+1];
+        identifiedVentStates = new StatusState[StatusState.NUM_VENTS+1];
+        for(int i = 0; i < StatusState.NUM_VENTS+1; ++i) {
             identifiedVentTick[i] = -1;
             identifiedVentStates[i] = null;
         }
+    }
+    public void clearCache() {
+        timelineCaches = new TimelineCache[StabilityUpdateInfo.getMaxRNGPossibleSize()];
+        for(int i = 0; i < timelineCaches.length; ++i)
+            timelineCaches[i] = new TimelineCache();
+    }
+    public void initalizeCache() {
+        for(int i = 0; i < timelineCaches.length; ++i)
+            timelineCaches[i].initalize(initialState, startingTick);
     }
     public boolean addInitialState(StatusState startingState) {
         //Only add initial state once for pre reset and post reset
         if(initialState != null) return false;
         initialState = new StatusState(startingState);
+        initalizeCache();
         return true;
     }
     public void addIdentifiedVentTick(StatusState currentState, int bitState) {
@@ -95,11 +107,21 @@ public class VentStatusTimeline {
         //Backtrack and fill out missing vent values
         updatePreviousVentValues(identifiedVentStates[ventIndex], currentTick);
     }
+    private void backtrackFreezeClipAccurateA(StatusState currentState) {
+        //Exit if we already reversed this value
+        if(identifiedVentTick[3] != -1) return;
+        identifiedVentStates[3] = new StatusState(currentState);
+        identifiedVentTick[3] = currentTick;
+        //Don't backtrack if the other two vents are already identified
+        if(numIdentifiedVents+1 >= 3) return;
+        updatePreviousVentValues(identifiedVentStates[3], currentTick);
+    }
     private void updatePreviousVentValues(StatusState startingState, int tick) {
+        clearCache();
         StatusState curState = new StatusState(startingState);
         LinkedList<Integer> stabilityUpdateTicks = new LinkedList<>();
         int numTicksNoMovement = 0, futureMovementTick = Integer.MAX_VALUE;
-        for(int i = tick; i >= startingTick; --i) {
+        for(int i = tick; i > startingTick; --i) {
             //Exit when there is a chain of missing movement updates
             if(numTicksNoMovement > (VENT_MOVE_TICK_TIME * 2)) break;
 
@@ -128,7 +150,12 @@ public class VentStatusTimeline {
                 StatusState movementState = tickToMovementVentState.get(i);
                 movementState.setVentsEqualTo(curState);
                 //exit if we can longer reverse the movement
-                if(!reverseMovement(curState, i-1)) break;
+                int bitMoveState = (timeline[i] & MOVEMENT_BIT_MASK) >> 6;
+                if(!curState.reverseMovement(bitMoveState)) break;
+                //update the movement bit info
+                bitMoveState = StatusState.makeMoveBitState(movementState, curState);
+                timeline[i] &= ~(MOVEMENT_BIT_MASK);
+                timeline[i] |= bitMoveState;
             } else ++numTicksNoMovement;
 
             if(isEarthquakeDelayMovement(i)) numTicksNoMovement = 0;
@@ -138,6 +165,7 @@ public class VentStatusTimeline {
                 changeStateDirection(curState, i);
             }
         }
+        initalizeCache();
     }
     private void clearMoveSkipEstimatedMove() {
         int minTick = Math.max(startingTick, currentTick - (int)(VENT_MOVE_TICK_TIME * 2.5f));
@@ -162,6 +190,7 @@ public class VentStatusTimeline {
         timeline[prevEstMoveTick] &= ~(1 << ESTIMATED_MOVEMENT_FLAG);
     }
     private void fixPreviousEstimatedMoves() {
+        clearCache();
         int updateTick = currentTick % VENT_MOVE_TICK_TIME;
         for(int i = currentTick-1; i >= currentMovementTick; --i) {
             //Clear estimated movement flag
@@ -169,6 +198,7 @@ public class VentStatusTimeline {
             if(i % VENT_MOVE_TICK_TIME == updateTick)
                 addEstimatedMovementTick(i);
         }
+        initalizeCache();
     }
 
     public void addDirectionChangeTick(int bitState) {
@@ -181,6 +211,8 @@ public class VentStatusTimeline {
         timeline[currentTick] &= ~(1 << ESTIMATED_MOVEMENT_FLAG);
     }
     public void addMovementTick(StatusState currentState, int movementBitState) {
+        //A movement tick cannot occur on or before a starting tick
+        if(currentTick <= startingTick) return;
         addNewMovementTickState(currentTick, currentState, movementBitState);
         clearMoveSkipEstimatedMove();
         //Update previous values on the very first movement update (likely after a vent check)
@@ -197,6 +229,8 @@ public class VentStatusTimeline {
         return addEstimatedMovementTick(currentTick);
     }
     private boolean addEstimatedMovementTick(int tick) {
+        //A movement tick cannot occur on or before a starting tick
+        if(tick <= startingTick) return false;
         //Estimated movements cannot occur same tick as an earthquake
         if((timeline[tick] & (1 << EARTHQUAKE_EVENT_FLAG)) != 0)
             return false;
@@ -234,15 +268,18 @@ public class VentStatusTimeline {
         }
     }
     public StatusState getTimelinePredictionState() {
-        LinkedList<StatusState> possibleStates = new LinkedList<>();
-        StabilityUpdateInfo prevStabInfo = null;
-        StatusState predictedState = new StatusState(initialState);
-        int previousMovementTick = startingTick, numTicksNegativePredictedStability = 0;
-        possibleStates.push(predictedState);
-        for(int i = startingTick; i <= currentTick; ++i) {
-            if((timeline[i] & (1 << IDENTIFIED_VENT_FLAG)) != 0) {
-                int idFlags = timeline[i] & IDENTIFIED_BIT_MASK;
-                Iterator<StatusState> iterator = possibleStates.descendingIterator();
+        //Get the current cache to use
+        TimelineCache cache;
+        if(initialStabInfo == null) {
+            cache = timelineCaches[(-StabilityUpdateInfo.getMinRNGVariation())+1];
+        }
+        else cache = timelineCaches[(-initialStabInfo.getRNGUpdateMod())+1];
+
+        for(; cache.i <= currentTick; ++cache.i) {
+            if((timeline[cache.i] & (1 << IDENTIFIED_VENT_FLAG)) != 0) {
+                int idFlags = timeline[cache.i] & IDENTIFIED_BIT_MASK;
+                Iterator<StatusState> iterator = cache.possibleStates.descendingIterator();
+                cache.mostRecentIdentifyTick = cache.i;
                 while (iterator.hasNext()) {
                     StatusState curState = iterator.next();
                     if ((idFlags & 1) != 0) {
@@ -256,98 +293,104 @@ public class VentStatusTimeline {
                     }
                 }
             }
-            if((timeline[i] & (1 << ESTIMATED_MOVEMENT_FLAG)) != 0) {
-                boolean isValueClipped = false, isConsecMoveSkip = (i - previousMovementTick > VENT_MOVE_TICK_TIME);
-                StatusState newPossibility = new StatusState(possibleStates.getLast());
+            if((timeline[cache.i] & (1 << ESTIMATED_MOVEMENT_FLAG)) != 0) {
+                int mostRecentEvent = Math.max(cache.mostRecentIdentifyTick, cache.previousMovementTick);
+                boolean isValueClipped = false, isConsecMoveSkip = (cache.i - mostRecentEvent > VENT_MOVE_TICK_TIME);
+                StatusState newPossibility = new StatusState(cache.possibleStates.getLast());
 
                 //Don't do any freeze clipping unless two movements were skipped
                 if(isConsecMoveSkip) isValueClipped = newPossibility.doFreezeClipping(0);
 
                 //Only set if value wasnt freeze clipped
                 if(!isValueClipped) {
-                    handleSameTickDirectionChangeMovement(newPossibility, i);
-                    possibleStates.addLast(newPossibility);
+                    handleSameTickDirectionChangeMovement(newPossibility, cache.i);
+                    cache.possibleStates.addLast(newPossibility);
                 }
                 //Set predicted state to the new up to date possibility
                 //If two consecutive movements are skipped just update the predicted state
-                if(isConsecMoveSkip) predictedState = possibleStates.getLast();
+                if(isConsecMoveSkip) cache.predictedState = cache.possibleStates.getLast();
             }
-            if((timeline[i] & (1 << MOVEMENT_UPDATE_FLAG)) != 0) {
-                previousMovementTick = i;
-                int moveBitState = timeline[i] & MOVEMENT_BIT_MASK;
+            if((timeline[cache.i] & (1 << MOVEMENT_UPDATE_FLAG)) != 0) {
+                cache.previousMovementTick = cache.i;
+                int moveBitState = timeline[cache.i] & MOVEMENT_BIT_MASK;
                 moveBitState >>= 6;
-                Iterator<StatusState> iterator = possibleStates.descendingIterator();
+                Iterator<StatusState> iterator = cache.possibleStates.descendingIterator();
                 while (iterator.hasNext()) {
                     StatusState curState = iterator.next();
                     //Remove possibility if a value was clipped
                     boolean isValueClipped = curState.doFreezeClipping(moveBitState);
-                    if(possibleStates.size() > 1 && isValueClipped) {
+                    if(cache.possibleStates.size() > 1 && isValueClipped) {
                         iterator.remove();
                         continue;
                     }
 
                     //Update our estimated vent values
-                    handleSameTickDirectionChangeMovement(curState, i);
-                    syncWithMovementState(curState, i);
+                    handleSameTickDirectionChangeMovement(curState, cache.i);
+                    syncWithMovementState(curState, cache.i);
                 }
-                predictedState = possibleStates.getLast();
+                cache.predictedState = cache.possibleStates.getLast();
             }
-            if((timeline[i] & (1 << STABILITY_UPDATE_FLAG)) != 0) {
-                Iterator<StatusState> iterator = possibleStates.descendingIterator();
-                StabilityUpdateInfo stabilityInfo = tickToStabilityUpdateState.get(i);
-                int initalRNGMod = initialStabInfo == null ? 0 : initialStabInfo.getRNGUpdateMod();
+            if((timeline[cache.i] & (1 << STABILITY_UPDATE_FLAG)) != 0) {
+                Iterator<StatusState> iterator = cache.possibleStates.descendingIterator();
+                StabilityUpdateInfo stabilityInfo = tickToStabilityUpdateState.get(cache.i);
+                int initalRNGMod = initialStabInfo == null ?
+                        StabilityUpdateInfo.getMinRNGVariation()
+                        : initialStabInfo.getRNGUpdateMod();
                 while (iterator.hasNext()) {
                     StatusState curState = iterator.next();
                     if(stabilityInfo.isValid()) {
                         //Use stability updates to set/narrow our possible values
                         if (stabilityInfo == initialStabInfo) {
+                            if(curState.getVents()[0].isFreezeClipAccurate()) initialStabInfo.updateVentValues(curState);
                             curState.alignPredictedRangesWith(initialStabInfo.getStabilityUpdateState());
-                        } else stabilityInfo.updatePredictedState(curState, prevStabInfo, initalRNGMod);
+                        } else stabilityInfo.updatePredictedState(curState, cache.prevStabInfo, initalRNGMod);
                     }
 
-                    if((timeline[i] & (1 << HALF_SPACE_COMPLETED_FLAG)) != 0) {
-                        int ventsToClip = (timeline[i] & HALF_SPACE_VENTS_BIT_MASK) >> (HALF_SPACE_COMPLETED_FLAG+1);
-                        int clipInfo = (timeline[i] & HALF_SPACE_CLIP_BIT_MASK) >> (HALF_SPACE_COMPLETED_FLAG+4);
+                    if((timeline[cache.i] & (1 << HALF_SPACE_COMPLETED_FLAG)) != 0) {
+                        int ventsToClip = (timeline[cache.i] & HALF_SPACE_VENTS_BIT_MASK) >> (HALF_SPACE_COMPLETED_FLAG+1);
+                        int clipInfo = (timeline[cache.i] & HALF_SPACE_CLIP_BIT_MASK) >> (HALF_SPACE_COMPLETED_FLAG+4);
                         curState.doHalfSpaceClipping(ventsToClip, clipInfo);
                     }
                 }
 
-                removeInvalidPossibilities(possibleStates);
-                predictedState = possibleStates.getLast();
-                prevStabInfo = stabilityInfo;
-                numTicksNegativePredictedStability = 0;
+                removeInvalidPossibilities(cache.possibleStates);
+                cache.predictedState = cache.possibleStates.getLast();
+                cache.prevStabInfo = stabilityInfo;
+                cache.numTicksNegativePredictedStability = 0;
             }
-            if((timeline[i] & (1 << DIRECTION_CHANGED_FLAG)) != 0) {
+            if((timeline[cache.i] & (1 << DIRECTION_CHANGED_FLAG)) != 0) {
                 //Change our direction if it occured this tick
-                Iterator<StatusState> iterator = possibleStates.descendingIterator();
+                Iterator<StatusState> iterator = cache.possibleStates.descendingIterator();
                 while (iterator.hasNext()) {
-                    changeStateDirection(iterator.next(), i);
+                    changeStateDirection(iterator.next(), cache.i);
                 }
             }
 
-            int predictedChange = predictedState.getFutureStabilityChange(UltimateVolcanicMineConfig.PredictionScenario.WORST_CASE);
+            int predictedChange = cache.predictedState.getFutureStabilityChange(UltimateVolcanicMineConfig.PredictionScenario.WORST_CASE);
             if(predictedChange < StabilityUpdateInfo.getMinRNGVariation()-1)
-                ++numTicksNegativePredictedStability;
-            else numTicksNegativePredictedStability = 0;
+                ++cache.numTicksNegativePredictedStability;
+            else cache.numTicksNegativePredictedStability = 0;
 
             //Attempt to clip invalid predicted ranges
             //This scenario occurs when stability stays 100% for extended time
-            if(prevStabInfo != null) {
-                if (numTicksNegativePredictedStability < STABILITY_UPDATE_TICK_TIME * 2) continue;
+            if(cache.prevStabInfo != null) {
+                if (cache.numTicksNegativePredictedStability < STABILITY_UPDATE_TICK_TIME * 2) continue;
 
-                int ticksSinceLastUpdate = i - prevStabInfo.getTickTimeStamp();
+                int ticksSinceLastUpdate = cache.i - cache.prevStabInfo.getTickTimeStamp();
                 if (ticksSinceLastUpdate < STABILITY_UPDATE_TICK_TIME * 2) continue;
 
                 //Check and see if we meet requirements to display
                 //a predicted stability change
-                Iterator<StatusState> iterator = possibleStates.descendingIterator();
+                Iterator<StatusState> iterator = cache.possibleStates.descendingIterator();
                 while (iterator.hasNext()) {
                     StatusState curState = iterator.next();
                     curState.clipPredictedStabilityMismatch(StabilityUpdateInfo.getMinRNGVariation() - 1);
                 }
             }
         }
-        return predictedState;
+        if(cache.predictedState.getVents()[0].isFreezeClipAccurate())
+            backtrackFreezeClipAccurateA(cache.predictedState);
+        return cache.predictedState;
     }
     public StatusState getCurrentPredictionState() {
         return StabilityUpdateInfo.getPredictionState(initialStabInfo, this);
@@ -397,8 +440,13 @@ public class VentStatusTimeline {
     }
     private void syncWithMovementState(StatusState state, int tick) {
         StatusState moveState = tickToMovementVentState.get(tick);
+        //Check and see if we can sync with an accurate freeze clipped value
+        boolean accurateFreezeClipSync = (identifiedVentTick[3] != -1 && identifiedVentTick[3] >= tick);
         for(int i = 0; i < StatusState.NUM_VENTS; ++i) {
-            if(!moveState.getVents()[i].isIdentified()) continue;
+            if(!moveState.getVents()[i].isFreezeClipAccurate()) {
+                if (!moveState.getVents()[i].isIdentified()) continue;
+            } else if(!accurateFreezeClipSync) continue;
+
             state.setVentEqualTo(moveState, i);
         }
     }
@@ -415,73 +463,6 @@ public class VentStatusTimeline {
             return (timeline[tick - VENT_MOVE_TICK_TIME] & (1 << MOVEMENT_UPDATE_FLAG)) != 0;
         }
         return false;
-    }
-    private boolean reverseMovement(StatusState curState, int tick) {
-        //Check what vent values are known from the previous movement tick
-        StatusState prevMoveTickState = null;
-        int numTicksNoMovement = 0;
-        for(int i = tick; i >= startingTick; --i) {
-            //Exit when there is a chain of missing movement updates
-            if(numTicksNoMovement > (VENT_MOVE_TICK_TIME * 2)) break;
-
-            if((timeline[i] & (1 << IDENTIFIED_VENT_FLAG)) != 0) {
-                int idFlags = timeline[i] & IDENTIFIED_BIT_MASK;
-                if((idFlags & 1) != 0) {
-                    prevMoveTickState = identifiedVentStates[0];
-                }
-                if((idFlags & 2) != 0) {
-                    prevMoveTickState = identifiedVentStates[1];
-                }
-                if((idFlags & 4) != 0) {
-                    prevMoveTickState = identifiedVentStates[2];
-                }
-                break;
-            }
-
-            if((timeline[i] & (1 << MOVEMENT_UPDATE_FLAG)) != 0) {
-                prevMoveTickState = tickToMovementVentState.get(i);
-                break;
-            } else ++numTicksNoMovement;
-
-            if(isEarthquakeDelayMovement(i)) numTicksNoMovement = 0;
-        }
-
-        //Set and mark known values
-        int knownBitFlag = 0, unknownBitMask = 0;
-        if(prevMoveTickState != null) {
-            for(int i = 0; i < StatusState.NUM_VENTS; ++i) {
-                VentStatus prevVent = prevMoveTickState.getVents()[i];
-                VentStatus curVent = curState.getVents()[i];
-                //Both identified we already know the reverse state
-                if(curVent.isIdentified() && prevVent.isIdentified()) {
-                    knownBitFlag |= (1 << i);
-                    curState.setVentEqualTo(prevMoveTickState, i);
-                }
-                if(!curVent.isIdentified() && !prevVent.isIdentified()) {
-                    knownBitFlag |= (1 << i);
-                    unknownBitMask |= (1 << i);
-                }
-            }
-        }
-        //If the full previous state is known to us no need to reverse
-        if(knownBitFlag == 7) return true;
-
-        //TODO: Fix this code later to work with estimated ranges
-        int result = curState.reverseMovement(knownBitFlag & (~unknownBitMask));
-        //A failed to reverse always exit
-        if(result == -1) return false;
-        //B failed to reverse
-        else if(result == -2) {
-            //If only A is identified ignore this
-            if(numIdentifiedVents == 1 && identifiedVentTick[0] != -1) return true;
-            //Otherwise treat B, C, AB, AC, BC identification as failure
-            return false;
-        }
-        //C failed to reverse
-        else if(result == -3) {
-            //Typically do not care unless its known and bounded
-        }
-        return true;
     }
     private void removeInvalidPossibilities(LinkedList<StatusState> possibleStates) {
         //Remove all invalid possibilities - always keep 1 state even if invalid
@@ -591,6 +572,7 @@ public class VentStatusTimeline {
     public int getCurrentTick() { return currentTick; }
     public int getCurrentStartingTick() {return startingTick;}
     public int getNumIdentifiedVents() { return numIdentifiedVents; }
+    public boolean hasEventOccuredThisTick() { return timeline[currentTick] != 0; }
     public final int[] getTimeline() { return timeline; }
     public final int[] getIdentifiedVentTicks() { return identifiedVentTick; }
     public final StatusState[] getIdentifiedVentStates() { return identifiedVentStates; }

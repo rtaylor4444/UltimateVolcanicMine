@@ -9,7 +9,7 @@ public class VentStatusPredicter {
 
     private VentStatusTimeline timeline;
     private StatusState displayState;
-    private int numTicksNoMove, cooldownEndTick;
+    private int numTicksNoMove;
 
 
     public VentStatusPredicter() {
@@ -18,7 +18,6 @@ public class VentStatusPredicter {
     public void initialize() {
         timeline = new VentStatusTimeline();
         displayState = new StatusState();
-        cooldownEndTick = 0;
     }
     public void reset() {
         if(!timeline.isHasReset()) displayState.forceReset();
@@ -29,16 +28,14 @@ public class VentStatusPredicter {
     }
     public void makeStatusState(int change) {
         timeline.addStabilityUpdateTick(displayState, change);
-        updateDisplayState();
     }
     public String getVentStatusText(int index, String startingText) {
         VentStatus[] vents = displayState.getVents();
         if(vents[index].isIdentified() || !vents[index].isRangeDefined()) return startingText;
-        StringBuilder builder = new StringBuilder();
-        builder.append(startingText, 0, 3);
-        builder.append("<col=00ffff>");
-        builder.append(getVentPercentText(vents[index]));
-        return builder.append("</col>").toString();
+        return startingText.substring(0, 3) +
+                "<col=00ffff>" +
+                getVentPercentText(vents[index]) +
+                "</col>";
     }
     public void markEarthquakeEvent() {
         timeline.addEarthquakeEventTick();
@@ -100,40 +97,38 @@ public class VentStatusPredicter {
             if((changeStates[i] & VentChangeStateFlag.RESET.bitFlag()) != 0){
                 bitState |= 512;
             }
+
+            //By default set movement state to 3(dont know move) if the vent is unknown
+            if(!displayState.getVents()[i].isIdentified())
+                movementBitState |= (3 << (i * 2));
         }
 
-        timeline.addInitialState(displayState);
         //Reset when all vents are set to unidentified
         if((bitState & 512) != 0) {
-            //Wait before updating this value from the timeline
-            if(!displayState.hasDoneVMReset())
-                cooldownEndTick = timeline.getCurrentTick() + SLOWEST_VENT_UPDATE_TICK;
             displayState.doVMReset();
         }
+        timeline.addInitialState(displayState);
+
         if((bitState & VentStatusTimeline.DIRECTION_CHANGED_BIT_MASK) != 0) timeline.addDirectionChangeTick(bitState);
 
         //Do an estimated move if a movement update was skips for whatever reason
         if((bitState & 128) == 0) {
             if(++numTicksNoMove == VentStatusTimeline.VENT_MOVE_TICK_TIME) {
-                if(timeline.addEstimatedMovementTick()) updateDisplayState();
+                timeline.addEstimatedMovementTick();
                 numTicksNoMove = 0;
             }
         }
-
         if((bitState & 128) != 0) {
             timeline.addMovementTick(displayState, (movementBitState << 6));
-            updateDisplayState();
             numTicksNoMove = 0;
         }
         if((bitState & VentStatusTimeline.IDENTIFIED_BIT_MASK) != 0) {
             timeline.addIdentifiedVentTick(displayState, bitState);
-            updateDisplayState();
         }
     }
-    private void updateDisplayState() {
+    public void updateDisplayState() {
         if(StabilityUpdateInfo.getNumPlayers() > HIGHEST_STABLE_RNG_PLAYER_COUNT) return;
         if(displayState.isAllVentsIdentified()) return;
-        if(cooldownEndTick > timeline.getCurrentTick()) return;
         StatusState predictedState = timeline.getCurrentPredictionState();
         if(predictedState == null) return;
         for(int i = 0; i < NUM_VENTS; ++i) {

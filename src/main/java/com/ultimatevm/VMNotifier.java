@@ -14,6 +14,7 @@ public class VMNotifier {
         VM_RESET,
         VM_ERUPTION,
         VM_PRE_RESET_VENT_FIX,
+        VM_POST_RESET_VENT_FIX,
         VM_PREDICTED_VENT_FIX,
         VM_PICKAXE_DESPAWN,
         VM_PICKAXE_LOW_STABILITY,
@@ -35,6 +36,7 @@ public class VMNotifier {
         oneTimeEvents.add(NotificationEvents.VM_RESET);
         oneTimeEvents.add(NotificationEvents.VM_ERUPTION);
         oneTimeEvents.add(NotificationEvents.VM_PRE_RESET_VENT_FIX);
+        oneTimeEvents.add(NotificationEvents.VM_POST_RESET_VENT_FIX);
         oneTimeEvents.add(NotificationEvents.VM_PREDICTED_VENT_FIX);
         oneTimeEvents.add(NotificationEvents.VM_PICKAXE_DESPAWN);
         oneTimeEvents.add(NotificationEvents.VM_PICKAXE_LOW_STABILITY);
@@ -84,6 +86,12 @@ public class VMNotifier {
                 oneTimeEvents.remove(event);
                 if(!config.ventFixNotifier()) return;
                 notifier.notify("Fix your vent!");
+                break;
+
+            case VM_POST_RESET_VENT_FIX:
+                oneTimeEvents.remove(event);
+                if(!config.postResetVentFixNotifier()) return;
+                notifier.notify("Consider fixing all 3 vents; the mine can collapse with bad RNG!");
                 break;
 
             case VM_PREDICTED_VENT_FIX:

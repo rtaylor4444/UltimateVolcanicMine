@@ -45,6 +45,7 @@ public class SimulationTests {
         advanceTicks(tick-1);
         identifyVent(A, B, C);
         predicter.updateVentStatus(ventValues, directionBitState);
+        predicter.updateDisplayState();
         predicter.getTimeline().updateTick();
         ++currentTick;
     }
@@ -52,6 +53,7 @@ public class SimulationTests {
         advanceTicks(tick-1);
         updateVentDirection(newDir);
         predicter.updateVentStatus(ventValues, directionBitState);
+        predicter.updateDisplayState();
         predicter.getTimeline().updateTick();
         ++currentTick;
     }
@@ -59,6 +61,7 @@ public class SimulationTests {
         advanceTicks(tick-1);
         predicter.updateVentStatus(ventValues, directionBitState);
         predicter.makeStatusState(change);
+        predicter.updateDisplayState();
         predicter.getTimeline().updateTick();
         ++currentTick;
     }
@@ -66,6 +69,7 @@ public class SimulationTests {
         advanceTicks(tick-1);
         identifyVent(A, B, C);
         predicter.updateVentStatus(ventValues, directionBitState);
+        predicter.updateDisplayState();
         predicter.getTimeline().updateTick();
         ++currentTick;
     }
@@ -74,6 +78,7 @@ public class SimulationTests {
         identifyVent(A, B, C);
         predicter.updateVentStatus(ventValues, directionBitState);
         predicter.makeStatusState(change);
+        predicter.updateDisplayState();
         predicter.getTimeline().updateTick();
         ++currentTick;
     }
@@ -88,6 +93,7 @@ public class SimulationTests {
     private void doEarthquake(int tick) {
         advanceTicks(tick-1);
         predicter.markEarthquakeEvent();
+        predicter.updateDisplayState();
     }
     private void doReset() {
         predicter.reset();
@@ -216,9 +222,9 @@ public class SimulationTests {
         StatusState predictedState = predicter.getDisplayState();
         //Ensure freeze setting + stability clipping works properly
         Assert.assertEquals(predictedState.getVents()[0].getLowerBoundStart(), 60);
-        Assert.assertEquals(predictedState.getVents()[0].getLowerBoundEnd(), 60);
+        Assert.assertEquals(predictedState.getVents()[0].getLowerBoundEnd(), 62);
         Assert.assertEquals(predictedState.getVents()[0].getUpperBoundStart(), 60);
-        Assert.assertEquals(predictedState.getVents()[0].getUpperBoundEnd(), 60);
+        Assert.assertEquals(predictedState.getVents()[0].getUpperBoundEnd(), 62);
     }
 
     public void simulateAFreezeRangeNoStabilityUpdate() {
@@ -323,7 +329,7 @@ public class SimulationTests {
     }
 
     public void simulateMovementSkipNonFreezeRangeA() {
-        createPredicter(2, 0, 1);
+        createPredicter(2, 0, 2);
         StatusState predictedState = predicter.getDisplayState();
         doReset();
         doIdentifyVent(25, u, 48, u);
@@ -423,7 +429,7 @@ public class SimulationTests {
     }
 
     public void simulateA4159NotAppear() {
-        createPredicter(0, 0, 1);
+        createPredicter(0, 0, 2);
         doReset();
         doIdentifyVent(15, u, 65, u);
         doMovementUpdateByValue(20, u, 63, u);
@@ -481,6 +487,8 @@ public class SimulationTests {
 
     public void simulateOverwrittenADoubleVent() {
         createPredicter(6, 0, 1);
+        StatusState predictedState = predicter.getDisplayState();
+
         doMovementUpdateByValue(8, u, 84, u);
         doDirectionChange(9, 4);
         doMovementUpdateByValue(18, u, 83, u);
@@ -500,7 +508,6 @@ public class SimulationTests {
         doDirectionChange(141, 4);
         doSameTickMovementStabilityUpdate(148, u, 67, u, -5);
 
-        StatusState predictedState = predicter.getDisplayState();
         Assert.assertEquals(predictedState.getVents()[0].getLowerBoundStart(), 18);
         Assert.assertEquals(predictedState.getVents()[0].getLowerBoundEnd(), 18);
         Assert.assertEquals(predictedState.getVents()[0].getUpperBoundStart(), 18);
@@ -510,7 +517,7 @@ public class SimulationTests {
 
     public void simulateDoubleVentCorrectAClipped() {
         //proof we cannot rely on estimated moves!
-        createPredicter(6, 0, 1);
+        createPredicter(6, 0, 2);
         doReset();
         doIdentifyVent(7, u, 59, u);
         doMovementUpdateByValue(9, u, 60, u);
@@ -540,7 +547,7 @@ public class SimulationTests {
     }
 
     public void simulateDoubleVentTrim() {
-        createPredicter(1, 0, 1);
+        createPredicter(1, 0, 2);
         doReset();
         StatusState predictedState = predicter.getDisplayState();
         doIdentifyVent(2, 75, u, u);
@@ -589,7 +596,7 @@ public class SimulationTests {
     }
 
     public void simulateSameTickMoveDirectionChangeBug() {
-        createPredicter(1, 0, 1);
+        createPredicter(1, 0, 2);
         doReset();
         doIdentifyVent(14, u, 48, u);
         doMovementUpdateByValue(20, u, 47, u);
@@ -637,7 +644,7 @@ public class SimulationTests {
     }
 
     public void simulateIncorrectPostResetDoubleVentC() {
-        createPredicter(1, 0, 1);
+        createPredicter(1, 0, 2);
         doReset();
         StatusState predictedState = predicter.getDisplayState();
         doIdentifyVent(6, u, u, 30);
@@ -676,7 +683,7 @@ public class SimulationTests {
     }
 
     public void simulate2ndIncorrectPostResetDoubleVentC() {
-        createPredicter(1, 0, 1);
+        createPredicter(1, 0, 2);
         doReset();
         StatusState predictedState = predicter.getDisplayState();
         doIdentifyVent(2, u, u, 11);
@@ -766,6 +773,31 @@ public class SimulationTests {
         Assert.assertEquals(predictedState.getVents()[0].getLowerBoundEnd(), 38);
         Assert.assertEquals(predictedState.getVents()[0].getUpperBoundStart(), 38);
         Assert.assertEquals(predictedState.getVents()[0].getUpperBoundEnd(), 38);
+    }
+
+    public void simulateIncorrectEstimatedMoveFreezeClip() {
+        createPredicter(0, 0, 1);
+        doReset();
+        StatusState predictedState = predicter.getDisplayState();
+
+        doIdentifyVent(1, u, u, 56);
+        doIdentifyVent(14, u, 42, 56);
+        doMovementUpdateByValue(29, u, 41, 56);
+
+        //Value should not get freeze clipped here
+        Assert.assertFalse(predictedState.getVents()[0].isFreezeClipAccurate());
+
+        doDirectionChange(33, 2);
+        doMovementUpdateByValue(39, u, 42, 56);
+        doMovementUpdateByValue(49, u, 43, 56);
+        doMovementUpdateByValue(59, u, 44, 56);
+        doMovementUpdateByValue(69, u, 45, 56);
+        doMovementUpdateByValue(89, u, 46, 56);
+        doEarthquake(114);
+        doMovementUpdateByValue(279, u, 47, 56);
+
+        //Value should get freeze clipped here
+        Assert.assertTrue(predictedState.getVents()[0].isFreezeClipAccurate());
     }
 
 

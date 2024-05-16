@@ -200,7 +200,8 @@ public class UltimateVolcanicMinePlugin extends Plugin
 			}
 		}
 
-		if(updateStability(client.getVarbitValue(VARBIT_STABILITY))) {
+		int currentStability = client.getVarbitValue(VARBIT_STABILITY);
+		if(updateStability(currentStability)) {
 			if(config.ventStatusUpdateHistory()) {
 				Widget widget = client.getWidget(WidgetID.VOLCANIC_MINE_GROUP_ID, HUD_VENT_A_PERCENTAGE);
 				client.addChatMessage(ChatMessageType.GAMEMESSAGE, "CyanWarrior4: ", ventStatusPredicter.getVentStatusText(0, widget.getText()), null);
@@ -215,6 +216,11 @@ public class UltimateVolcanicMinePlugin extends Plugin
 			//Check if we have to fix vents now
 			if(stabilityTracker.getCurrentChange() < 0 && estimatedTimeRemaining > 595)
 				VM_notifier.notify(notifier, VMNotifier.NotificationEvents.VM_PRE_RESET_VENT_FIX, ventStatusPredicter.getCurrentTick());
+
+			//Check if we should have all 3 vents fixed (post-reset)
+			boolean isPostResetTime = (estimatedTimeRemaining <= (VentStatusTimeline.VM_GAME_RESET_TIME-15) && estimatedTimeRemaining > 305);
+			if(currentStability + (stabilityTracker.getCurrentChange() * 4) <= 0 && isPostResetTime)
+				VM_notifier.notify(notifier, VMNotifier.NotificationEvents.VM_POST_RESET_VENT_FIX, ventStatusPredicter.getCurrentTick());
 		}
 
 		//Ensure reset will not happen at the very start before the server sends the new game time
@@ -231,6 +237,16 @@ public class UltimateVolcanicMinePlugin extends Plugin
 
 		if (estimatedTimeRemaining <= eruptionTime) {
 			VM_notifier.notify(notifier, VMNotifier.NotificationEvents.VM_ERUPTION, currentTick);
+		}
+
+		ventStatusPredicter.updateDisplayState();
+		if(config.ventStatusPrediction()) {
+//			Widget widget = client.getWidget(WidgetID.VOLCANIC_MINE_GROUP_ID, HUD_VENT_A_PERCENTAGE);
+//			if (widget != null) widget.setText(ventStatusPredicter.getVentStatusText(0, widget.getText()));
+//			widget = client.getWidget(WidgetID.VOLCANIC_MINE_GROUP_ID, HUD_VENT_B_PERCENTAGE);
+//			if (widget != null) widget.setText(ventStatusPredicter.getVentStatusText(1, widget.getText()));
+//			widget = client.getWidget(WidgetID.VOLCANIC_MINE_GROUP_ID, HUD_VENT_C_PERCENTAGE);
+//			if (widget != null) widget.setText(ventStatusPredicter.getVentStatusText(2, widget.getText()));
 		}
 
 		ventStatusPredicter.getTimeline().updateTick();
@@ -318,7 +334,6 @@ public class UltimateVolcanicMinePlugin extends Plugin
 			else
 				widget.setText("Stability");
 		}
-
 
 		//Vent Status
 		if(config.ventStatusPrediction()) {
