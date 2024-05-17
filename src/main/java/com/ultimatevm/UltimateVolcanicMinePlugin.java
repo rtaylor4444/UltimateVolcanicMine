@@ -8,7 +8,8 @@ import net.runelite.api.*;
 import net.runelite.api.coords.LocalPoint;
 import net.runelite.api.events.*;
 import net.runelite.api.coords.WorldPoint;
-import net.runelite.api.widgets.WidgetID;
+import net.runelite.api.widgets.ComponentID;
+import net.runelite.api.widgets.InterfaceID;
 import net.runelite.client.Notifier;
 import net.runelite.client.config.ConfigManager;
 import net.runelite.client.eventbus.Subscribe;
@@ -203,11 +204,11 @@ public class UltimateVolcanicMinePlugin extends Plugin
 		int currentStability = client.getVarbitValue(VARBIT_STABILITY);
 		if(updateStability(currentStability)) {
 			if(config.ventStatusUpdateHistory()) {
-				Widget widget = client.getWidget(WidgetID.VOLCANIC_MINE_GROUP_ID, HUD_VENT_A_PERCENTAGE);
+				Widget widget = client.getWidget(ComponentID.VOLCANIC_MINE_VENT_A_PERCENTAGE+1);
 				client.addChatMessage(ChatMessageType.GAMEMESSAGE, "CyanWarrior4: ", ventStatusPredicter.getVentStatusText(0, widget.getText()), null);
-				widget = client.getWidget(WidgetID.VOLCANIC_MINE_GROUP_ID, HUD_VENT_B_PERCENTAGE);
+				widget = client.getWidget(ComponentID.VOLCANIC_MINE_VENT_B_PERCENTAGE+1);
 				client.addChatMessage(ChatMessageType.GAMEMESSAGE, "CyanWarrior4: ", ventStatusPredicter.getVentStatusText(1, widget.getText()), null);
-				widget = client.getWidget(WidgetID.VOLCANIC_MINE_GROUP_ID, HUD_VENT_C_PERCENTAGE);
+				widget = client.getWidget(ComponentID.VOLCANIC_MINE_VENT_C_PERCENTAGE+1);
 				client.addChatMessage(ChatMessageType.GAMEMESSAGE, "CyanWarrior4: ", ventStatusPredicter.getVentStatusText(2, widget.getText()), null);
 				client.addChatMessage(ChatMessageType.GAMEMESSAGE, "CyanWarrior4: ", "Stability Update: " + stabilityTracker.getCurrentChange(), null);
 				client.addChatMessage(ChatMessageType.GAMEMESSAGE, "CyanWarrior4: ", "Time: " + estimatedTimeRemaining, null);
@@ -323,11 +324,11 @@ public class UltimateVolcanicMinePlugin extends Plugin
 		}
 
 		//Stability Trackers
-		Widget widget = client.getWidget(WidgetID.VOLCANIC_MINE_GROUP_ID, HUD_STABILITY_COMPONENT);
+		Widget widget = client.getWidget(InterfaceID.VOLCANIC_MINE, HUD_STABILITY_COMPONENT);
 		if(config.stabilityUpdateHistoryCount() > 0 && widget != null)
 			widget.setText(widget.getText() + stabilityTracker.getStabilityText());
 
-		widget = client.getWidget(WidgetID.VOLCANIC_MINE_GROUP_ID, HUD_STABILITY_COMPONENT-1);
+		widget = client.getWidget(InterfaceID.VOLCANIC_MINE, HUD_STABILITY_COMPONENT-1);
 		if(widget != null) {
 			if (config.predictedStabilityChangeHistoryCount() > 0)
 				widget.setText("Stab." + futureStabilityTracker.getStabilityText());
@@ -337,11 +338,11 @@ public class UltimateVolcanicMinePlugin extends Plugin
 
 		//Vent Status
 		if(config.ventStatusPrediction()) {
-			widget = client.getWidget(WidgetID.VOLCANIC_MINE_GROUP_ID, HUD_VENT_A_PERCENTAGE);
+			widget = client.getWidget(ComponentID.VOLCANIC_MINE_VENT_A_PERCENTAGE+1);
 			if (widget != null) widget.setText(ventStatusPredicter.getVentStatusText(0, widget.getText()));
-			widget = client.getWidget(WidgetID.VOLCANIC_MINE_GROUP_ID, HUD_VENT_B_PERCENTAGE);
+			widget = client.getWidget(ComponentID.VOLCANIC_MINE_VENT_B_PERCENTAGE+1);
 			if (widget != null) widget.setText(ventStatusPredicter.getVentStatusText(1, widget.getText()));
-			widget = client.getWidget(WidgetID.VOLCANIC_MINE_GROUP_ID, HUD_VENT_C_PERCENTAGE);
+			widget = client.getWidget(ComponentID.VOLCANIC_MINE_VENT_C_PERCENTAGE+1);
 			if (widget != null) widget.setText(ventStatusPredicter.getVentStatusText(2, widget.getText()));
 		}
 	}
