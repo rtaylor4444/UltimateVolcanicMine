@@ -82,7 +82,7 @@ import net.runelite.client.ui.components.colorpicker.RuneliteColorPicker;
 import net.runelite.client.util.ColorUtil;
 
 @Slf4j
-@PluginDescriptor(name = "Volcanic Mine Recolor")
+@PluginDescriptor(name = "Volcanic Mine Recolor",enabledByDefault = false)
 public class VMRecolorPlugin extends Plugin
 {
 	@Inject
