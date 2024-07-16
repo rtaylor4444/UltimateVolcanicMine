@@ -449,7 +449,7 @@ public class ModelRecolorer
 		}
 		else
 		{
-			log.info("FaceColor has the wrong length.");
+			log.debug("FaceColor has the wrong length.");
 		}
 	}
 

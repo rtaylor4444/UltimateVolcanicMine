@@ -225,7 +225,6 @@ public class VMRecolorPlugin extends Plugin
 		if (config.syncColors() && COLOR_CONFIG_KEYS.contains(event.getKey()))
 		{
 			syncingColors = true;
-			log.info("Attmepting to sync color change: {}", event.getKey());
 			Color newColor = Color.WHITE;
 			switch (event.getKey())
 			{
@@ -268,7 +267,6 @@ public class VMRecolorPlugin extends Plugin
 			}
 			for (String key : COLOR_CONFIG_KEYS)
 			{
-				log.info("Syncing color change: {}", key);
 				configManager.setConfiguration("VMRecolor", key, newColor);
 			}
 			syncingColors = false;
