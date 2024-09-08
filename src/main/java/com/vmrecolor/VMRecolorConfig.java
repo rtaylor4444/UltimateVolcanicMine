@@ -67,34 +67,34 @@ public interface VMRecolorConfig extends Config
 	}
 
 	@ConfigSection(
-		name = "Global",
-		description = "Global color settings",
-		position = 0,
-		closedByDefault = false
+			name = "Global",
+			description = "Global color settings",
+			position = 0,
+			closedByDefault = false
 	)
 	String globalOpt = "globalOpt";
 
 	@ConfigSection(
-		name = "Options",
-		description = "All the options for coloring",
-		position = 1,
-		closedByDefault = false
+			name = "Options",
+			description = "All the options for coloring",
+			position = 1,
+			closedByDefault = false
 	)
 	String options = "options";
 
 	@ConfigSection(
-		name = "Custom colors",
-		description = "Global color settings",
-		position = 2,
-		closedByDefault = false
+			name = "Custom colors",
+			description = "Global color settings",
+			position = 2,
+			closedByDefault = false
 	)
 	String color = "color";
 
 	@ConfigItem(
-		keyName = "syncColors",
-		name = "Sync colors",
-		description = "Sync custom colors when changing -- takes effect on your next color change. Reopen settings to see synced colors.",
-		section = globalOpt
+			keyName = "syncColors",
+			name = "Sync colors",
+			description = "Sync custom colors when changing -- takes effect on your next color change. Reopen settings to see synced colors.",
+			section = globalOpt
 	)
 	default boolean syncColors()
 	{
@@ -102,10 +102,21 @@ public interface VMRecolorConfig extends Config
 	}
 
 	@ConfigItem(
-		keyName = "Boulder",
-		name = "Boulder",
-		description = "Recolor the boulder",
-		section = options
+			keyName = "ignoreThis",
+			name = "HD ground textures",
+			description = "",
+			section = globalOpt
+	)
+	default String ignore()
+	{
+		return "117 HD ground textures do not blend with the models in VM currently. \nIf you toggle Ground Textures setting off in that plugin it should alleviate the harsh edges.";
+	}
+
+	@ConfigItem(
+			keyName = "Boulder",
+			name = "Boulder",
+			description = "Recolor the boulder",
+			section = options
 	)
 	default BoulderTypes boulder()
 	{
@@ -113,10 +124,10 @@ public interface VMRecolorConfig extends Config
 	}
 
 	@ConfigItem(
-		keyName = "lavaBeast",
-		name = "Lava Beast",
-		description = "Recolor lava beast",
-		section = options
+			keyName = "lavaBeast",
+			name = "Lava Beast",
+			description = "Recolor lava beast",
+			section = options
 	)
 	default GlobalColor lavaBeast()
 	{
@@ -124,10 +135,10 @@ public interface VMRecolorConfig extends Config
 	}
 
 	@ConfigItem(
-		keyName = "lava",
-		name = "Lava",
-		description = "Removes all objects with visible lava",
-		section = options
+			keyName = "lava",
+			name = "Lava",
+			description = "Removes all objects with visible lava",
+			section = options
 	)
 	default LavaOptions lava()
 	{
@@ -136,14 +147,14 @@ public interface VMRecolorConfig extends Config
 
 	// Unsure. Think this needs to be in config per item as well.
 	@ConfigItem(
-		keyName = "Brightness",
-		name = "Brightness",
-		description = "The brightness percentage applied to lava facing visuals",
-		section = globalOpt
+			keyName = "Brightness",
+			name = "Brightness",
+			description = "The brightness percentage applied to lava facing visuals",
+			section = globalOpt
 	)
 	@Range(
-		max = 10000,
-		min = 1
+			max = 10000,
+			min = 1
 	)
 	default int brightness()
 	{
@@ -152,14 +163,14 @@ public interface VMRecolorConfig extends Config
 
 	// Still kind of necessary? Maybe enum to match chosen color, recolor to match lava
 	@ConfigItem(
-		keyName = "whiteBrightness",
-		name = "White brightness",
-		description = "Change the brightness of white colors (-1 hides it completely)",
-		section = globalOpt
+			keyName = "whiteBrightness",
+			name = "White brightness",
+			description = "Change the brightness of white colors (-1 hides it completely)",
+			section = globalOpt
 	)
 	@Range(
-		max = 127,
-		min = -1
+			max = 127,
+			min = -1
 	)
 	default int whiteBrightness()
 	{
@@ -167,10 +178,10 @@ public interface VMRecolorConfig extends Config
 	}
 
 	@ConfigItem(
-		keyName = "wall",
-		name = "Walls",
-		description = "Wall colors",
-		section = options
+			keyName = "wall",
+			name = "Walls",
+			description = "Wall colors",
+			section = options
 	)
 	default GlobalColor wall()
 	{
@@ -178,10 +189,10 @@ public interface VMRecolorConfig extends Config
 	}
 
 	@ConfigItem(
-		keyName = "lowerLevelFloor",
-		name = "Lower Floor",
-		description = "Lower level floor option",
-		section = options
+			keyName = "lowerLevelFloor",
+			name = "Lower Floor",
+			description = "Lower level floor option",
+			section = options
 	)
 	default GlobalColor lowerLevelFloor()
 	{
@@ -189,10 +200,10 @@ public interface VMRecolorConfig extends Config
 	}
 
 	@ConfigItem(
-		keyName = "upperLevelFloor",
-		name = "Upper Floor",
-		description = "Upper level floor option",
-		section = options
+			keyName = "upperLevelFloor",
+			name = "Upper Floor",
+			description = "Upper level floor option",
+			section = options
 	)
 	default GlobalColor upperLevelFloor()
 	{
@@ -200,10 +211,10 @@ public interface VMRecolorConfig extends Config
 	}
 
 	@ConfigItem(
-		keyName = "platform",
-		name = "Platforms",
-		description = "Platform option",
-		section = options
+			keyName = "platform",
+			name = "Platforms",
+			description = "Platform option",
+			section = options
 	)
 	default PlatformOptions platform()
 	{
@@ -211,10 +222,10 @@ public interface VMRecolorConfig extends Config
 	}
 
 	@ConfigItem(
-		keyName = "wallCustomColor",
-		name = "Walls",
-		description = "Walls color",
-		section = color
+			keyName = "wallCustomColor",
+			name = "Walls",
+			description = "Walls color",
+			section = color
 	)
 	default Color wallColor()
 	{
@@ -222,10 +233,10 @@ public interface VMRecolorConfig extends Config
 	}
 
 	@ConfigItem(
-		keyName = "lowerLevelFloorCustomColor",
-		name = "Lower Floor",
-		description = "Lower level floor color",
-		section = color
+			keyName = "lowerLevelFloorCustomColor",
+			name = "Lower Floor",
+			description = "Lower level floor color",
+			section = color
 	)
 	default Color lowerLevelFloorColor()
 	{
@@ -233,10 +244,10 @@ public interface VMRecolorConfig extends Config
 	}
 
 	@ConfigItem(
-		keyName = "upperLevelFloorCustomColor",
-		name = "Upper Floor",
-		description = "Upper level floor color",
-		section = color
+			keyName = "upperLevelFloorCustomColor",
+			name = "Upper Floor",
+			description = "Upper level floor color",
+			section = color
 	)
 	default Color upperLevelFloorColor()
 	{
@@ -244,10 +255,10 @@ public interface VMRecolorConfig extends Config
 	}
 
 	@ConfigItem(
-		keyName = "platformCustomColor",
-		name = "Platforms",
-		description = "Color for the platforms",
-		section = color
+			keyName = "platformCustomColor",
+			name = "Platforms",
+			description = "Color for the platforms",
+			section = color
 	)
 	default Color platformColor()
 	{
@@ -255,10 +266,10 @@ public interface VMRecolorConfig extends Config
 	}
 
 	@ConfigItem(
-		keyName = "BoulderCustomColor",
-		name = "Boulder",
-		description = "Color for the boulder",
-		section = color
+			keyName = "BoulderCustomColor",
+			name = "Boulder",
+			description = "Color for the boulder",
+			section = color
 	)
 	default Color boulderColor()
 	{
@@ -266,10 +277,10 @@ public interface VMRecolorConfig extends Config
 	}
 
 	@ConfigItem(
-		keyName = "lavaBeastCustomColor",
-		name = "Lava Beast",
-		description = "Color for the Lava Beast",
-		section = color
+			keyName = "lavaBeastCustomColor",
+			name = "Lava Beast",
+			description = "Color for the Lava Beast",
+			section = color
 	)
 	default Color lavaBeastColor()
 	{
@@ -277,10 +288,10 @@ public interface VMRecolorConfig extends Config
 	}
 
 	@ConfigItem(
-		keyName = "lavaColor",
-		name = "Lava",
-		description = "Color for the lava",
-		section = color
+			keyName = "lavaColor",
+			name = "Lava",
+			description = "Color for the lava",
+			section = color
 	)
 	default Color lavaColor()
 	{

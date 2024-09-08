@@ -2,7 +2,6 @@
 	BSD 2-Clause License
 
 	Copyright (c) 2024, denaelc
-	Copyright (c) 2024, DominickCobb-rs
 
 	Redistribution and use in source and binary forms, with or without
 	modification, are permitted provided that the following conditions are met:
@@ -52,6 +51,7 @@ import java.util.Map;
 import javax.inject.Inject;
 import lombok.extern.slf4j.Slf4j;
 import net.runelite.api.Model;
+import net.runelite.client.config.ConfigManager;
 
 @Slf4j
 public class ModelRecolorer
@@ -59,6 +59,9 @@ public class ModelRecolorer
 
 	@Inject
 	private VMRecolorConfig config;
+
+	@Inject
+	private ConfigManager configManager;
 
 	private Map<String, Map<Integer, int[][]>> originalColorData = new HashMap<>();
 	private Map<String, Map<Integer, int[][]>> recoloredColorData = new HashMap<>();
@@ -116,7 +119,6 @@ public class ModelRecolorer
 		}
 	}
 
-
 	// This is great and all but it's not super convenient for replacing individual IDs which is this plugin's need
 	// creates a second hashmap with the recolored values, based of the vanilla hashmap
 	public void recolorData()
@@ -155,7 +157,7 @@ public class ModelRecolorer
 			{
 				newColors[i] = newBoulderColorHsb(originalColors[i], config.boulderColor(), id, config.boulder());
 			}
-			else if (LOWER_LEVEL_FLOOR.contains(id) || GRAPHICS_OBJECTS.contains(id) || (config.lava()== VMRecolorConfig.LavaOptions.Hidden && (id==660 || id ==659))) // lava projectiles and splats
+			else if (LOWER_LEVEL_FLOOR.contains(id) || GRAPHICS_OBJECTS.contains(id) || (config.lava() == VMRecolorConfig.LavaOptions.Hidden && (id == 660 || id == 659))) // lava projectiles and splats
 			{
 				newColors[i] = newColorHsbEnumHandler(originalColors[i], config.lowerLevelFloorColor(), id, config.lowerLevelFloor());
 			}
@@ -185,9 +187,9 @@ public class ModelRecolorer
 
 	public int newBoulderColorHsb(int faceColor, Color newColor, int id, VMRecolorConfig.BoulderTypes boulderType)
 	{
-		if (faceColor == -1 || faceColor == 0)
+		if (faceColor <= 0)
 		{
-			return faceColor;
+			return faceColor; // Returning -2 for -1 faces removes a large portion of the boulder
 		}
 
 		switch (boulderType)
@@ -211,10 +213,12 @@ public class ModelRecolorer
 			}
 			// I like the way stars look but hate mining them
 			case Star:
-			// No good way to recolor each stage of the boulder. It would involve going through the arrays individually and creating entirely new palletes.
-			// If there's a way to edit rsmodels with their natural hsbs I would love to do this and just export as needed, but currently is not viable.
-			// When it breaks, it reveals the model of the next boulder but without the
-			// custom colors applied
+				// No good way to recolor each stage of the boulder. It would involve going through the arrays individually and creating entirely new palletes.
+				// If there's a way to edit rsmodels with their natural hsbs I would love to do this and just export as needed, but currently is not viable.
+				// When it breaks, it reveals the model of the next boulder but without the
+				// custom colors applied
+				// Would have to subscribe to animation changed event or something similar to that to
+				// recolor the animation appropriately. Very annoying
 			{
 				int hue = getHue(faceColor);
 				if (hue == YELLOW)
@@ -294,18 +298,18 @@ public class ModelRecolorer
 				}
 				if (id == 31039)
 				{
-					return -1;
+					return -2;
 				}
 				// Not even going to try dynamically finding them
 				if ((faceColor > 5900 && faceColor < 6000) || faceColor > 9000 || isWhite(faceColor))
 				{
-					return -1;
+					return -2;
 				}
 				return faceColor;
 			}
 
 			default:
-				return -1; //how
+				return 0; //how
 		}
 	}
 
@@ -359,7 +363,7 @@ public class ModelRecolorer
 		}
 		// Ignore lava beast projectiles, don't make anything on lava beasts invisible, and don't hide gas hole animations
 		if ((faceColor > 9000 || isWhite(faceColor))
-			&& !(id == 1403 || ((config.lava() == VMRecolorConfig.LavaOptions.Hidden) && id == LAVA_BEAST) || LOWER_LEVEL_INTERACTABLES.contains(id) || id == 1407))
+				&& !(id == 1403 || ((config.lava() == VMRecolorConfig.LavaOptions.Hidden) && id == LAVA_BEAST) || LOWER_LEVEL_INTERACTABLES.contains(id) || id == 1407))
 		{
 			return newLavaColorHsb(faceColor, id);
 		}
@@ -449,7 +453,7 @@ public class ModelRecolorer
 		}
 		else
 		{
-			log.debug("FaceColor has the wrong length.");
+			log.info("FaceColor has the wrong length.");
 		}
 	}
 
@@ -531,7 +535,6 @@ public class ModelRecolorer
 		int[] f1 = model.getFaceColors1();
 		int[] f2 = model.getFaceColors2();
 		int[] f3 = model.getFaceColors3();
-
 		if (f1 != null && f2 != null && f3 != null)
 		{
 			applyColor(model, recolor(f1, id), recolor(f2, id), recolor(f3, id));

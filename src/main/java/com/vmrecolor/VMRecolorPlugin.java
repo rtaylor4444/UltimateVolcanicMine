@@ -3,7 +3,6 @@
 	Copyright (c) 2018, Adam <Adam@sigterm.info>
 	Copyright (c) 2018, James Swindle <wilingua@gmail.com>
 	Copyright (c) 2024, denaelc
-	Copyright (c) 2024, DominickCobb-rs
 
 	Redistribution and use in source and binary forms, with or without
 	modification, are permitted provided that the following conditions are met:
@@ -45,22 +44,7 @@ import java.util.Set;
 import javax.inject.Inject;
 import javax.swing.SwingUtilities;
 import lombok.extern.slf4j.Slf4j;
-import net.runelite.api.Client;
-import net.runelite.api.GameObject;
-import net.runelite.api.GameState;
-import net.runelite.api.GraphicsObject;
-import net.runelite.api.GroundObject;
-import net.runelite.api.KeyCode;
-import net.runelite.api.MenuAction;
-import net.runelite.api.MenuEntry;
-import net.runelite.api.Model;
-import net.runelite.api.NPC;
-import net.runelite.api.Projectile;
-import net.runelite.api.Renderable;
-import net.runelite.api.Scene;
-import net.runelite.api.Tile;
-import net.runelite.api.TileObject;
-import net.runelite.api.WallObject;
+import net.runelite.api.*;
 import net.runelite.api.coords.WorldPoint;
 import net.runelite.api.events.GameObjectSpawned;
 import net.runelite.api.events.GraphicsObjectCreated;
@@ -82,9 +66,10 @@ import net.runelite.client.ui.components.colorpicker.RuneliteColorPicker;
 import net.runelite.client.util.ColorUtil;
 
 @Slf4j
-@PluginDescriptor(name = "Volcanic Mine Recolor",enabledByDefault = false)
+@PluginDescriptor(name = "VMRecolor", enabledByDefault = false)
 public class VMRecolorPlugin extends Plugin
 {
+	public static final String CONFIG_GROUP = "VMRecolor";
 	@Inject
 	private Client client;
 
@@ -112,8 +97,6 @@ public class VMRecolorPlugin extends Plugin
 	private final ArrayList<Integer> sceneIDs = new ArrayList<>();
 	private final Set<Integer> VMRegionIDs = ImmutableSet.of(15263, 15262, 15519, 15518, 15775, 15774);
 
-	int regionId;
-
 	private static final Set<String> COLOR_CONFIG_KEYS = ImmutableSet.of("BoulderCustomColor", "wallCustomColor", "lavaBeastCustomColor", "upperLevelFloorCustomColor", "lowerLevelFloorCustomColor", "platformCustomColor", "lavaColor");
 	public static final Set<Integer> THE_BOULDER = ImmutableSet.of(31034, 31035, 31036, 31037, 31038);
 	public static final Set<Integer> THE_BOULDER_NPCS = ImmutableSet.of(7807, 7808, 7809, 7810, 7811, 7812, 7813, 7814, 7815, 7816);
@@ -129,6 +112,10 @@ public class VMRecolorPlugin extends Plugin
 
 	public static final int LAVA_BEAST = 7817;
 	private boolean syncingColors = false;
+
+	private int regionId;
+	private boolean counting;
+	private int ticksSinceInVM;
 
 	@Override
 	protected void startUp() throws Exception
@@ -150,14 +137,7 @@ public class VMRecolorPlugin extends Plugin
 	{
 		clientThread.invokeLater(() -> {
 			clearAll();
-			resetSceneIDs();
 
-			//freeing the stored data.
-			recordedGameObjects.clear();
-			recordedGroundObjects.clear();
-			recordedNpcs.clear();
-			recordedProjectiles.clear();
-			recordedGraphicsObjects.clear();
 			synchronized (modelRecolorer)
 			{
 				modelRecolorer.cleanUp();
@@ -174,7 +154,7 @@ public class VMRecolorPlugin extends Plugin
 	@Subscribe
 	public void onMenuEntryAdded(MenuEntryAdded event)
 	{
-		if (!client.isKeyPressed(KeyCode.KC_SHIFT) || (event.getType() != MenuAction.EXAMINE_OBJECT.getId() && event.getMenuEntry().getType() != MenuAction.EXAMINE_NPC))
+		if (!inVMRegion() || !client.isKeyPressed(KeyCode.KC_SHIFT) || (event.getType() != MenuAction.EXAMINE_OBJECT.getId() && event.getMenuEntry().getType() != MenuAction.EXAMINE_NPC))
 		{
 			return;
 		}
@@ -195,24 +175,15 @@ public class VMRecolorPlugin extends Plugin
 
 
 		int idx = -1;
-		if (tileObject != null && (THE_BOULDER.contains(tileObject.getId())))
+		if (tileObject != null && (THE_BOULDER.contains(tileObject.getId()) || GAME_OBJECTS.contains(tileObject.getId())))
 		{
 			idx = createColorMenu(idx, event.getTarget(), tileObject.getId());
 		}
-		if (npc != null && (npc.getId() == LAVA_BEAST))
+		if (npc != null && (npc.getId() == LAVA_BEAST || THE_BOULDER_NPCS.contains(npc.getId())))
 		{
 			idx = createColorMenu(idx, event.getTarget(), npc.getId());
 		}
 
-	}
-
-	@Subscribe
-	public void onVarbitChanged(VarbitChanged event)
-	{
-		if (event.getVarbitId() == 5937 && event.getValue() == 0) // Looks like this is the varb for when someone is in VM?
-		{
-			clearAll();
-		}
 	}
 
 	@Subscribe
@@ -225,6 +196,7 @@ public class VMRecolorPlugin extends Plugin
 		if (config.syncColors() && COLOR_CONFIG_KEYS.contains(event.getKey()))
 		{
 			syncingColors = true;
+			log.info("Attmepting to sync color change: {}", event.getKey());
 			Color newColor = Color.WHITE;
 			switch (event.getKey())
 			{
@@ -267,6 +239,7 @@ public class VMRecolorPlugin extends Plugin
 			}
 			for (String key : COLOR_CONFIG_KEYS)
 			{
+				log.info("Syncing color change: {}", key);
 				configManager.setConfiguration("VMRecolor", key, newColor);
 			}
 			syncingColors = false;
@@ -308,7 +281,7 @@ public class VMRecolorPlugin extends Plugin
 					forceReload();
 				}
 				break;
-				// TODO: Figure out how to recolor walls without destroying everything
+				// TODO: Figure out how to recolor walls without forcing scene reload
 				// Don't think it can be done simply.
 				// Currently all methods of recoloring walls are unsuccessful because other methods apply colors to
 				//  *default* models. Because walls have two renderables and there's no way to identify the second renderable
@@ -349,6 +322,14 @@ public class VMRecolorPlugin extends Plugin
 	@Subscribe
 	public void onNpcSpawned(NpcSpawned event)
 	{
+		// Running clearAll on varbit changed is tricky because it
+		// crashes the client without waiting a tick after.
+		// The vm varbit changes before the player loads the environment outside VM
+		if(event.getNpc().getId()==7776 && recordedGameObjects.size()>0)
+		{
+			clientThread.invokeLater(this::clearAll);
+			return;
+		}
 		if (!inVMRegion())
 		{
 			return;
@@ -477,10 +458,7 @@ public class VMRecolorPlugin extends Plugin
 			log.debug("recolorProjectile returned null!");
 			return;
 		}
-		synchronized (modelRecolorer)
-		{
-			modelRecolorer.applyColors(graphicsObject.getId(), "GraphicsObject", model, config.lava() != LavaOptions.Default);
-		}
+		modelRecolorer.applyColors(graphicsObject.getId(), "GraphicsObject", model, config.lava() != LavaOptions.Default);
 	}
 
 	public void recolorProjectile(Projectile projectile)
@@ -491,10 +469,7 @@ public class VMRecolorPlugin extends Plugin
 			log.debug("recolorProjectile returned null!");
 			return;
 		}
-		synchronized (modelRecolorer)
-		{
-			modelRecolorer.applyColors(projectile.getId(), "Projectile", model, true);
-		}
+		modelRecolorer.applyColors(projectile.getId(), "Projectile", model, true);
 	}
 
 	private void forceReload()
@@ -600,17 +575,11 @@ public class VMRecolorPlugin extends Plugin
 		}
 		if (npc.getId() == LAVA_BEAST)
 		{
-			synchronized (modelRecolorer)
-			{
-				modelRecolorer.applyColors(npc.getId(), "NPC", npc.getModel(), config.lavaBeast() != GlobalColor.Default);
-			}
+			modelRecolorer.applyColors(npc.getId(), "NPC", npc.getModel(), config.lavaBeast() != GlobalColor.Default);
 		}
 		else
 		{
-			synchronized (modelRecolorer)
-			{
-				modelRecolorer.applyColors(npc.getId(), "NPC", npc.getModel(), config.boulder() != BoulderTypes.Default);
-			}
+			modelRecolorer.applyColors(npc.getId(), "NPC", npc.getModel(), config.boulder() != BoulderTypes.Default);
 		}
 		addToLists(npc.getModel());
 		npc.getModel().setSceneId(0);
@@ -640,7 +609,7 @@ public class VMRecolorPlugin extends Plugin
 				Model model = renderable.getModel();
 				if (model == null)
 				{
-					log.debug("verifyModel returned null!");
+					log.info("verifyModel returned null!");
 					return null;
 				}
 				return model;
@@ -649,14 +618,6 @@ public class VMRecolorPlugin extends Plugin
 			{
 				return null;
 			}
-		}
-	}
-
-	private void recolorAllGameObjects()
-	{
-		for (GameObject gameObject : recordedGameObjects)
-		{
-			recolorGameObject(gameObject);
 		}
 	}
 
@@ -716,6 +677,15 @@ public class VMRecolorPlugin extends Plugin
 
 			modelRecolorer.applyColors(g.getId(), "GraphicsObject", g.getModel(), false);
 		}
+
+		resetSceneIDs();
+
+		//freeing the stored data.
+		recordedGameObjects.clear();
+		recordedGroundObjects.clear();
+		recordedNpcs.clear();
+		recordedProjectiles.clear();
+		recordedGraphicsObjects.clear();
 	}
 
 	// recolors all GameObjects, GroundObjects, NPCs (including Hunllef) and Projectiles to their desired colors, if they are stored in the corresponding list.
@@ -774,6 +744,10 @@ public class VMRecolorPlugin extends Plugin
 		{
 			name = "walls";
 		}
+		if (LOWER_LEVEL_FLOOR.contains(id) || UPPER_LEVEL_FLOOR.contains(id))
+		{
+			name = "Stuff";
+		}
 		List<Color> colors = List.of(config.boulderColor(), config.wallColor(), config.lavaColor(), config.platformColor(), config.lowerLevelFloorColor(), config.upperLevelFloorColor(), config.lavaBeastColor());
 		//Dirty remove dupes
 		colors = new ArrayList<>(new HashSet<>(colors));
@@ -787,32 +761,31 @@ public class VMRecolorPlugin extends Plugin
 		}
 
 		MenuEntry parent = client.createMenuEntry(idx--)
-			.setOption("Recolor " + name)
-			.setTarget(target)
-			.setType(MenuAction.RUNELITE_SUBMENU);
+				.setOption("Recolor " + name)
+				.setTarget(target)
+				.setType(MenuAction.RUNELITE);
+		Menu submenu = parent.createSubMenu();
 
 		for (final Color c : colors)
 		{
-			client.createMenuEntry(idx--)
-				.setOption(ColorUtil.prependColorTag("Set color", c))
-				.setType(MenuAction.RUNELITE)
-				.setParent(parent)
-				.onClick(e -> updateConfig(id, c));
+			submenu.createMenuEntry(idx--)
+					.setOption(ColorUtil.prependColorTag("Set color", c))
+					.setType(MenuAction.RUNELITE)
+					.onClick(e -> updateConfig(id, c));
 		}
 
-		client.createMenuEntry(idx--)
-			.setOption("Pick color")
-			.setType(MenuAction.RUNELITE)
-			.setParent(parent)
-			.onClick(e -> SwingUtilities.invokeLater(() ->
-			{
-				RuneliteColorPicker colorPicker = colorPickerManager.create(SwingUtilities.windowForComponent((Applet) client),
-					getObjectCurrentColor(id), "Recolor", false);
-				colorPicker.setOnClose(c ->
-					clientThread.invokeLater(() ->
-						updateConfig(id, c)));
-				colorPicker.setVisible(true);
-			}));
+		submenu.createMenuEntry(idx--)
+				.setOption("Pick color")
+				.setType(MenuAction.RUNELITE)
+				.onClick(e -> SwingUtilities.invokeLater(() ->
+				{
+					RuneliteColorPicker colorPicker = colorPickerManager.create(SwingUtilities.windowForComponent((Applet) client),
+							getObjectCurrentColor(id), "Recolor", true);
+					colorPicker.setOnClose(c ->
+							clientThread.invokeLater(() ->
+									updateConfig(id, c)));
+					colorPicker.setVisible(true);
+				}));
 
 		return idx;
 	}
