@@ -1,6 +1,5 @@
 package com.ultimatevm;
 
-import net.runelite.client.config.Config;
 import net.runelite.client.config.*;
 
 @ConfigGroup("ultimate-volcanic-mine")
@@ -84,6 +83,17 @@ public interface UltimateVolcanicMineConfig extends Config
 			section = display
 	)
 	default boolean ventStatusPrediction()
+	{
+		return true;
+	}
+	@ConfigItem(
+			position = 6,
+			keyName = "showPlayersMiningCount",
+			name = "Show players mining count",
+			description = "Display the number of players mining the boulder",
+			section = display
+	)
+	default boolean showPlayerCount()
 	{
 		return true;
 	}
