@@ -6,22 +6,21 @@ import lombok.extern.slf4j.Slf4j;
 
 import net.runelite.api.*;
 import net.runelite.api.coords.LocalPoint;
-import net.runelite.api.events.*;
 import net.runelite.api.coords.WorldPoint;
+import net.runelite.api.events.*;
 import net.runelite.api.widgets.ComponentID;
 import net.runelite.api.widgets.InterfaceID;
 import net.runelite.client.Notifier;
 import net.runelite.client.config.ConfigManager;
 import net.runelite.client.eventbus.Subscribe;
 import net.runelite.client.events.ConfigChanged;
+import net.runelite.client.game.ItemManager;
 import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDescriptor;
 import net.runelite.client.ui.overlay.infobox.InfoBoxManager;
 import net.runelite.client.ui.overlay.OverlayManager;
 import net.runelite.client.util.Text;
 import net.runelite.api.widgets.Widget;
-
-import java.util.HashMap;
 
 @Slf4j
 @PluginDescriptor(
@@ -46,6 +45,19 @@ public class UltimateVolcanicMinePlugin extends Plugin
 
 	@Inject
 	private TimedObjectOverlay timedObjectOverlay;
+
+	@Inject
+	private ItemManager itemManager;
+
+	public ItemManager getItemManager()
+	{
+		return itemManager;
+	}
+
+	public UltimateVolcanicMineConfig getConfig()
+	{
+		return config;
+	}
 
 	//Constants
 	private static final int PROC_VOLCANIC_MINE_SET_OTHERINFO = 2022;
@@ -85,11 +97,12 @@ public class UltimateVolcanicMinePlugin extends Plugin
 	private TimedObjectTracker timedObjectTracker = new TimedObjectTracker();
 	private CapCounterInfoBox capInfoBox;
     private PickaxeProtector pickaxeProtector;
-	private HashMap<Integer, Tile> rockTiles = new HashMap<>();
 	private int vmGameState = VM_GAME_STATE_NONE;
 	private int timeRemainingFromServer, estimatedTimeRemaining;
 	private int eruptionTime, ventWarningTime;
 	private int maxPlayerCount, ticksSinceLobbyStart;
+	private PlayerCountInfoBox playerCountBox;
+
 
 
 	@Provides
@@ -254,6 +267,21 @@ public class UltimateVolcanicMinePlugin extends Plugin
 		if(ventStatusPredicter.getCurrentTick() > VentStatusTimeline.VM_GAME_RESET_TIME) {
 			ventStatusPredicter.reset();
 		}
+
+		if (config.showPlayerCount() && hasGameStarted())
+			{
+			if (playerCountBox == null)
+			{
+				playerCountBox = new PlayerCountInfoBox(this, client);
+				infoBoxManager.addInfoBox(playerCountBox);
+			}
+			playerCountBox.updatePlayerCount();
+			}
+		else if (playerCountBox != null)
+		{
+			infoBoxManager.removeInfoBox(playerCountBox);
+			playerCountBox = null;
+		}
 	}
 
 	@Subscribe
@@ -362,6 +390,11 @@ public class UltimateVolcanicMinePlugin extends Plugin
         pickaxeProtector.resetStartingPickaxes();
 		estimatedTimeRemaining = timeRemainingFromServer = 0;
 		ticksSinceLobbyStart = maxPlayerCount = 0;
+		if (playerCountBox != null)
+		{
+			infoBoxManager.removeInfoBox(playerCountBox);
+			playerCountBox = null;
+		}
 	}
 	private boolean hasGameStarted() {
 		if(vmGameState >= VM_GAME_STATE_IN_GAME) return true;
@@ -442,6 +475,7 @@ public class UltimateVolcanicMinePlugin extends Plugin
 		}
 
 	}
+
 	private boolean isInVM()
 	{
 		Player player = client.getLocalPlayer();
