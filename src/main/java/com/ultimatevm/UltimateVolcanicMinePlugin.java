@@ -22,6 +22,13 @@ import net.runelite.client.ui.overlay.OverlayManager;
 import net.runelite.client.util.Text;
 import net.runelite.api.widgets.Widget;
 
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Locale;
+import java.util.Set;
+
 @Slf4j
 @PluginDescriptor(
 	name = "Ultimate Volcanic Mine"
@@ -88,6 +95,13 @@ public class UltimateVolcanicMinePlugin extends Plugin
 	private static final int GAME_OBJ_ROCK = 31045;
 	private static final int VM_EXIT_TIME = 50;
 	private static final int VM_LOBBY_TIME = 50;
+	private static final int VM_TOTAL_GAME_TICKS = 1000;
+	private static final int VM_TOTAL_GAME_SECONDS = 600;
+	private static final int BLOW_UP_SIMULATION_END_SECONDS = 570;
+	private static final int CHAT_TIMELINE_CHUNK_SIZE = 220;
+	private static final int SIMULATION_CUTOFF_SECONDS = 300;
+	private static final int TICKS_PER_STABILITY_UPDATE = 25;
+	private static final int STABILITY_SIMULATION_OFFSET_TICKS = 24;
 
 	private static final float SECONDS_TO_TICKS = 1.666f;
 
@@ -99,6 +113,8 @@ public class UltimateVolcanicMinePlugin extends Plugin
 	private CapCounter capCounter = new CapCounter();
 	private TimedObjectTracker timedObjectTracker = new TimedObjectTracker();
 	private CapCounterInfoBox capInfoBox;
+	private BlowUpChanceInfoBox blowUpChanceInfoBox;
+    private boolean blowUpChanceInfoBoxShown;
     private PickaxeProtector pickaxeProtector;
 	private int vmGameState = VM_GAME_STATE_NONE;
 	private int timeRemainingFromServer, estimatedTimeRemaining;
@@ -106,6 +122,19 @@ public class UltimateVolcanicMinePlugin extends Plugin
 	private int maxPlayerCount, ticksSinceLobbyStart;
 	private PlayerCountInfoBox playerCountBox;
 
+	private static final class VentResolution
+	{
+		private final Integer resolvedValue;
+		private final String source;
+		private final String reason;
+
+		private VentResolution(Integer resolvedValue, String source, String reason)
+		{
+			this.resolvedValue = resolvedValue;
+			this.source = source;
+			this.reason = reason;
+		}
+	}
 
 
 	@Provides
@@ -126,6 +155,15 @@ public class UltimateVolcanicMinePlugin extends Plugin
 		infoBoxManager.removeInfoBox(capInfoBox);
 		if(config.capCounter() && capCounter.getTimesCapped() >= 1) infoBoxManager.addInfoBox(capInfoBox);
 
+		if (!config.showBlowUpChance())
+		{
+			removeBlowUpChanceInfoBox();
+		}
+		else if (blowUpChanceInfoBox != null && blowUpChanceInfoBox.hasValue())
+		{
+			showBlowUpChanceInfoBox();
+		}
+
 		overlayManager.remove(timedObjectOverlay);
 		if(config.rockTimer() || config.platformTimer()) overlayManager.add(timedObjectOverlay);
 
@@ -140,19 +178,26 @@ public class UltimateVolcanicMinePlugin extends Plugin
 		stabilityTracker.setDisplayCount(config.stabilityUpdateHistoryCount());
 		futureStabilityTracker.setDisplayCount(config.predictedStabilityChangeHistoryCount());
 		capInfoBox = new CapCounterInfoBox(capCounter, this);
+		blowUpChanceInfoBox = new BlowUpChanceInfoBox(this);
+		blowUpChanceInfoBoxShown = false;
 		timedObjectOverlay.setRockTracker(timedObjectTracker);
 		overlayManager.add(timedObjectOverlay);
 		if(config.showBoulderHealth()) overlayManager.add(boulderHealthOverlay);
 		eruptionTime = (int) (config.eruptionWarningTime() * SECONDS_TO_TICKS);
 		ventWarningTime = (int) (config.ventWarningTime() * SECONDS_TO_TICKS);
+		log.info("UVM Debug | Startup | showBoulderHealth={}", config.showBoulderHealth());
 	}
 
 	@Override
 	protected void shutDown() throws Exception
 	{
+		log.info("UVM Debug | Shutdown | trackedLocation={}, trackedHp={}",
+			boulderHealthOverlay.getBoulderLocation(),
+			boulderHealthOverlay.getCurrentHealth());
 		overlayManager.remove(timedObjectOverlay);
 		overlayManager.remove(boulderHealthOverlay);
 		infoBoxManager.removeInfoBox(capInfoBox);
+		removeBlowUpChanceInfoBox();
 		boulderHealthOverlay.resetTracking();
 	}
 
@@ -177,6 +222,7 @@ public class UltimateVolcanicMinePlugin extends Plugin
 			vmGameState = VM_GAME_STATE_NONE;
 			StabilityUpdateInfo.resetPlayers();
 			infoBoxManager.removeInfoBox(capInfoBox);
+			clearBlowUpChance();
 			resetGameVariables();
 			return;
 		}
@@ -206,10 +252,13 @@ public class UltimateVolcanicMinePlugin extends Plugin
 		StabilityUpdateInfo.setNumPlayers(client.getVarbitValue(VARBIT_PLAYER_COUNT));
 		timedObjectTracker.updateRockTimers();
 
-		updateVentStatus(client.getVarbitValue(VARBIT_VENT_STATUS_A),
-				client.getVarbitValue(VARBIT_VENT_STATUS_B),
-				client.getVarbitValue(VARBIT_VENT_STATUS_C),
-				client.getVarbitValue(VARBIT_CHAMBER_STATUS));
+		int ventStatusA = client.getVarbitValue(VARBIT_VENT_STATUS_A);
+		int ventStatusB = client.getVarbitValue(VARBIT_VENT_STATUS_B);
+		int ventStatusC = client.getVarbitValue(VARBIT_VENT_STATUS_C);
+		int chamberStatus = client.getVarbitValue(VARBIT_CHAMBER_STATUS);
+		log.info("UVM Debug | Tick | ventA varbit={} timeRemainingTicks={}", ventStatusA, estimatedTimeRemaining);
+
+		updateVentStatus(ventStatusA, ventStatusB, ventStatusC, chamberStatus);
 		//Update our predicted stability change on the same exact tick the vent status changes
 		if(ventStatusPredicter.isMovementUpdateTick()) {
 			//Check if we have to fix vents in the future
@@ -226,7 +275,18 @@ public class UltimateVolcanicMinePlugin extends Plugin
 		}
 
 		int currentStability = client.getVarbitValue(VARBIT_STABILITY);
+		int simulationTime = toSimulationTimeSeconds(estimatedTimeRemaining);
+		if (simulationTime >= BLOW_UP_SIMULATION_END_SECONDS)
+		{
+			clearBlowUpChance();
+		}
+		if (shouldRunSimulationThisTick(simulationTime))
+		{
+			runAndLogSimulationOnStabilityUpdate(currentStability, chamberStatus, simulationTime);
+		}
+
 		if(updateStability(currentStability)) {
+
 			if(config.ventStatusUpdateHistory()) {
 				Widget widget = client.getWidget(ComponentID.VOLCANIC_MINE_VENT_A_PERCENTAGE+1);
 				client.addChatMessage(ChatMessageType.GAMEMESSAGE, "CyanWarrior4: ", ventStatusPredicter.getVentStatusText(0, widget.getText()), null);
@@ -329,6 +389,540 @@ public class UltimateVolcanicMinePlugin extends Plugin
 		}
 		return false;
 	}
+
+	private void runAndLogSimulationOnStabilityUpdate(int currentStability, int chamberStatus, int simulationTime)
+	{
+		int ventA = client.getVarbitValue(VARBIT_VENT_STATUS_A);
+		int ventB = client.getVarbitValue(VARBIT_VENT_STATUS_B);
+		int ventC = client.getVarbitValue(VARBIT_VENT_STATUS_C);
+		VentStatus[] predictedVents = ventStatusPredicter.getDisplayState().getVents();
+
+		VentResolution resolvedA = resolveVentValue(ventA, predictedVents[0]);
+		VentResolution resolvedB = resolveVentValue(ventB, predictedVents[1]);
+		VentResolution resolvedC = resolveVentValue(ventC, predictedVents[2]);
+
+		log.info("UVM Sim Gate | tick={}, timeRemainingTicks={}, time={}s, stability={}, chamberStatus={}, scheduleHit={}, scheduleRule=remaining%{}=={}, A={}, B={}, C={}",
+			ventStatusPredicter.getCurrentTick(),
+			estimatedTimeRemaining,
+			simulationTime,
+			currentStability,
+			chamberStatus,
+			true,
+			TICKS_PER_STABILITY_UPDATE,
+			STABILITY_SIMULATION_OFFSET_TICKS,
+			formatVentResolution("A", ventA, predictedVents[0], resolvedA),
+			formatVentResolution("B", ventB, predictedVents[1], resolvedB),
+			formatVentResolution("C", ventC, predictedVents[2], resolvedC));
+
+		if (!areAllVentsKnown(resolvedA, resolvedB, resolvedC))
+		{
+			runAndLogUnknownVentSimulation(
+				currentStability,
+				simulationTime,
+				chamberStatus,
+				new int[]{ventA, ventB, ventC},
+				predictedVents,
+				new VentResolution[]{resolvedA, resolvedB, resolvedC});
+			return;
+		}
+
+		Simulator.SimulationResult result = Simulator.simulate(
+			resolvedA.resolvedValue,
+			resolvedB.resolvedValue,
+			resolvedC.resolvedValue,
+			chamberStatus,
+			currentStability,
+			simulationTime);
+		double blowUpChancePercent = result.willDie ? 100.0 : 0.0;
+		setBlowUpChance(blowUpChancePercent);
+		printBlowUpTimelineToChat(blowUpChancePercent, toRangePoints(result.stabilityOverTime));
+
+		log.info("UVM Sim | time={}s, A={}({}), B={}({}), C={}({}), stability={}, chamberStatus={} -> points={}, willDie={}, timeline={}",
+			simulationTime,
+			resolvedA.resolvedValue,
+			resolvedA.source,
+			resolvedB.resolvedValue,
+			resolvedB.source,
+			resolvedC.resolvedValue,
+			resolvedC.source,
+			currentStability,
+			chamberStatus,
+			result.stabilityOverTime.size(),
+			result.willDie,
+			formatStabilityTimeline(result.stabilityOverTime));
+	}
+
+	private void runAndLogUnknownVentSimulation(
+		int currentStability,
+		int simulationTime,
+		int chamberStatus,
+		int[] rawVents,
+		VentStatus[] predictedVents,
+		VentResolution[] resolutions)
+	{
+		List<Integer> unknownIndices = new ArrayList<>();
+		List<List<Integer>> candidateValuesByUnknown = new ArrayList<>();
+		int[] knownValues = new int[3];
+
+		for (int i = 0; i < resolutions.length; i++)
+		{
+			if (resolutions[i].resolvedValue == null)
+			{
+				unknownIndices.add(i);
+				candidateValuesByUnknown.add(resolvePossibleVentValues(rawVents[i], predictedVents[i]));
+				continue;
+			}
+			knownValues[i] = resolutions[i].resolvedValue;
+		}
+
+		int knownCount = 3 - unknownIndices.size();
+		if (knownCount < 1)
+		{
+			log.info("UVM Sim Skip | reason=need at least 1 known vent, knownCount={}", knownCount);
+			clearBlowUpChance();
+			return;
+		}
+
+		for (int i = 0; i < unknownIndices.size(); i++)
+		{
+			if (candidateValuesByUnknown.get(i).isEmpty())
+			{
+				log.info("UVM Sim Skip | reason=unknown vent has no possible values, unknownVent={}", ventName(unknownIndices.get(i)));
+				clearBlowUpChance();
+				return;
+			}
+		}
+
+		List<Simulator.VentUnknownInput> unknownInputs = new ArrayList<>();
+		for (int i = 0; i < unknownIndices.size(); i++)
+		{
+			unknownInputs.add(new Simulator.VentUnknownInput(
+				unknownIndices.get(i),
+				candidateValuesByUnknown.get(i)));
+		}
+
+		Simulator.MultiVentSweepResult sweep = Simulator.simulateUnknownVents(
+			knownValues,
+			unknownInputs,
+			chamberStatus,
+			currentStability,
+			simulationTime);
+		setBlowUpChance(sweep.blowUpChancePercent);
+		printBlowUpTimelineToChat(sweep.blowUpChancePercent, sweep.stabilityRangeOverTime);
+
+		log.info(
+			"UVM Sim Sweep Summary | time={}s, knownCount={}, unknowns={}, combinations={}, blowUpChance={}%, rangeTimeline={}",
+			simulationTime,
+			knownCount,
+			formatUnknownVentCandidates(unknownIndices, candidateValuesByUnknown),
+			sweep.scenarios.size(),
+			formatPercentage(sweep.blowUpChancePercent),
+			formatStabilityRangeTimeline(sweep.stabilityRangeOverTime));
+	}
+
+	private boolean shouldRunSimulationThisTick(int simulationTime)
+	{
+		if (estimatedTimeRemaining < 0)
+		{
+			return false;
+		}
+
+		if (simulationTime >= BLOW_UP_SIMULATION_END_SECONDS)
+		{
+			return false;
+		}
+
+		return estimatedTimeRemaining % TICKS_PER_STABILITY_UPDATE == STABILITY_SIMULATION_OFFSET_TICKS;
+	}
+
+	private boolean areAllVentsKnown(VentResolution ventA, VentResolution ventB, VentResolution ventC)
+	{
+		return ventA.resolvedValue != null
+			&& ventB.resolvedValue != null
+			&& ventC.resolvedValue != null;
+	}
+
+	private VentResolution resolveVentValue(int rawVarbitValue, VentStatus predictedVent)
+	{
+		if (rawVarbitValue != VentStatus.STARTING_VENT_VALUE)
+		{
+			return new VentResolution(rawVarbitValue, "varbit", "identified by server");
+		}
+
+		if (predictedVent == null)
+		{
+			return new VentResolution(null, "prediction", "missing prediction object");
+		}
+
+		if (predictedVent.isIdentified())
+		{
+			return new VentResolution(predictedVent.getActualValue(), "prediction", "identified in display state");
+		}
+
+		if (!predictedVent.isRangeDefined())
+		{
+			return new VentResolution(null, "prediction", "range undefined");
+		}
+
+		if (!predictedVent.isTwoSeperateValues())
+		{
+			if (predictedVent.isLowerBoundSingleValue())
+			{
+				return new VentResolution(predictedVent.getLowerBoundStart(), "prediction", "single-value range");
+			}
+
+			return new VentResolution(null, "prediction", "range has multiple values");
+		}
+
+		if (predictedVent.isLowerBoundSingleValue() && predictedVent.isUpperBoundSingleValue())
+		{
+			int lower = predictedVent.getLowerBoundStart();
+			int upper = predictedVent.getUpperBoundStart();
+			if (lower == upper)
+			{
+				return new VentResolution(lower, "prediction", "merged single-value ranges");
+			}
+		}
+
+		return new VentResolution(null, "prediction", "range ambiguous");
+	}
+
+	private String formatVentResolution(String ventName, int rawVarbitValue, VentStatus predictedVent, VentResolution resolution)
+	{
+		return ventName
+			+ "{raw=" + rawVarbitValue
+			+ ",pred=" + formatVentPrediction(predictedVent)
+			+ ",resolved=" + (resolution.resolvedValue == null ? "unknown" : resolution.resolvedValue)
+			+ ",source=" + resolution.source
+			+ ",reason=" + resolution.reason
+			+ "}";
+	}
+
+	private String formatVentPrediction(VentStatus vent)
+	{
+		if (vent == null)
+		{
+			return "null";
+		}
+
+		if (vent.isIdentified())
+		{
+			return "id=" + vent.getActualValue();
+		}
+
+		if (!vent.isRangeDefined())
+		{
+			return "range=undefined";
+		}
+
+		String lower = "[" + vent.getLowerBoundStart() + "-" + vent.getLowerBoundEnd() + "]";
+		String upper = "[" + vent.getUpperBoundStart() + "-" + vent.getUpperBoundEnd() + "]";
+		return vent.isTwoSeperateValues() ? (lower + "|" + upper) : lower;
+	}
+
+	private int toSimulationTimeSeconds(int remainingTicks)
+	{
+		int clampedRemainingTicks = Math.max(0, Math.min(VM_TOTAL_GAME_TICKS, remainingTicks));
+		int elapsedTicks = VM_TOTAL_GAME_TICKS - clampedRemainingTicks;
+		int elapsedSeconds = Math.round(elapsedTicks / SECONDS_TO_TICKS);
+		return Math.max(0, elapsedSeconds);
+	}
+
+	private String formatStabilityTimeline(java.util.List<Simulator.StabilityPoint> points)
+	{
+		if (points == null || points.isEmpty())
+		{
+			return "none";
+		}
+
+		StringBuilder timeline = new StringBuilder();
+		for (Simulator.StabilityPoint point : points)
+		{
+			if (timeline.length() > 0)
+			{
+				timeline.append(", ");
+			}
+
+			timeline.append(point.time)
+				.append(':')
+				.append(point.stability);
+		}
+
+		return timeline.toString();
+	}
+
+	private String formatStabilityRangeTimeline(List<Simulator.StabilityRangePoint> points)
+	{
+		if (points == null || points.isEmpty())
+		{
+			return "none";
+		}
+
+		StringBuilder timeline = new StringBuilder();
+		for (Simulator.StabilityRangePoint point : points)
+		{
+			if (timeline.length() > 0)
+			{
+				timeline.append(", ");
+			}
+
+			timeline.append(point.time)
+				.append(":[")
+				.append(point.minStability)
+				.append(",")
+				.append(point.maxStability)
+				.append(']');
+		}
+
+		return timeline.toString();
+	}
+
+	private String formatStabilityRangeTimelineForCountdownChat(List<Simulator.StabilityRangePoint> points)
+	{
+		if (points == null || points.isEmpty())
+		{
+			return "none";
+		}
+
+		StringBuilder timeline = new StringBuilder();
+		for (Simulator.StabilityRangePoint point : points)
+		{
+			if (timeline.length() > 0)
+			{
+				timeline.append(", ");
+			}
+
+			timeline.append(formatCountdownFromElapsedSeconds(point.time))
+				.append(":[")
+				.append(point.minStability)
+				.append(",")
+				.append(point.maxStability)
+				.append(']');
+		}
+
+		return timeline.toString();
+	}
+
+	private String formatCountdownFromElapsedSeconds(int elapsedSeconds)
+	{
+		int clampedElapsed = Math.max(0, Math.min(VM_TOTAL_GAME_SECONDS, elapsedSeconds));
+		int countdownSeconds = VM_TOTAL_GAME_SECONDS - clampedElapsed;
+		int minutes = countdownSeconds / 60;
+		int seconds = countdownSeconds % 60;
+		return String.format(Locale.US, "%d:%02d", minutes, seconds);
+	}
+
+	private void printBlowUpTimelineToChat(double blowUpChancePercent, List<Simulator.StabilityRangePoint> points)
+	{
+		if (points == null || points.isEmpty())
+		{
+			return;
+		}
+
+		String timeline = formatStabilityRangeTimelineForCountdownChat(points);
+		String prefix = "Blow-up " + formatPercentage(blowUpChancePercent) + "% | ";
+
+		if (prefix.length() + timeline.length() <= CHAT_TIMELINE_CHUNK_SIZE)
+		{
+			client.addChatMessage(ChatMessageType.GAMEMESSAGE, "UVM", prefix + timeline, null);
+			return;
+		}
+
+		client.addChatMessage(ChatMessageType.GAMEMESSAGE, "UVM", prefix, null);
+		for (String chunk : splitTimelineForChat(timeline, CHAT_TIMELINE_CHUNK_SIZE))
+		{
+			client.addChatMessage(ChatMessageType.GAMEMESSAGE, "UVM", chunk, null);
+		}
+	}
+
+	private List<Simulator.StabilityRangePoint> toRangePoints(List<Simulator.StabilityPoint> points)
+	{
+		List<Simulator.StabilityRangePoint> ranges = new ArrayList<>();
+		if (points == null || points.isEmpty())
+		{
+			return ranges;
+		}
+
+		for (Simulator.StabilityPoint point : points)
+		{
+			ranges.add(new Simulator.StabilityRangePoint(point.time, point.stability, point.stability));
+		}
+
+		return ranges;
+	}
+
+	private List<String> splitTimelineForChat(String timeline, int maxChunkLength)
+	{
+		List<String> chunks = new ArrayList<>();
+		if (timeline == null || timeline.isEmpty())
+		{
+			return chunks;
+		}
+
+		String[] segments = timeline.split(", ");
+		StringBuilder current = new StringBuilder();
+		for (String segment : segments)
+		{
+			if (current.length() == 0)
+			{
+				current.append(segment);
+				continue;
+			}
+
+			if (current.length() + 2 + segment.length() > maxChunkLength)
+			{
+				chunks.add(current.toString());
+				current.setLength(0);
+				current.append(segment);
+			}
+			else
+			{
+				current.append(", ").append(segment);
+			}
+		}
+
+		if (current.length() > 0)
+		{
+			chunks.add(current.toString());
+		}
+
+		return chunks;
+	}
+
+	private List<Integer> resolvePossibleVentValues(int rawVarbitValue, VentStatus predictedVent)
+	{
+		if (rawVarbitValue != VentStatus.STARTING_VENT_VALUE)
+		{
+			return Collections.singletonList(rawVarbitValue);
+		}
+
+		if (predictedVent == null)
+		{
+			return Collections.emptyList();
+		}
+
+		if (predictedVent.isIdentified())
+		{
+			return Collections.singletonList(predictedVent.getActualValue());
+		}
+
+		if (!predictedVent.isRangeDefined())
+		{
+			return Collections.emptyList();
+		}
+
+		Set<Integer> possible = new LinkedHashSet<>();
+		addRangeToSet(possible, predictedVent.getLowerBoundStart(), predictedVent.getLowerBoundEnd());
+		if (predictedVent.isTwoSeperateValues())
+		{
+			addRangeToSet(possible, predictedVent.getUpperBoundStart(), predictedVent.getUpperBoundEnd());
+		}
+
+		List<Integer> values = new ArrayList<>(possible);
+		Collections.sort(values);
+		return values;
+	}
+
+	private void addRangeToSet(Set<Integer> target, int start, int end)
+	{
+		int min = Math.max(VentStatus.MIN_VENT_VALUE, Math.min(start, end));
+		int max = Math.min(VentStatus.MAX_VENT_VALUE, Math.max(start, end));
+		for (int value = min; value <= max; value++)
+		{
+			target.add(value);
+		}
+	}
+
+	private char ventName(int index)
+	{
+		switch (index)
+		{
+			case 0:
+				return 'A';
+			case 1:
+				return 'B';
+			case 2:
+				return 'C';
+			default:
+				return '?';
+		}
+	}
+
+	private String formatPercentage(double value)
+	{
+		return String.format(Locale.US, "%.2f", value);
+	}
+
+	private String formatUnknownVentCandidates(List<Integer> unknownIndices, List<List<Integer>> candidateValuesByUnknown)
+	{
+		if (unknownIndices == null || candidateValuesByUnknown == null || unknownIndices.isEmpty())
+		{
+			return "none";
+		}
+
+		StringBuilder builder = new StringBuilder();
+		for (int i = 0; i < unknownIndices.size() && i < candidateValuesByUnknown.size(); i++)
+		{
+			if (builder.length() > 0)
+			{
+				builder.append(", ");
+			}
+
+			builder.append(ventName(unknownIndices.get(i)))
+				.append('=')
+				.append(candidateValuesByUnknown.get(i));
+		}
+
+		return builder.toString();
+	}
+
+	private void setBlowUpChance(double chance)
+	{
+		if (blowUpChanceInfoBox == null)
+		{
+			return;
+		}
+
+		blowUpChanceInfoBox.setBlowUpChancePercent(chance);
+		if (config.showBlowUpChance())
+		{
+			showBlowUpChanceInfoBox();
+		}
+	}
+
+	private void clearBlowUpChance()
+	{
+		if (blowUpChanceInfoBox == null)
+		{
+			return;
+		}
+
+		blowUpChanceInfoBox.clear();
+		removeBlowUpChanceInfoBox();
+	}
+
+	private void showBlowUpChanceInfoBox()
+	{
+		if (blowUpChanceInfoBoxShown)
+		{
+			return;
+		}
+
+		infoBoxManager.addInfoBox(blowUpChanceInfoBox);
+		blowUpChanceInfoBoxShown = true;
+	}
+
+	private void removeBlowUpChanceInfoBox()
+	{
+		if (!blowUpChanceInfoBoxShown)
+		{
+			return;
+		}
+
+		infoBoxManager.removeInfoBox(blowUpChanceInfoBox);
+		blowUpChanceInfoBoxShown = false;
+	}
+
 	public void updateVentStatus(int ventA, int ventB, int ventC, int chamberStatus) {
 		ventStatusPredicter.updateVentStatus(new int[]{ventA, ventB, ventC}, chamberStatus);
 	}
@@ -402,8 +996,15 @@ public class UltimateVolcanicMinePlugin extends Plugin
 	}
 
 	private void resetGameVariables() {
+		if (boulderHealthOverlay.getBoulderLocation() != null || boulderHealthOverlay.getCurrentHealth() > 0)
+		{
+			log.info("UVM Debug | Reset game variables | trackedLocationBefore={}, trackedHpBefore={}",
+				boulderHealthOverlay.getBoulderLocation(),
+				boulderHealthOverlay.getCurrentHealth());
+		}
 		VM_notifier.reset();
 		capCounter.initialize();
+		clearBlowUpChance();
 		timedObjectTracker.clearRocks();
 		boulderHealthOverlay.resetTracking();
         pickaxeProtector.resetStartingPickaxes();

@@ -35,10 +35,21 @@ public interface UltimateVolcanicMineConfig extends Config
 		return true;
 	}
 	@ConfigItem(
+			position = 2,
+			keyName = "showBlowUpChance",
+			name = "Show Blow-Up Chance",
+			description = "Displays an infobox with the current simulated blow-up chance",
+			section = display
+	)
+	default boolean showBlowUpChance()
+	{
+		return true;
+	}
+	@ConfigItem(
 			keyName = "stabilityUpdateHistoryCount",
 			name = "Stability Update History",
 			description = "The number of stability updates to track",
-			position = 2,
+			position = 3,
 			section = display
 	)
 	@Range(
@@ -53,7 +64,7 @@ public interface UltimateVolcanicMineConfig extends Config
 			keyName = "predictedStabilityChangeHistoryCount",
 			name = "Predicted Stability Change History",
 			description = "The number of predicted stability changes to track",
-			position = 3,
+			position = 4,
 			section = display
 	)
 	@Range(
@@ -65,7 +76,7 @@ public interface UltimateVolcanicMineConfig extends Config
 		return 1;
 	}
 	@ConfigItem(
-			position = 4,
+			position = 5,
 			keyName = "ventStatusUpdateHistory",
 			name = "Vent Status Update History",
 			description = "Sends a chat message with the vent status for each stability update",
@@ -76,7 +87,7 @@ public interface UltimateVolcanicMineConfig extends Config
 		return false;
 	}
 	@ConfigItem(
-			position = 5,
+			position = 6,
 			keyName = "ventStatusPrediction",
 			name = "Vent Status Prediction",
 			description = "Displays estimates for missing vents",
