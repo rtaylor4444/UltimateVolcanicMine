@@ -466,7 +466,7 @@ public interface UltimateVolcanicMineConfig extends Config
 			name = "Solo",
 			description = "Solo-specific helpers",
 			position = 6,
-			closedByDefault = false
+			closedByDefault = true
 	)
 	String solo = "solo";
 	@ConfigItem(
