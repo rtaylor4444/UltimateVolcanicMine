@@ -102,6 +102,7 @@ public class UltimateVolcanicMinePlugin extends Plugin
 	private int eruptionTime, ventWarningTime;
 	private int maxPlayerCount, ticksSinceLobbyStart;
 	private PlayerCountInfoBox playerCountBox;
+	private VentStatusOverlayOverride ventStatusOverlayOverride;
 
 
 
@@ -131,6 +132,13 @@ public class UltimateVolcanicMinePlugin extends Plugin
 	protected void startUp() throws Exception {
 		VM_notifier = new VMNotifier(config);
         pickaxeProtector = new PickaxeProtector(client);
+		ventStatusOverlayOverride = new VentStatusOverlayOverride(
+			client,
+			ventStatusPredicter,
+			VARBIT_VENT_STATUS_A,
+			VARBIT_VENT_STATUS_B,
+			VARBIT_VENT_STATUS_C
+		);
 		stabilityTracker.setDisplayCount(config.stabilityUpdateHistoryCount());
 		futureStabilityTracker.setDisplayCount(config.predictedStabilityChangeHistoryCount());
 		capInfoBox = new CapCounterInfoBox(capCounter, this);
@@ -143,6 +151,7 @@ public class UltimateVolcanicMinePlugin extends Plugin
 	@Override
 	protected void shutDown() throws Exception
 	{
+		ventStatusOverlayOverride = null;
 		overlayManager.remove(timedObjectOverlay);
 		infoBoxManager.removeInfoBox(capInfoBox);
 	}
@@ -320,6 +329,12 @@ public class UltimateVolcanicMinePlugin extends Plugin
 	public void onVarbitChanged(VarbitChanged event) {
 		if(!isInVM()) return;
 
+		if(config.ventStatusPrediction()
+			&& ventStatusOverlayOverride != null
+			&& ventStatusOverlayOverride.isVentStatusVarbit(event.getVarbitId())) {
+			ventStatusOverlayOverride.overrideVentStatusWidgetsFromVarbits();
+		}
+
 		//Set our starting player count
 		if(event.getVarbitId() == VARBIT_PLAYER_COUNT) {
 			maxPlayerCount = Math.max(maxPlayerCount, client.getVarbitValue(VARBIT_PLAYER_COUNT));
@@ -366,12 +381,10 @@ public class UltimateVolcanicMinePlugin extends Plugin
 
 		//Vent Status
 		if(config.ventStatusPrediction()) {
-			widget = client.getWidget(ComponentID.VOLCANIC_MINE_VENT_A_PERCENTAGE+1);
-			if (widget != null) widget.setText(ventStatusPredicter.getVentStatusText(0, widget.getText()));
-			widget = client.getWidget(ComponentID.VOLCANIC_MINE_VENT_B_PERCENTAGE+1);
-			if (widget != null) widget.setText(ventStatusPredicter.getVentStatusText(1, widget.getText()));
-			widget = client.getWidget(ComponentID.VOLCANIC_MINE_VENT_C_PERCENTAGE+1);
-			if (widget != null) widget.setText(ventStatusPredicter.getVentStatusText(2, widget.getText()));
+			if (ventStatusOverlayOverride != null)
+			{
+				ventStatusOverlayOverride.overrideVentStatusWidgetsFromVarbits();
+			}
 		}
 	}
 
