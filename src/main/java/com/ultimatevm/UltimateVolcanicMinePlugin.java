@@ -11,6 +11,7 @@ import net.runelite.api.events.*;
 import net.runelite.api.widgets.ComponentID;
 import net.runelite.api.widgets.InterfaceID;
 import net.runelite.client.Notifier;
+import net.runelite.client.callback.ClientThread;
 import net.runelite.client.config.ConfigManager;
 import net.runelite.client.eventbus.Subscribe;
 import net.runelite.client.events.ConfigChanged;
@@ -33,6 +34,9 @@ public class UltimateVolcanicMinePlugin extends Plugin
 
 	@Inject
 	private Notifier notifier;
+
+	@Inject
+	private ClientThread clientThread;
 
 	@Inject
 	private UltimateVolcanicMineConfig config;
@@ -126,6 +130,19 @@ public class UltimateVolcanicMinePlugin extends Plugin
 
 		overlayManager.remove(timedObjectOverlay);
 		if(config.rockTimer() || config.platformTimer()) overlayManager.add(timedObjectOverlay);
+
+		if (ventStatusOverlayOverride != null)
+		{
+			clientThread.invokeLater(() ->
+			{
+				if (config.ventStatusPrediction())
+				{
+					ventStatusOverlayOverride.overrideVentStatusWidgetsFromVarbits();
+				}
+				ventStatusOverlayOverride.updateChamberStatusWidgetColors(config.chamberStatusPredictionColors());
+				return true;
+			});
+		}
 	}
 
 	@Override
@@ -263,6 +280,10 @@ public class UltimateVolcanicMinePlugin extends Plugin
 		}
 
 		ventStatusPredicter.updateDisplayState();
+		if (ventStatusOverlayOverride != null)
+		{
+			ventStatusOverlayOverride.updateChamberStatusWidgetColors(config.chamberStatusPredictionColors());
+		}
 		if(config.ventStatusPrediction()) {
 //			Widget widget = client.getWidget(WidgetID.VOLCANIC_MINE_GROUP_ID, HUD_VENT_A_PERCENTAGE);
 //			if (widget != null) widget.setText(ventStatusPredicter.getVentStatusText(0, widget.getText()));
@@ -329,10 +350,14 @@ public class UltimateVolcanicMinePlugin extends Plugin
 	public void onVarbitChanged(VarbitChanged event) {
 		if(!isInVM()) return;
 
-		if(config.ventStatusPrediction()
-			&& ventStatusOverlayOverride != null
-			&& ventStatusOverlayOverride.isVentStatusVarbit(event.getVarbitId())) {
-			ventStatusOverlayOverride.overrideVentStatusWidgetsFromVarbits();
+		if(ventStatusOverlayOverride != null
+			&& (ventStatusOverlayOverride.isVentStatusVarbit(event.getVarbitId())
+			|| event.getVarbitId() == VARBIT_CHAMBER_STATUS)) {
+			if (config.ventStatusPrediction())
+			{
+				ventStatusOverlayOverride.overrideVentStatusWidgetsFromVarbits();
+			}
+			ventStatusOverlayOverride.updateChamberStatusWidgetColors(config.chamberStatusPredictionColors());
 		}
 
 		//Set our starting player count
@@ -380,11 +405,13 @@ public class UltimateVolcanicMinePlugin extends Plugin
 		}
 
 		//Vent Status
-		if(config.ventStatusPrediction()) {
-			if (ventStatusOverlayOverride != null)
+		if (ventStatusOverlayOverride != null)
+		{
+			if(config.ventStatusPrediction())
 			{
 				ventStatusOverlayOverride.overrideVentStatusWidgetsFromVarbits();
 			}
+			ventStatusOverlayOverride.updateChamberStatusWidgetColors(config.chamberStatusPredictionColors());
 		}
 	}
 

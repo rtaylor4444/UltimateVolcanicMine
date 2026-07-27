@@ -97,6 +97,17 @@ public interface UltimateVolcanicMineConfig extends Config
 	{
 		return true;
 	}
+	@ConfigItem(
+			position = 7,
+			keyName = "chamberStatusPredictionColors",
+			name = "Chamber status prediction colors",
+			description = "Color chamber blocked or unblocked labels by whether the vent status is correct, wrong, or unknown",
+			section = display
+	)
+	default boolean chamberStatusPredictionColors()
+	{
+		return false;
+	}
 
 	@ConfigSection(
 			name = "Timing",
