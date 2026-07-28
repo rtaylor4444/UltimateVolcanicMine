@@ -11,6 +11,7 @@ import net.runelite.api.events.*;
 import net.runelite.api.widgets.ComponentID;
 import net.runelite.api.widgets.InterfaceID;
 import net.runelite.client.Notifier;
+import net.runelite.client.callback.ClientThread;
 import net.runelite.client.config.ConfigManager;
 import net.runelite.client.eventbus.Subscribe;
 import net.runelite.client.events.ConfigChanged;
@@ -33,6 +34,9 @@ public class UltimateVolcanicMinePlugin extends Plugin
 
 	@Inject
 	private Notifier notifier;
+
+	@Inject
+	private ClientThread clientThread;
 
 	@Inject
 	private UltimateVolcanicMineConfig config;
@@ -105,6 +109,7 @@ public class UltimateVolcanicMinePlugin extends Plugin
 	private int eruptionTime, ventWarningTime;
 	private int maxPlayerCount, ticksSinceLobbyStart;
 	private PlayerCountInfoBox playerCountBox;
+	private VentStatusOverlayOverride ventStatusOverlayOverride;
 
 
 
@@ -131,12 +136,32 @@ public class UltimateVolcanicMinePlugin extends Plugin
 
 		overlayManager.remove(boulderHealthOverlay);
 		if(config.showBoulderHealth()) overlayManager.add(boulderHealthOverlay);
+
+		if (ventStatusOverlayOverride != null)
+		{
+			clientThread.invokeLater(() ->
+			{
+				if (config.ventStatusPrediction())
+				{
+					ventStatusOverlayOverride.overrideVentStatusWidgetsFromVarbits();
+				}
+				ventStatusOverlayOverride.updateChamberStatusWidgetColors(config.chamberStatusPredictionColors());
+				return true;
+			});
+		}
 	}
 
 	@Override
 	protected void startUp() throws Exception {
 		VM_notifier = new VMNotifier(config);
         pickaxeProtector = new PickaxeProtector(client);
+		ventStatusOverlayOverride = new VentStatusOverlayOverride(
+			client,
+			ventStatusPredicter,
+			VARBIT_VENT_STATUS_A,
+			VARBIT_VENT_STATUS_B,
+			VARBIT_VENT_STATUS_C
+		);
 		stabilityTracker.setDisplayCount(config.stabilityUpdateHistoryCount());
 		futureStabilityTracker.setDisplayCount(config.predictedStabilityChangeHistoryCount());
 		capInfoBox = new CapCounterInfoBox(capCounter, this);
@@ -150,6 +175,7 @@ public class UltimateVolcanicMinePlugin extends Plugin
 	@Override
 	protected void shutDown() throws Exception
 	{
+		ventStatusOverlayOverride = null;
 		overlayManager.remove(timedObjectOverlay);
 		overlayManager.remove(boulderHealthOverlay);
 		infoBoxManager.removeInfoBox(capInfoBox);
@@ -265,6 +291,10 @@ public class UltimateVolcanicMinePlugin extends Plugin
 		}
 
 		ventStatusPredicter.updateDisplayState();
+		if (ventStatusOverlayOverride != null)
+		{
+			ventStatusOverlayOverride.updateChamberStatusWidgetColors(config.chamberStatusPredictionColors());
+		}
 		if(config.ventStatusPrediction()) {
 //			Widget widget = client.getWidget(WidgetID.VOLCANIC_MINE_GROUP_ID, HUD_VENT_A_PERCENTAGE);
 //			if (widget != null) widget.setText(ventStatusPredicter.getVentStatusText(0, widget.getText()));
@@ -338,6 +368,16 @@ public class UltimateVolcanicMinePlugin extends Plugin
 	public void onVarbitChanged(VarbitChanged event) {
 		if(!isInVM()) return;
 
+		if(ventStatusOverlayOverride != null
+			&& (ventStatusOverlayOverride.isVentStatusVarbit(event.getVarbitId())
+			|| event.getVarbitId() == VARBIT_CHAMBER_STATUS)) {
+			if (config.ventStatusPrediction())
+			{
+				ventStatusOverlayOverride.overrideVentStatusWidgetsFromVarbits();
+			}
+			ventStatusOverlayOverride.updateChamberStatusWidgetColors(config.chamberStatusPredictionColors());
+		}
+
 		//Set our starting player count
 		if(event.getVarbitId() == VARBIT_PLAYER_COUNT) {
 			maxPlayerCount = Math.max(maxPlayerCount, client.getVarbitValue(VARBIT_PLAYER_COUNT));
@@ -383,13 +423,13 @@ public class UltimateVolcanicMinePlugin extends Plugin
 		}
 
 		//Vent Status
-		if(config.ventStatusPrediction()) {
-			widget = client.getWidget(ComponentID.VOLCANIC_MINE_VENT_A_PERCENTAGE+1);
-			if (widget != null) widget.setText(ventStatusPredicter.getVentStatusText(0, widget.getText()));
-			widget = client.getWidget(ComponentID.VOLCANIC_MINE_VENT_B_PERCENTAGE+1);
-			if (widget != null) widget.setText(ventStatusPredicter.getVentStatusText(1, widget.getText()));
-			widget = client.getWidget(ComponentID.VOLCANIC_MINE_VENT_C_PERCENTAGE+1);
-			if (widget != null) widget.setText(ventStatusPredicter.getVentStatusText(2, widget.getText()));
+		if (ventStatusOverlayOverride != null)
+		{
+			if(config.ventStatusPrediction())
+			{
+				ventStatusOverlayOverride.overrideVentStatusWidgetsFromVarbits();
+			}
+			ventStatusOverlayOverride.updateChamberStatusWidgetColors(config.chamberStatusPredictionColors());
 		}
 	}
 
