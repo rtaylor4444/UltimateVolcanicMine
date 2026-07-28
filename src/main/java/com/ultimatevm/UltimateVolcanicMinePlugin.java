@@ -63,6 +63,9 @@ public class UltimateVolcanicMinePlugin extends Plugin
 		return config;
 	}
 
+	@Inject
+	private BoulderHealthOverlay boulderHealthOverlay;
+
 	//Constants
 	private static final int PROC_VOLCANIC_MINE_SET_OTHERINFO = 2022;
 	private static final int VARBIT_STABILITY = 5938;
@@ -131,6 +134,9 @@ public class UltimateVolcanicMinePlugin extends Plugin
 		overlayManager.remove(timedObjectOverlay);
 		if(config.rockTimer() || config.platformTimer()) overlayManager.add(timedObjectOverlay);
 
+		overlayManager.remove(boulderHealthOverlay);
+		if(config.showBoulderHealth()) overlayManager.add(boulderHealthOverlay);
+
 		if (ventStatusOverlayOverride != null)
 		{
 			clientThread.invokeLater(() ->
@@ -161,6 +167,7 @@ public class UltimateVolcanicMinePlugin extends Plugin
 		capInfoBox = new CapCounterInfoBox(capCounter, this);
 		timedObjectOverlay.setRockTracker(timedObjectTracker);
 		overlayManager.add(timedObjectOverlay);
+		if(config.showBoulderHealth()) overlayManager.add(boulderHealthOverlay);
 		eruptionTime = (int) (config.eruptionWarningTime() * SECONDS_TO_TICKS);
 		ventWarningTime = (int) (config.ventWarningTime() * SECONDS_TO_TICKS);
 	}
@@ -170,7 +177,9 @@ public class UltimateVolcanicMinePlugin extends Plugin
 	{
 		ventStatusOverlayOverride = null;
 		overlayManager.remove(timedObjectOverlay);
+		overlayManager.remove(boulderHealthOverlay);
 		infoBoxManager.removeInfoBox(capInfoBox);
+		boulderHealthOverlay.resetTracking();
 	}
 
 	@Subscribe
@@ -215,6 +224,8 @@ public class UltimateVolcanicMinePlugin extends Plugin
 				VM_notifier.notify(notifier, VMNotifier.NotificationEvents.VM_PICKAXE_DESPAWN, ticksSinceLobbyStart);
 		}
 		++ticksSinceLobbyStart;
+
+		boulderHealthOverlay.onGameTick();
 
         if(!hasGameStarted()) return;
 
@@ -327,6 +338,13 @@ public class UltimateVolcanicMinePlugin extends Plugin
 		if (chatMsg.equals("A sudden earthquake strikes the cavern!")) {
 			ventStatusPredicter.markEarthquakeEvent();
 		}
+
+		boolean inVm = isInVM();
+		boolean successfulMine = isSuccessfulBoulderMineMessage(chatMsg);
+
+		if (inVm && successfulMine && boulderHealthOverlay.getBoulderLocation() != null) {
+			boulderHealthOverlay.decrementHealth();
+		}
 	}
 	//Helper functions for testing
 	public boolean updateStability(int newStability) {
@@ -427,6 +445,7 @@ public class UltimateVolcanicMinePlugin extends Plugin
 		VM_notifier.reset();
 		capCounter.initialize();
 		timedObjectTracker.clearRocks();
+		boulderHealthOverlay.resetTracking();
         pickaxeProtector.resetStartingPickaxes();
 		estimatedTimeRemaining = timeRemainingFromServer = 0;
 		ticksSinceLobbyStart = maxPlayerCount = 0;
@@ -449,11 +468,6 @@ public class UltimateVolcanicMinePlugin extends Plugin
 	// Constants
 	private static final int PLATFORM_STAGE_3_ID = 31000;
 	private static final int PLATFORM_STAGE_1_ID = 30998;
-	private static final int BOULDER_BREAK_STAGE_1_ID = 7807;
-	private static final int BOULDER_BREAK_STAGE_2_ID = 7809;
-	private static final int BOULDER_BREAK_STAGE_3_ID = 7811;
-	private static final int BOULDER_BREAK_STAGE_4_ID = 7813;
-	private static final int BOULDER_BREAK_STAGE_5_ID = 7815;
 	@Subscribe
 	public void onGameObjectSpawned(GameObjectSpawned event) {
 		if (!isInVM()) return;
@@ -495,25 +509,48 @@ public class UltimateVolcanicMinePlugin extends Plugin
 			return;
 		}
 
-		// If warning is enabled and npc spawned is a boulder that is breaking
 		NPC npc = npcSpawned.getNpc();
-		switch(npc.getId())
+		boulderHealthOverlay.onNpcSpawned(npc);
+
+		if (boulderHealthOverlay.isFinalBreakStageNpcId(npc.getId()))
 		{
-			case BOULDER_BREAK_STAGE_5_ID:
-				if(config.boulderFinishPickaxeLeaveProtection() && pickaxeProtector.isPickaxeDropped())
-					VM_notifier.notify(notifier, VMNotifier.NotificationEvents.VM_PICKAXE_BOULDER_COMPLETE, ventStatusPredicter.getCurrentTick());
-				//If we finish the game early dont trigger player leave event
-				VM_notifier.removeEvent(VMNotifier.NotificationEvents.VM_PLAYER_LEAVE);
-			case BOULDER_BREAK_STAGE_1_ID:
-			case BOULDER_BREAK_STAGE_2_ID:
-			case BOULDER_BREAK_STAGE_3_ID:
-			case BOULDER_BREAK_STAGE_4_ID:
-				if (config.showBoulderWarning()) notifier.notify(BOULDER_WARNING_MESSAGE);
-				break;
-			default:
-				break;
+			if (config.boulderFinishPickaxeLeaveProtection() && pickaxeProtector.isPickaxeDropped())
+			{
+				VM_notifier.notify(notifier, VMNotifier.NotificationEvents.VM_PICKAXE_BOULDER_COMPLETE, ventStatusPredicter.getCurrentTick());
+			}
+			VM_notifier.removeEvent(VMNotifier.NotificationEvents.VM_PLAYER_LEAVE);
 		}
 
+		if (boulderHealthOverlay.handleBreakStageNpc(npc.getId()) && config.showBoulderWarning())
+		{
+			notifier.notify(BOULDER_WARNING_MESSAGE);
+		}
+
+	}
+
+	@Subscribe
+	public void onNpcChanged(NpcChanged npcChanged)
+	{
+		if (!isInVM())
+		{
+			return;
+		}
+
+		NPC npc = npcChanged.getNpc();
+		boulderHealthOverlay.onNpcChanged(npc);
+	}
+
+	private boolean isSuccessfulBoulderMineMessage(String chatMsg)
+	{
+		String msg = chatMsg.toLowerCase();
+		if (msg.contains("alongside"))
+		{
+			return false;
+		}
+
+		boolean chippedBoulder = msg.contains("chip off") && (msg.contains("boulder"));
+		boolean minedFragment = msg.contains("mine out") && msg.contains("fragment");
+		return chippedBoulder || minedFragment;
 	}
 
 	private boolean isInVM()

@@ -472,4 +472,23 @@ public interface UltimateVolcanicMineConfig extends Config
 	{
 		return 1;
 	}
+
+	@ConfigSection(
+			name = "Solo",
+			description = "Solo-specific helpers",
+			position = 6,
+			closedByDefault = true
+	)
+	String solo = "solo";
+	@ConfigItem(
+			keyName = "showBoulderHealth",
+			name = "Show Boulder Health",
+			description = "Displays current boulder HP above the boulder",
+			position = 0,
+			section = solo
+	)
+	default boolean showBoulderHealth()
+	{
+		return false;
+	}
 }
