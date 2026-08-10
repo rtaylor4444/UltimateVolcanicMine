@@ -85,9 +85,6 @@ public class UltimateVolcanicMinePlugin extends Plugin
 	private static final int VARBIT_POINTS = 5934;
 	private static final int VARBIT_PLAYER_COUNT = 5937;
 	private static final int HUD_STABILITY_COMPONENT = 11;
-	private static final int HUD_VENT_A_PERCENTAGE = 17;
-	private static final int HUD_VENT_B_PERCENTAGE = 18;
-	private static final int HUD_VENT_C_PERCENTAGE = 19;
 	private static final int VM_GAME_STATE_NONE = 0;
 	private static final int VM_GAME_STATE_IN_LOBBY = 1;
 	private static final int VM_GAME_STATE_IN_GAME = 2;
@@ -103,9 +100,6 @@ public class UltimateVolcanicMinePlugin extends Plugin
 	private static final int VM_TOTAL_GAME_SECONDS = 600;
 	private static final int BLOW_UP_SIMULATION_END_SECONDS = 570;
 	private static final int CHAT_TIMELINE_CHUNK_SIZE = 220;
-	private static final int SIMULATION_CUTOFF_SECONDS = 300;
-	private static final int TICKS_PER_STABILITY_UPDATE = 25;
-	private static final int STABILITY_SIMULATION_OFFSET_TICKS = 24;
 
 	private static final float SECONDS_TO_TICKS = 1.666f;
 
@@ -118,8 +112,11 @@ public class UltimateVolcanicMinePlugin extends Plugin
 	private TimedObjectTracker timedObjectTracker = new TimedObjectTracker();
 	private CapCounterInfoBox capInfoBox;
 	private BlowUpChanceInfoBox blowUpChanceInfoBox;
-    private boolean blowUpChanceInfoBoxShown;
-    private PickaxeProtector pickaxeProtector;
+	private boolean blowUpChanceInfoBoxShown;
+	private PickaxeProtector pickaxeProtector;
+	private boolean noVentLookupFlagged;
+	private boolean predictionsResetAtFiveMinutes;
+	private int lastKnownChamberStatus = -1;
 	private int vmGameState = VM_GAME_STATE_NONE;
 	private int timeRemainingFromServer, estimatedTimeRemaining;
 	private int eruptionTime, ventWarningTime;
@@ -210,15 +207,11 @@ public class UltimateVolcanicMinePlugin extends Plugin
 		if(config.showBoulderHealth()) overlayManager.add(boulderHealthOverlay);
 		eruptionTime = (int) (config.eruptionWarningTime() * SECONDS_TO_TICKS);
 		ventWarningTime = (int) (config.ventWarningTime() * SECONDS_TO_TICKS);
-		log.info("UVM Debug | Startup | showBoulderHealth={}", config.showBoulderHealth());
 	}
 
 	@Override
 	protected void shutDown() throws Exception
 	{
-		log.info("UVM Debug | Shutdown | trackedLocation={}, trackedHp={}",
-			boulderHealthOverlay.getBoulderLocation(),
-			boulderHealthOverlay.getCurrentHealth());
 		ventStatusOverlayOverride = null;
 		overlayManager.remove(timedObjectOverlay);
 		overlayManager.remove(boulderHealthOverlay);
@@ -282,7 +275,15 @@ public class UltimateVolcanicMinePlugin extends Plugin
 		int ventStatusB = client.getVarbitValue(VARBIT_VENT_STATUS_B);
 		int ventStatusC = client.getVarbitValue(VARBIT_VENT_STATUS_C);
 		int chamberStatus = client.getVarbitValue(VARBIT_CHAMBER_STATUS);
-		log.info("UVM Debug | Tick | ventA varbit={} timeRemainingTicks={}", ventStatusA, estimatedTimeRemaining);
+		int currentStability = client.getVarbitValue(VARBIT_STABILITY);
+		if (shouldResetPredictionsAtFiveMinuteMark())
+		{
+			resetPredictionsForFiveMinuteMark(currentStability, chamberStatus);
+		}
+		if (lastKnownChamberStatus == -1)
+		{
+			lastKnownChamberStatus = chamberStatus;
+		}
 
 		updateVentStatus(ventStatusA, ventStatusB, ventStatusC, chamberStatus);
 		//Update our predicted stability change on the same exact tick the vent status changes
@@ -300,18 +301,21 @@ public class UltimateVolcanicMinePlugin extends Plugin
 			}
 		}
 
-		int currentStability = client.getVarbitValue(VARBIT_STABILITY);
 		int simulationTime = toSimulationTimeSeconds(estimatedTimeRemaining);
 		if (simulationTime >= BLOW_UP_SIMULATION_END_SECONDS)
 		{
 			clearBlowUpChance();
 		}
-		if (shouldRunSimulationThisTick(simulationTime))
-		{
-			runAndLogSimulationOnStabilityUpdate(currentStability, chamberStatus, simulationTime);
-		}
 
 		if(updateStability(currentStability)) {
+			if (stabilityTracker.getCurrentChange() >= 0)
+			{
+				noVentLookupFlagged = false;
+			}
+			if (simulationTime < BLOW_UP_SIMULATION_END_SECONDS)
+			{
+				runAndLogSimulationOnStabilityUpdate(currentStability, chamberStatus, simulationTime);
+			}
 
 			if(config.ventStatusUpdateHistory()) {
 				Widget widget = client.getWidget(ComponentID.VOLCANIC_MINE_VENT_A_PERCENTAGE+1);
@@ -334,14 +338,6 @@ public class UltimateVolcanicMinePlugin extends Plugin
 				VM_notifier.notify(notifier, VMNotifier.NotificationEvents.VM_POST_RESET_VENT_FIX, ventStatusPredicter.getCurrentTick());
 		}
 
-		//Ensure reset will not happen at the very start before the server sends the new game time
-		//Reset around 5:00 when the server sends new unidentified vent
-		if(ventStatusPredicter.getCurrentTick() > VMNotifier.NOTIFICATION_START_COOLDOWN_TICKS &&
-				timeRemainingFromServer <= VentStatusTimeline.VM_GAME_RESET_TIME) {
-			stabilityTracker.resetStabilityHistory();
-			futureStabilityTracker.resetStabilityHistory();
-		}
-
 		int currentTick = ventStatusPredicter.getCurrentTick();
 		if (estimatedTimeRemaining <= (VentStatusTimeline.VM_GAME_RESET_TIME + ventWarningTime))
 			VM_notifier.notify(notifier, VMNotifier.NotificationEvents.VM_RESET, currentTick);
@@ -354,14 +350,6 @@ public class UltimateVolcanicMinePlugin extends Plugin
 		if (ventStatusOverlayOverride != null)
 		{
 			ventStatusOverlayOverride.updateChamberStatusWidgetColors(config.chamberStatusPredictionColors());
-		}
-		if(config.ventStatusPrediction()) {
-//			Widget widget = client.getWidget(WidgetID.VOLCANIC_MINE_GROUP_ID, HUD_VENT_A_PERCENTAGE);
-//			if (widget != null) widget.setText(ventStatusPredicter.getVentStatusText(0, widget.getText()));
-//			widget = client.getWidget(WidgetID.VOLCANIC_MINE_GROUP_ID, HUD_VENT_B_PERCENTAGE);
-//			if (widget != null) widget.setText(ventStatusPredicter.getVentStatusText(1, widget.getText()));
-//			widget = client.getWidget(WidgetID.VOLCANIC_MINE_GROUP_ID, HUD_VENT_C_PERCENTAGE);
-//			if (widget != null) widget.setText(ventStatusPredicter.getVentStatusText(2, widget.getText()));
 		}
 
 		ventStatusPredicter.getTimeline().updateTick();
@@ -431,15 +419,12 @@ public class UltimateVolcanicMinePlugin extends Plugin
 		VentResolution resolvedB = resolveVentValue(ventB, predictedVents[1]);
 		VentResolution resolvedC = resolveVentValue(ventC, predictedVents[2]);
 
-		log.info("UVM Sim Gate | tick={}, timeRemainingTicks={}, time={}s, stability={}, chamberStatus={}, scheduleHit={}, scheduleRule=remaining%{}=={}, A={}, B={}, C={}",
+		log.info("UVM Sim Trigger | tick={}, timeRemainingTicks={}, time={}s, stability={}, chamberStatus={}, trigger=stability-update, A={}, B={}, C={}",
 			ventStatusPredicter.getCurrentTick(),
 			estimatedTimeRemaining,
 			simulationTime,
 			currentStability,
 			chamberStatus,
-			true,
-			TICKS_PER_STABILITY_UPDATE,
-			STABILITY_SIMULATION_OFFSET_TICKS,
 			formatVentResolution("A", ventA, predictedVents[0], resolvedA),
 			formatVentResolution("B", ventB, predictedVents[1], resolvedB),
 			formatVentResolution("C", ventC, predictedVents[2], resolvedC));
@@ -508,8 +493,73 @@ public class UltimateVolcanicMinePlugin extends Plugin
 		int knownCount = 3 - unknownIndices.size();
 		if (knownCount < 1)
 		{
-			log.info("UVM Sim Skip | reason=need at least 1 known vent, knownCount={}", knownCount);
-			clearBlowUpChance();
+			List<Integer> negativeTail = stabilityTracker.getConsecutiveNegativeTailOldestFirst();
+			if (negativeTail.isEmpty())
+			{
+				client.addChatMessage(
+					ChatMessageType.GAMEMESSAGE,
+					"UVM",
+					"No-vent prediction skipped: latest stability change is not negative.",
+					null);
+				log.info(
+					"UVM Sim Skip | reason=no negative tail for no-vent lookup, time={}s, stability={}",
+					simulationTime,
+					currentStability);
+				clearBlowUpChance();
+				return;
+			}
+
+			Simulator.NoVentPatternResult fallback = Simulator.simulateNoKnownVentsFromPatterns(
+				currentStability,
+				simulationTime,
+				negativeTail,
+				noVentLookupFlagged);
+
+			if (fallback.matchedScenarioCount == 0 || fallback.stabilityRangeOverTime.isEmpty())
+			{
+				client.addChatMessage(
+					ChatMessageType.GAMEMESSAGE,
+					"UVM",
+					"No-vent prediction unavailable: no data matches recent negative sequence " + negativeTail + ".",
+					null);
+				log.info(
+					"UVM Sim Skip | reason=no pattern matches for no-vent lookup, time={}s, stability={}, tail={}",
+					simulationTime,
+					currentStability,
+					negativeTail);
+				clearBlowUpChance();
+				return;
+			}
+
+			setBlowUpChance(fallback.blowUpChancePercent);
+			if (fallback.usedFlaggedLookup)
+			{
+				String fallbackType = noVentLookupFlagged
+					? "chamber cap changed stability flow"
+					: (fallback.usedInteriorMatch
+						? "fallback data search matched from inside JSON rows"
+						: "fallback data search matched after dropping oldest changes");
+				client.addChatMessage(
+					ChatMessageType.GAMEMESSAGE,
+					"UVM",
+					"No-vent prediction used flagged lookup: " + fallbackType + ".",
+					null);
+			}
+			printBlowUpTimelineToChat(fallback.blowUpChancePercent, fallback.stabilityRangeOverTime);
+			printPredictedExplosionTimeToChat("No-vent data", fallback.stabilityRangeOverTime);
+
+			log.info(
+				"UVM Sim Fallback | time={}s, knownCount=0, stability={}, tail={}, matchedTailLength={}, flagged={}, capFlag={}, interiorMatch={}, matches={}, blowUpChance={}%, rangeTimeline= {}",
+				simulationTime,
+				currentStability,
+				negativeTail,
+				fallback.matchedTailLength,
+				fallback.usedFlaggedLookup,
+				noVentLookupFlagged,
+				fallback.usedInteriorMatch,
+				fallback.matchedScenarioCount,
+				formatPercentage(fallback.blowUpChancePercent),
+				formatStabilityRangeTimeline(fallback.stabilityRangeOverTime));
 			return;
 		}
 
@@ -550,26 +600,35 @@ public class UltimateVolcanicMinePlugin extends Plugin
 			formatStabilityRangeTimeline(sweep.stabilityRangeOverTime));
 	}
 
-	private boolean shouldRunSimulationThisTick(int simulationTime)
-	{
-		if (estimatedTimeRemaining < 0)
-		{
-			return false;
-		}
-
-		if (simulationTime >= BLOW_UP_SIMULATION_END_SECONDS)
-		{
-			return false;
-		}
-
-		return estimatedTimeRemaining % TICKS_PER_STABILITY_UPDATE == STABILITY_SIMULATION_OFFSET_TICKS;
-	}
-
 	private boolean areAllVentsKnown(VentResolution ventA, VentResolution ventB, VentResolution ventC)
 	{
 		return ventA.resolvedValue != null
 			&& ventB.resolvedValue != null
 			&& ventC.resolvedValue != null;
+	}
+
+	private boolean shouldResetPredictionsAtFiveMinuteMark()
+	{
+		return !predictionsResetAtFiveMinutes
+			&& ventStatusPredicter.getCurrentTick() > VMNotifier.NOTIFICATION_START_COOLDOWN_TICKS
+			&& timeRemainingFromServer <= VentStatusTimeline.VM_GAME_RESET_TIME;
+	}
+
+	private void resetPredictionsForFiveMinuteMark(int currentStability, int chamberStatus)
+	{
+		predictionsResetAtFiveMinutes = true;
+		stabilityTracker.rebase(currentStability);
+		futureStabilityTracker.initialize();
+		futureStabilityTracker.setDisplayCount(config.predictedStabilityChangeHistoryCount());
+		ventStatusPredicter.reset();
+		clearBlowUpChance();
+		noVentLookupFlagged = false;
+		lastKnownChamberStatus = chamberStatus;
+		log.info(
+			"UVM Sim Reset | reason=five-minute reset, timeRemainingTicks={}, stability={}, chamberStatus={}",
+			timeRemainingFromServer,
+			currentStability,
+			chamberStatus);
 	}
 
 	private VentResolution resolveVentValue(int rawVarbitValue, VentStatus predictedVent)
@@ -697,11 +756,8 @@ public class UltimateVolcanicMinePlugin extends Plugin
 			}
 
 			timeline.append(point.time)
-				.append(":[")
-				.append(point.minStability)
-				.append(",")
-				.append(point.maxStability)
-				.append(']');
+				.append(":")
+				.append(formatStabilityRange(point.minStability, point.maxStability));
 		}
 
 		return timeline.toString();
@@ -723,14 +779,21 @@ public class UltimateVolcanicMinePlugin extends Plugin
 			}
 
 			timeline.append(formatCountdownFromElapsedSeconds(point.time))
-				.append(":[")
-				.append(point.minStability)
-				.append(",")
-				.append(point.maxStability)
-				.append(']');
+				.append(":")
+				.append(formatStabilityRange(point.minStability, point.maxStability));
 		}
 
 		return timeline.toString();
+	}
+
+	private String formatStabilityRange(int minStability, int maxStability)
+	{
+		if (minStability == maxStability)
+		{
+			return "[" + minStability + "]";
+		}
+
+		return "[" + minStability + "," + maxStability + "]";
 	}
 
 	private String formatCountdownFromElapsedSeconds(int elapsedSeconds)
@@ -763,6 +826,41 @@ public class UltimateVolcanicMinePlugin extends Plugin
 		{
 			client.addChatMessage(ChatMessageType.GAMEMESSAGE, "UVM", chunk, null);
 		}
+	}
+
+	private void printPredictedExplosionTimeToChat(String sourceLabel, List<Simulator.StabilityRangePoint> points)
+	{
+		if (points == null || points.isEmpty())
+		{
+			return;
+		}
+
+		Integer explosionTime = null;
+		for (Simulator.StabilityRangePoint point : points)
+		{
+			if (point.maxStability <= 0)
+			{
+				explosionTime = point.time;
+				break;
+			}
+		}
+
+		if (explosionTime != null)
+		{
+			client.addChatMessage(
+				ChatMessageType.GAMEMESSAGE,
+				"UVM",
+				sourceLabel + " predicts blow-up at " + formatCountdownFromElapsedSeconds(explosionTime),
+				null);
+			return;
+		}
+
+		int lastTime = points.get(points.size() - 1).time;
+		client.addChatMessage(
+			ChatMessageType.GAMEMESSAGE,
+			"UVM",
+			sourceLabel + " predicts no blow-up by " + formatCountdownFromElapsedSeconds(lastTime),
+			null);
 	}
 
 	private List<Simulator.StabilityRangePoint> toRangePoints(List<Simulator.StabilityPoint> points)
@@ -956,6 +1054,21 @@ public class UltimateVolcanicMinePlugin extends Plugin
 	public void updateVentStatus(int ventA, int ventB, int ventC, int chamberStatus) {
 		ventStatusPredicter.updateVentStatus(new int[]{ventA, ventB, ventC}, chamberStatus);
 	}
+
+	private void handleChamberStatusChanged(int oldStatus, int newStatus)
+	{
+		noVentLookupFlagged = true;
+		clearBlowUpChance();
+		client.addChatMessage(
+			ChatMessageType.GAMEMESSAGE,
+			"UVM",
+			"No-vent predictions cleared: chamber cap/state change detected. Future no-vent lookup is flagged.",
+			null);
+		log.info(
+			"UVM Sim Invalidate | reason=chamber status changed, oldStatus={}, newStatus={}, noVentLookupFlagged=true",
+			oldStatus,
+			newStatus);
+	}
 	public final VentStatusPredicter getVentStatusPredicter() { return ventStatusPredicter; }
 
 	@Subscribe
@@ -978,6 +1091,15 @@ public class UltimateVolcanicMinePlugin extends Plugin
 		}
 
 		if(!hasGameStarted()) return;
+
+		if(event.getVarbitId() == VARBIT_CHAMBER_STATUS) {
+			int chamberStatus = client.getVarbitValue(VARBIT_CHAMBER_STATUS);
+			if (lastKnownChamberStatus != -1 && lastKnownChamberStatus != chamberStatus)
+			{
+				handleChamberStatusChanged(lastKnownChamberStatus, chamberStatus);
+			}
+			lastKnownChamberStatus = chamberStatus;
+		}
 
 		//Check if a player leaves/dies - player count can only move down in game
 		if(event.getVarbitId() == VARBIT_PLAYER_COUNT) {
@@ -1036,15 +1158,12 @@ public class UltimateVolcanicMinePlugin extends Plugin
 	}
 
 	private void resetGameVariables() {
-		if (boulderHealthOverlay.getBoulderLocation() != null || boulderHealthOverlay.getCurrentHealth() > 0)
-		{
-			log.info("UVM Debug | Reset game variables | trackedLocationBefore={}, trackedHpBefore={}",
-				boulderHealthOverlay.getBoulderLocation(),
-				boulderHealthOverlay.getCurrentHealth());
-		}
 		VM_notifier.reset();
 		capCounter.initialize();
 		clearBlowUpChance();
+		noVentLookupFlagged = false;
+		predictionsResetAtFiveMinutes = false;
+		lastKnownChamberStatus = -1;
 		timedObjectTracker.clearRocks();
 		boulderHealthOverlay.resetTracking();
         pickaxeProtector.resetStartingPickaxes();

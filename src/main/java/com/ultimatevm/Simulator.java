@@ -1,5 +1,13 @@
 package com.ultimatevm;
 
+import com.google.gson.Gson;
+import com.google.gson.reflect.TypeToken;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.Reader;
+import java.nio.charset.StandardCharsets;
+import java.lang.reflect.Type;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedHashMap;
@@ -11,9 +19,12 @@ public final class Simulator
 {
 	private static final int FIVE_MINUTE_MARK_TIME = 300;
 	private static final int DEFAULT_MAX_TIME = 300;
-	private static final int EXTENDED_MAX_TIME = 570;
+	private static final int EXTENDED_MAX_TIME = 555; // 0:45, as the 0:30 change always sets stab to 5%
 	private static final int MIN_STABILITY = 0;
 	private static final int MAX_STABILITY = 100;
+	private static final String NO_VENT_STABILITY_RESOURCE = "stability_change.json";
+	private static final Gson GSON = new Gson();
+	private static volatile List<List<Integer>> noVentStabilityPatterns;
 
 	private Simulator()
 	{
@@ -54,6 +65,306 @@ public final class Simulator
 		}
 
 		return new SimulationResult(willDie, stabilityOverTime);
+	}
+
+	public static NoVentPatternResult simulateNoKnownVentsFromPatterns(int stability, int time, List<Integer> negativeTail, boolean flaggedLookup)
+	{
+		int clampedStability = clamp(stability, MIN_STABILITY, MAX_STABILITY);
+		int startTime = clamp(time, 0, EXTENDED_MAX_TIME);
+		int maxTime = getMaxTimeForStart(startTime);
+
+		if (negativeTail == null || negativeTail.isEmpty())
+		{
+			return new NoVentPatternResult(0, 0.0, Collections.emptyList(), false, false, false, 0);
+		}
+
+		PatternMatchSelection selection = findMatchingPatterns(negativeTail, flaggedLookup);
+		if (selection.matches.isEmpty())
+		{
+			return new NoVentPatternResult(0, 0.0, Collections.emptyList(), false, false, false, 0);
+		}
+
+		int tailSize = selection.usedTailLength;
+		List<Integer> futureTimes = new ArrayList<>();
+		for (int currentTime = startTime; currentTime <= maxTime; currentTime++)
+		{
+			int timeLeft = maxTime - currentTime;
+			if (currentTime > startTime && timeLeft % 15 == 0)
+			{
+				futureTimes.add(currentTime);
+			}
+		}
+
+		int[] scenarioStabilities = new int[selection.matches.size()];
+		boolean[] scenarioDied = new boolean[selection.matches.size()];
+		for (int i = 0; i < selection.matches.size(); i++)
+		{
+			scenarioStabilities[i] = clampedStability;
+		}
+
+		List<StabilityRangePoint> stabilityRanges = new ArrayList<>();
+		for (int step = 0; step < futureTimes.size(); step++)
+		{
+			int minStability = Integer.MAX_VALUE;
+			int maxStability = Integer.MIN_VALUE;
+			boolean hasAnyScenarioAtStep = false;
+
+			for (int i = 0; i < selection.matches.size(); i++)
+			{
+				PatternMatch match = selection.matches.get(i);
+				int patternIndex = match.startIndex + tailSize + step;
+				List<Integer> pattern = match.pattern;
+				if (patternIndex >= pattern.size())
+				{
+					continue;
+				}
+
+				hasAnyScenarioAtStep = true;
+				int change = pattern.get(patternIndex);
+				scenarioStabilities[i] = clamp(scenarioStabilities[i] + change, MIN_STABILITY, MAX_STABILITY);
+				if (scenarioStabilities[i] <= 0)
+				{
+					scenarioDied[i] = true;
+				}
+
+				minStability = Math.min(minStability, scenarioStabilities[i]);
+				maxStability = Math.max(maxStability, scenarioStabilities[i]);
+			}
+
+			if (!hasAnyScenarioAtStep)
+			{
+				break;
+			}
+
+			stabilityRanges.add(new StabilityRangePoint(futureTimes.get(step), minStability, maxStability));
+		}
+
+		int deathCount = 0;
+		for (boolean died : scenarioDied)
+		{
+			if (died)
+			{
+				deathCount++;
+			}
+		}
+
+		double blowUpChancePercent = selection.matches.isEmpty()
+			? 0.0
+			: (deathCount * 100.0) / selection.matches.size();
+
+		return new NoVentPatternResult(
+			selection.matches.size(),
+			blowUpChancePercent,
+			stabilityRanges,
+			selection.usedFlaggedLookup,
+			selection.usedTrimmedTail,
+			selection.usedInteriorMatch,
+			selection.usedTailLength);
+	}
+
+	private static PatternMatchSelection findMatchingPatterns(List<Integer> negativeTail, boolean flaggedLookup)
+	{
+		if (flaggedLookup)
+		{
+			return findFlaggedMatches(negativeTail);
+		}
+
+		for (int tailStart = 0; tailStart < negativeTail.size(); tailStart++)
+		{
+			List<Integer> candidateTail = negativeTail.subList(tailStart, negativeTail.size());
+			List<PatternMatch> matches = findExactPrefixMatches(candidateTail);
+			if (!matches.isEmpty())
+			{
+				return new PatternMatchSelection(matches, candidateTail.size(), false, tailStart > 0, false);
+			}
+		}
+
+		return findFlaggedMatches(negativeTail);
+	}
+
+	private static PatternMatchSelection findFlaggedMatches(List<Integer> negativeTail)
+	{
+
+		for (int tailStart = 0; tailStart < negativeTail.size(); tailStart++)
+		{
+			List<Integer> candidateTail = negativeTail.subList(tailStart, negativeTail.size());
+			List<PatternMatch> matches = findSequenceMatchesAnywhere(candidateTail);
+			if (!matches.isEmpty())
+			{
+				return new PatternMatchSelection(matches, candidateTail.size(), true, tailStart > 0, hasInteriorMatch(matches));
+			}
+		}
+
+		return PatternMatchSelection.empty();
+	}
+
+	private static boolean hasInteriorMatch(List<PatternMatch> matches)
+	{
+		for (PatternMatch match : matches)
+		{
+			if (match.startIndex > 0)
+			{
+				return true;
+			}
+		}
+
+		return false;
+	}
+
+	private static List<PatternMatch> findExactPrefixMatches(List<Integer> tail)
+	{
+		List<PatternMatch> matches = new ArrayList<>();
+		for (List<Integer> pattern : getNoVentStabilityPatterns())
+		{
+			if (pattern == null || pattern.size() < tail.size())
+			{
+				continue;
+			}
+
+			boolean matchesTail = true;
+			for (int i = 0; i < tail.size(); i++)
+			{
+				if (!tail.get(i).equals(pattern.get(i)))
+				{
+					matchesTail = false;
+					break;
+				}
+			}
+
+			if (matchesTail)
+			{
+				matches.add(new PatternMatch(pattern, 0));
+			}
+		}
+
+		return matches;
+	}
+
+	private static List<PatternMatch> findSequenceMatchesAnywhere(List<Integer> tail)
+	{
+		List<PatternMatch> matches = new ArrayList<>();
+		for (List<Integer> pattern : getNoVentStabilityPatterns())
+		{
+			if (pattern == null || pattern.size() < tail.size())
+			{
+				continue;
+			}
+
+			for (int startIndex = 0; startIndex <= pattern.size() - tail.size(); startIndex++)
+			{
+				boolean matchesTail = true;
+				for (int i = 0; i < tail.size(); i++)
+				{
+					if (!tail.get(i).equals(pattern.get(startIndex + i)))
+					{
+						matchesTail = false;
+						break;
+					}
+				}
+
+				if (matchesTail)
+				{
+					matches.add(new PatternMatch(pattern, startIndex));
+					break;
+				}
+			}
+		}
+
+		return matches;
+	}
+
+	private static final class PatternMatch
+	{
+		private final List<Integer> pattern;
+		private final int startIndex;
+
+		private PatternMatch(List<Integer> pattern, int startIndex)
+		{
+			this.pattern = pattern;
+			this.startIndex = startIndex;
+		}
+	}
+
+	private static final class PatternMatchSelection
+	{
+		private final List<PatternMatch> matches;
+		private final int usedTailLength;
+		private final boolean usedFlaggedLookup;
+		private final boolean usedTrimmedTail;
+		private final boolean usedInteriorMatch;
+
+		private PatternMatchSelection(List<PatternMatch> matches, int usedTailLength, boolean usedFlaggedLookup, boolean usedTrimmedTail, boolean usedInteriorMatch)
+		{
+			this.matches = matches;
+			this.usedTailLength = usedTailLength;
+			this.usedFlaggedLookup = usedFlaggedLookup;
+			this.usedTrimmedTail = usedTrimmedTail;
+			this.usedInteriorMatch = usedInteriorMatch;
+		}
+
+		private static PatternMatchSelection empty()
+		{
+			return new PatternMatchSelection(Collections.emptyList(), 0, false, false, false);
+		}
+	}
+
+	private static List<List<Integer>> getNoVentStabilityPatterns()
+	{
+		List<List<Integer>> cached = noVentStabilityPatterns;
+		if (cached != null)
+		{
+			return cached;
+		}
+
+		synchronized (Simulator.class)
+		{
+			if (noVentStabilityPatterns != null)
+			{
+				return noVentStabilityPatterns;
+			}
+
+			noVentStabilityPatterns = loadNoVentStabilityPatterns();
+			return noVentStabilityPatterns;
+		}
+	}
+
+	private static List<List<Integer>> loadNoVentStabilityPatterns()
+	{
+		InputStream stream = Simulator.class.getClassLoader().getResourceAsStream(NO_VENT_STABILITY_RESOURCE);
+		if (stream == null)
+		{
+			return Collections.emptyList();
+		}
+
+		try (Reader reader = new InputStreamReader(stream, StandardCharsets.UTF_8))
+		{
+			Type type = new TypeToken<List<List<Integer>>>() { }.getType();
+			List<List<Integer>> parsed = GSON.fromJson(reader, type);
+			if (parsed == null)
+			{
+				return Collections.emptyList();
+			}
+
+			List<List<Integer>> normalized = new ArrayList<>();
+			for (List<Integer> pattern : parsed)
+			{
+				if (pattern == null || pattern.isEmpty())
+				{
+					continue;
+				}
+				normalized.add(Collections.unmodifiableList(new ArrayList<>(pattern)));
+			}
+
+			return Collections.unmodifiableList(normalized);
+		}
+		catch (IOException ex)
+		{
+			return Collections.emptyList();
+		}
+		catch (RuntimeException ex)
+		{
+			return Collections.emptyList();
+		}
 	}
 
 	public static VentSweepResult simulateUnknownVent(int unknownVentIndex, int[] knownVentValues, List<Integer> possibleUnknownValues, int chamberStatus, int stability, int time)
@@ -422,6 +733,35 @@ public final class Simulator
 			this.scenarios = Collections.unmodifiableList(new ArrayList<>(scenarios));
 			this.blowUpChancePercent = blowUpChancePercent;
 			this.stabilityRangeOverTime = Collections.unmodifiableList(new ArrayList<>(stabilityRangeOverTime));
+		}
+	}
+
+	public static final class NoVentPatternResult
+	{
+		public final int matchedScenarioCount;
+		public final double blowUpChancePercent;
+		public final List<StabilityRangePoint> stabilityRangeOverTime;
+		public final boolean usedFlaggedLookup;
+		public final boolean usedTrimmedTail;
+		public final boolean usedInteriorMatch;
+		public final int matchedTailLength;
+
+		public NoVentPatternResult(
+			int matchedScenarioCount,
+			double blowUpChancePercent,
+			List<StabilityRangePoint> stabilityRangeOverTime,
+			boolean usedFlaggedLookup,
+			boolean usedTrimmedTail,
+			boolean usedInteriorMatch,
+			int matchedTailLength)
+		{
+			this.matchedScenarioCount = matchedScenarioCount;
+			this.blowUpChancePercent = blowUpChancePercent;
+			this.stabilityRangeOverTime = Collections.unmodifiableList(new ArrayList<>(stabilityRangeOverTime));
+			this.usedFlaggedLookup = usedFlaggedLookup;
+			this.usedTrimmedTail = usedTrimmedTail;
+			this.usedInteriorMatch = usedInteriorMatch;
+			this.matchedTailLength = matchedTailLength;
 		}
 	}
 }

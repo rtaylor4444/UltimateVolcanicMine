@@ -11,7 +11,7 @@ public class BlowUpChanceInfoBox extends InfoBox
 
 	public BlowUpChanceInfoBox(UltimateVolcanicMinePlugin plugin)
 	{
-		super(ImageUtil.getResourceStreamFromClass(UltimateVolcanicMinePlugin.class, "/chamber.png"), plugin);
+		super(ImageUtil.getResourceStreamFromClass(UltimateVolcanicMinePlugin.class, "/volcanic_mine_tab.png"), plugin);
 	}
 
 	public void setBlowUpChancePercent(double blowUpChancePercent)
