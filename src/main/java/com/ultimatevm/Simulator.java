@@ -571,6 +571,24 @@ public final class Simulator
 		return startTime < FIVE_MINUTE_MARK_TIME ? DEFAULT_MAX_TIME : EXTENDED_MAX_TIME;
 	}
 
+	public static int[] getVentValuesAtTime(int a, int b, int c, int chamberStatus, int startTime, int targetTime)
+	{
+		int maxTime = getMaxTimeForStart(startTime);
+		int clampedTarget = Math.min(targetTime, maxTime);
+		for (int currentTime = startTime; currentTime < clampedTarget; currentTime++)
+		{
+			int timeLeft = maxTime - currentTime;
+			if (timeLeft % 6 == 0)
+			{
+				int[] vents = updateVents(a, b, c, chamberStatus);
+				a = vents[0];
+				b = vents[1];
+				c = vents[2];
+			}
+		}
+		return new int[]{a, b, c};
+	}
+
 	private static List<Integer> getStabilityUpdateTimes(int startTime, int maxTime)
 	{
 		List<Integer> times = new ArrayList<>();

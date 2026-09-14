@@ -25,10 +25,8 @@ import net.runelite.api.widgets.Widget;
 
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
-import java.util.Set;
 
 @Slf4j
 @PluginDescriptor(
@@ -73,6 +71,9 @@ public class UltimateVolcanicMinePlugin extends Plugin
 	@Inject
 	private BoulderHealthOverlay boulderHealthOverlay;
 
+	@Inject
+	private GuideOverlay guideOverlay;
+
 	//Constants
 	private static final int PROC_VOLCANIC_MINE_SET_OTHERINFO = 2022;
 	private static final int VARBIT_STABILITY = 5938;
@@ -100,6 +101,8 @@ public class UltimateVolcanicMinePlugin extends Plugin
 	private static final int VM_TOTAL_GAME_SECONDS = 600;
 	private static final int BLOW_UP_SIMULATION_END_SECONDS = 570;
 	private static final int CHAT_TIMELINE_CHUNK_SIZE = 220;
+	private static final int TICKS_PER_STABILITY_UPDATE = 25;
+	private static final int STABILITY_SIMULATION_OFFSET_TICKS = 24;
 
 	private static final float SECONDS_TO_TICKS = 1.666f;
 
@@ -123,6 +126,7 @@ public class UltimateVolcanicMinePlugin extends Plugin
 	private int maxPlayerCount, ticksSinceLobbyStart;
 	private PlayerCountInfoBox playerCountBox;
 	private VentStatusOverlayOverride ventStatusOverlayOverride;
+	private GuideManager guideManager;
 
 	private static final class VentResolution
 	{
@@ -172,6 +176,9 @@ public class UltimateVolcanicMinePlugin extends Plugin
 		overlayManager.remove(boulderHealthOverlay);
 		if(config.showBoulderHealth()) overlayManager.add(boulderHealthOverlay);
 
+		overlayManager.remove(guideOverlay);
+		if(config.showGuide()) overlayManager.add(guideOverlay);
+
 		if (ventStatusOverlayOverride != null)
 		{
 			clientThread.invokeLater(() ->
@@ -202,9 +209,11 @@ public class UltimateVolcanicMinePlugin extends Plugin
 		capInfoBox = new CapCounterInfoBox(capCounter, this);
 		blowUpChanceInfoBox = new BlowUpChanceInfoBox(this);
 		blowUpChanceInfoBoxShown = false;
+		guideManager = new GuideManager(client, ventStatusPredicter, guideOverlay);
 		timedObjectOverlay.setRockTracker(timedObjectTracker);
 		overlayManager.add(timedObjectOverlay);
 		if(config.showBoulderHealth()) overlayManager.add(boulderHealthOverlay);
+		if(config.showGuide()) overlayManager.add(guideOverlay);
 		eruptionTime = (int) (config.eruptionWarningTime() * SECONDS_TO_TICKS);
 		ventWarningTime = (int) (config.ventWarningTime() * SECONDS_TO_TICKS);
 	}
@@ -215,6 +224,7 @@ public class UltimateVolcanicMinePlugin extends Plugin
 		ventStatusOverlayOverride = null;
 		overlayManager.remove(timedObjectOverlay);
 		overlayManager.remove(boulderHealthOverlay);
+		overlayManager.remove(guideOverlay);
 		infoBoxManager.removeInfoBox(capInfoBox);
 		removeBlowUpChanceInfoBox();
 		boulderHealthOverlay.resetTracking();
@@ -268,6 +278,11 @@ public class UltimateVolcanicMinePlugin extends Plugin
 
         if(!hasGameStarted()) return;
 
+		if (config.showGuide())
+		{
+			guideManager.onTick(estimatedTimeRemaining);
+		}
+
 		StabilityUpdateInfo.setNumPlayers(client.getVarbitValue(VARBIT_PLAYER_COUNT));
 		timedObjectTracker.updateRockTimers();
 
@@ -307,14 +322,11 @@ public class UltimateVolcanicMinePlugin extends Plugin
 			clearBlowUpChance();
 		}
 
-		if(updateStability(currentStability)) {
+		boolean stabilityChanged = updateStability(currentStability);
+		if(stabilityChanged) {
 			if (stabilityTracker.getCurrentChange() >= 0)
 			{
 				noVentLookupFlagged = false;
-			}
-			if (simulationTime < BLOW_UP_SIMULATION_END_SECONDS)
-			{
-				runAndLogSimulationOnStabilityUpdate(currentStability, chamberStatus, simulationTime);
 			}
 
 			if(config.ventStatusUpdateHistory()) {
@@ -336,6 +348,15 @@ public class UltimateVolcanicMinePlugin extends Plugin
 			boolean isPostResetTime = (estimatedTimeRemaining <= (VentStatusTimeline.VM_GAME_RESET_TIME-15) && estimatedTimeRemaining > 305);
 			if(currentStability + (stabilityTracker.getCurrentChange() * 4) <= 0 && isPostResetTime)
 				VM_notifier.notify(notifier, VMNotifier.NotificationEvents.VM_POST_RESET_VENT_FIX, ventStatusPredicter.getCurrentTick());
+		}
+
+		if (shouldRunSimulationThisTick(simulationTime))
+		{
+			runAndLogSimulationOnStabilityUpdate(currentStability, chamberStatus, simulationTime);
+			if (config.showGuide())
+			{
+				guideManager.update(estimatedTimeRemaining, currentStability, chamberStatus, simulationTime, boulderHealthOverlay.getCurrentHealth());
+			}
 		}
 
 		int currentTick = ventStatusPredicter.getCurrentTick();
@@ -484,7 +505,7 @@ public class UltimateVolcanicMinePlugin extends Plugin
 			if (resolutions[i].resolvedValue == null)
 			{
 				unknownIndices.add(i);
-				candidateValuesByUnknown.add(resolvePossibleVentValues(rawVents[i], predictedVents[i]));
+				candidateValuesByUnknown.add(VentValueResolver.resolvePossibleValues(rawVents[i], predictedVents[i]));
 				continue;
 			}
 			knownValues[i] = resolutions[i].resolvedValue;
@@ -605,6 +626,21 @@ public class UltimateVolcanicMinePlugin extends Plugin
 		return ventA.resolvedValue != null
 			&& ventB.resolvedValue != null
 			&& ventC.resolvedValue != null;
+	}
+
+	private boolean shouldRunSimulationThisTick(int simulationTime)
+	{
+		if (estimatedTimeRemaining < 0)
+		{
+			return false;
+		}
+
+		if (simulationTime >= BLOW_UP_SIMULATION_END_SECONDS)
+		{
+			return false;
+		}
+
+		return estimatedTimeRemaining % TICKS_PER_STABILITY_UPDATE == STABILITY_SIMULATION_OFFSET_TICKS;
 	}
 
 	private boolean shouldResetPredictionsAtFiveMinuteMark()
@@ -917,50 +953,6 @@ public class UltimateVolcanicMinePlugin extends Plugin
 		return chunks;
 	}
 
-	private List<Integer> resolvePossibleVentValues(int rawVarbitValue, VentStatus predictedVent)
-	{
-		if (rawVarbitValue != VentStatus.STARTING_VENT_VALUE)
-		{
-			return Collections.singletonList(rawVarbitValue);
-		}
-
-		if (predictedVent == null)
-		{
-			return Collections.emptyList();
-		}
-
-		if (predictedVent.isIdentified())
-		{
-			return Collections.singletonList(predictedVent.getActualValue());
-		}
-
-		if (!predictedVent.isRangeDefined())
-		{
-			return Collections.emptyList();
-		}
-
-		Set<Integer> possible = new LinkedHashSet<>();
-		addRangeToSet(possible, predictedVent.getLowerBoundStart(), predictedVent.getLowerBoundEnd());
-		if (predictedVent.isTwoSeperateValues())
-		{
-			addRangeToSet(possible, predictedVent.getUpperBoundStart(), predictedVent.getUpperBoundEnd());
-		}
-
-		List<Integer> values = new ArrayList<>(possible);
-		Collections.sort(values);
-		return values;
-	}
-
-	private void addRangeToSet(Set<Integer> target, int start, int end)
-	{
-		int min = Math.max(VentStatus.MIN_VENT_VALUE, Math.min(start, end));
-		int max = Math.min(VentStatus.MAX_VENT_VALUE, Math.max(start, end));
-		for (int value = min; value <= max; value++)
-		{
-			target.add(value);
-		}
-	}
-
 	private char ventName(int index)
 	{
 		switch (index)
@@ -1097,6 +1089,10 @@ public class UltimateVolcanicMinePlugin extends Plugin
 			if (lastKnownChamberStatus != -1 && lastKnownChamberStatus != chamberStatus)
 			{
 				handleChamberStatusChanged(lastKnownChamberStatus, chamberStatus);
+				if (config.showGuide())
+				{
+					guideManager.onChamberStatusChanged(lastKnownChamberStatus, chamberStatus);
+				}
 			}
 			lastKnownChamberStatus = chamberStatus;
 		}
@@ -1158,6 +1154,7 @@ public class UltimateVolcanicMinePlugin extends Plugin
 	}
 
 	private void resetGameVariables() {
+		guideManager.reset();
 		VM_notifier.reset();
 		capCounter.initialize();
 		clearBlowUpChance();

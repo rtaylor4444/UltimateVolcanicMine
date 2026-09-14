@@ -502,4 +502,15 @@ public interface UltimateVolcanicMineConfig extends Config
 	{
 		return false;
 	}
+	@ConfigItem(
+			keyName = "showGuide",
+			name = "Guide",
+			description = "Displays a green indicator when vents A and B are known and stability is predicted safe before the 5-minute vent reset",
+			position = 1,
+			section = solo
+	)
+	default boolean showGuide()
+	{
+		return false;
+	}
 }
