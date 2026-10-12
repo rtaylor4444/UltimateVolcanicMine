@@ -16,6 +16,7 @@ public class StabilityTracker {
     private static final int MAX_STABILITY_CHANGE = 24;
 
     private boolean hasResetHistory = false;
+    private boolean patternPredictionEnabled = true;
     private int currentStability;
     private int numDisplay;
     private LinkedList<Integer> stabilityHistory = new LinkedList<>();
@@ -31,6 +32,7 @@ public class StabilityTracker {
         stabilityHistory.clear();
         fullStabilityHistory.clear();
         hasResetHistory = false;
+        patternPredictionEnabled = true;
     }
 
     public void resetStabilityHistory() {
@@ -128,30 +130,42 @@ public class StabilityTracker {
     public int getConsecutiveNegativeChangeCount() {
         int count = 0;
         for (Integer change : fullStabilityHistory) {
-            if (change >= 0) {
+            if (change > 0) {
                 break;
             }
-            count++;
+            if (change < 0) {
+                count++;
+            }
         }
         return count;
     }
     public List<Integer> getConsecutiveNegativeTailOldestFirst() {
         List<Integer> newestFirst = new ArrayList<>();
         for (Integer change : fullStabilityHistory) {
-            if (change >= 0) {
+            if (change > 0) {
                 break;
             }
-            newestFirst.add(change);
+            if (change < 0) {
+                newestFirst.add(change);
+            }
         }
 
         Collections.reverse(newestFirst);
         return newestFirst;
     }
+    public void invalidatePatternHistory() {
+        fullStabilityHistory.clear();
+        patternPredictionEnabled = false;
+    }
+    public boolean isPatternPredictionEnabled() { return patternPredictionEnabled; }
     public void addChange(int change) {
         stabilityHistory.addFirst(change);
         while(stabilityHistory.size() > MAX_STABILITY_UPDATES) stabilityHistory.removeLast();
 
         fullStabilityHistory.addFirst(change);
+        if (change < 0) {
+            patternPredictionEnabled = true;
+        }
     }
     public void setDisplayCount(int count) { numDisplay = count;}
 }

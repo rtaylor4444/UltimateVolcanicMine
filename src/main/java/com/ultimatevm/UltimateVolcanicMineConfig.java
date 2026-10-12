@@ -289,6 +289,33 @@ public interface UltimateVolcanicMineConfig extends Config
 	{
 		return false;
 	}
+	@ConfigItem(
+			position = 8,
+			keyName = "idleNotification",
+			name = "Idle Notification",
+			description = "Repeatedly notifies while you are not moving or playing any animation",
+			section = notifications
+	)
+	default boolean showIdleNotification()
+	{
+		return false;
+	}
+	@ConfigItem(
+			keyName = "idleNotificationTime",
+			name = "Idle Notification Time",
+			description = "Number of seconds of inactivity before you start being notified",
+			position = 9,
+			section = notifications
+	)
+	@Range(
+			max = 60,
+			min = 1
+	)
+	@Units(Units.SECONDS)
+	default int idleNotificationTime()
+	{
+		return 2;
+	}
 
 	@ConfigSection(
 			name = "Predicted Pre Reset Fix",

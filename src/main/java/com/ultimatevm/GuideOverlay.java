@@ -73,11 +73,18 @@ public class GuideOverlay extends Overlay
 	{
 		switch (scenario)
 		{
-			case FIX_A_AT_618:   return "Fix A at 6:18";
-			case FIX_A_AFTER_B2: return "Fix A after B2";
-			case FIX_B_AFTER_B2: return "Fix B after B2";
-			case FIX_A_AFTER_B1: return "Fix A after B1";
-			case FIX_B_AFTER_B1: return "Fix B after B1";
+			case FIX_A_AFTER_B2:    return "Fix A after B2";
+			case FIX_B_AFTER_B2:    return "Fix B after B2";
+			case FIX_AB_AFTER_B2:   return "Fix A+B after B2";
+			case FIX_A_AFTER_B1:    return "Fix A after B1";
+			case FIX_B_AFTER_B1:    return "Fix B after B1";
+			case FIX_AB_AFTER_B1:   return "Fix A+B after B1";
+			case FIX_BC_AFTER_B1:   return "Fix B+C after B1";
+			case FIX_A_RETURN_B1:   return "Return to B1: fix A";
+			case FIX_B_RETURN_B1:   return "Return to B1: fix B";
+			case FIX_C_RETURN_B1:   return "Return to B1: fix C";
+			case FIX_CB_RETURN_B1:  return "Return to B1: fix C+B";
+			case FIX_AB_RETURN_B1:  return "Return to B1: fix A+B";
 			default: return null;
 		}
 	}

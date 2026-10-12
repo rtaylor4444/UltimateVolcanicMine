@@ -1,13 +1,10 @@
 package com.ultimatevm;
 
 import com.google.gson.Gson;
-import com.google.gson.reflect.TypeToken;
-import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.Reader;
 import java.nio.charset.StandardCharsets;
-import java.lang.reflect.Type;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedHashMap;
@@ -24,7 +21,12 @@ public final class Simulator
 	private static final int MAX_STABILITY = 100;
 	private static final String NO_VENT_STABILITY_RESOURCE = "stability_change.json";
 	private static final Gson GSON = new Gson();
-	private static volatile List<List<Integer>> noVentStabilityPatterns;
+	private static volatile StabilityPatternPredictor noVentStabilityPredictor;
+
+	// Chamber-status bitmask, shared with StatusState.getDirectionFromChambers(index, ...).
+	public static final int CHAMBER_A_BIT = 1;
+	public static final int CHAMBER_B_BIT = 2;
+	public static final int CHAMBER_C_BIT = 4;
 
 	private Simulator()
 	{
@@ -67,7 +69,26 @@ public final class Simulator
 		return new SimulationResult(willDie, stabilityOverTime);
 	}
 
+	public static NoVentPatternResult simulateNoKnownVentsFromPatterns(int stability, int time, List<Integer> negativeTail)
+	{
+		if (negativeTail == null || negativeTail.isEmpty())
+		{
+			return new NoVentPatternResult(0, 0.0, Collections.emptyList(), false, false, false, 0);
+		}
+		return simulateNoKnownVentsFromPatterns(stability, time, negativeTail, getNoVentStabilityPredictor());
+	}
+
+	@Deprecated
 	public static NoVentPatternResult simulateNoKnownVentsFromPatterns(int stability, int time, List<Integer> negativeTail, boolean flaggedLookup)
+	{
+		return simulateNoKnownVentsFromPatterns(stability, time, negativeTail);
+	}
+
+	static NoVentPatternResult simulateNoKnownVentsFromPatterns(
+		int stability,
+		int time,
+		List<Integer> negativeTail,
+		StabilityPatternPredictor predictor)
 	{
 		int clampedStability = clamp(stability, MIN_STABILITY, MAX_STABILITY);
 		int startTime = clamp(time, 0, EXTENDED_MAX_TIME);
@@ -78,13 +99,14 @@ public final class Simulator
 			return new NoVentPatternResult(0, 0.0, Collections.emptyList(), false, false, false, 0);
 		}
 
-		PatternMatchSelection selection = findMatchingPatterns(negativeTail, flaggedLookup);
-		if (selection.matches.isEmpty())
+		List<StabilityPatternPredictor.Match> matches = predictor.matchingPatterns(negativeTail);
+		if (matches.isEmpty())
 		{
 			return new NoVentPatternResult(0, 0.0, Collections.emptyList(), false, false, false, 0);
 		}
 
-		int tailSize = selection.usedTailLength;
+		boolean usedWindowFallback = !predictor.hasExactPrefix(negativeTail);
+		int matchedTailLength = usedWindowFallback ? 3 : negativeTail.size();
 		List<Integer> futureTimes = new ArrayList<>();
 		for (int currentTime = startTime; currentTime <= maxTime; currentTime++)
 		{
@@ -95,11 +117,16 @@ public final class Simulator
 			}
 		}
 
-		int[] scenarioStabilities = new int[selection.matches.size()];
-		boolean[] scenarioDied = new boolean[selection.matches.size()];
-		for (int i = 0; i < selection.matches.size(); i++)
+		int[] scenarioStabilities = new int[matches.size()];
+		boolean[] scenarioDied = new boolean[matches.size()];
+		int matchedScenarioCount = 0;
+		boolean usedInteriorMatch = false;
+		for (int i = 0; i < matches.size(); i++)
 		{
+			StabilityPatternPredictor.Match match = matches.get(i);
 			scenarioStabilities[i] = clampedStability;
+			matchedScenarioCount += match.count;
+			usedInteriorMatch |= match.nextIndex > 3;
 		}
 
 		List<StabilityRangePoint> stabilityRanges = new ArrayList<>();
@@ -109,18 +136,17 @@ public final class Simulator
 			int maxStability = Integer.MIN_VALUE;
 			boolean hasAnyScenarioAtStep = false;
 
-			for (int i = 0; i < selection.matches.size(); i++)
+			for (int i = 0; i < matches.size(); i++)
 			{
-				PatternMatch match = selection.matches.get(i);
-				int patternIndex = match.startIndex + tailSize + step;
-				List<Integer> pattern = match.pattern;
-				if (patternIndex >= pattern.size())
+				StabilityPatternPredictor.Match match = matches.get(i);
+				int patternIndex = match.nextIndex + step;
+				if (patternIndex >= match.pattern.size())
 				{
 					continue;
 				}
 
 				hasAnyScenarioAtStep = true;
-				int change = pattern.get(patternIndex);
+				int change = match.pattern.get(patternIndex);
 				scenarioStabilities[i] = clamp(scenarioStabilities[i] + change, MIN_STABILITY, MAX_STABILITY);
 				if (scenarioStabilities[i] <= 0)
 				{
@@ -140,177 +166,31 @@ public final class Simulator
 		}
 
 		int deathCount = 0;
-		for (boolean died : scenarioDied)
+		for (int i = 0; i < scenarioDied.length; i++)
 		{
-			if (died)
+			if (scenarioDied[i])
 			{
-				deathCount++;
+				deathCount += matches.get(i).count;
 			}
 		}
 
-		double blowUpChancePercent = selection.matches.isEmpty()
+		double blowUpChancePercent = matchedScenarioCount == 0
 			? 0.0
-			: (deathCount * 100.0) / selection.matches.size();
+			: (deathCount * 100.0) / matchedScenarioCount;
 
 		return new NoVentPatternResult(
-			selection.matches.size(),
+			matchedScenarioCount,
 			blowUpChancePercent,
 			stabilityRanges,
-			selection.usedFlaggedLookup,
-			selection.usedTrimmedTail,
-			selection.usedInteriorMatch,
-			selection.usedTailLength);
+			false,
+			false,
+			usedWindowFallback && usedInteriorMatch,
+			matchedTailLength);
 	}
 
-	private static PatternMatchSelection findMatchingPatterns(List<Integer> negativeTail, boolean flaggedLookup)
+	static StabilityPatternPredictor getNoVentStabilityPredictor()
 	{
-		if (flaggedLookup)
-		{
-			return findFlaggedMatches(negativeTail);
-		}
-
-		for (int tailStart = 0; tailStart < negativeTail.size(); tailStart++)
-		{
-			List<Integer> candidateTail = negativeTail.subList(tailStart, negativeTail.size());
-			List<PatternMatch> matches = findExactPrefixMatches(candidateTail);
-			if (!matches.isEmpty())
-			{
-				return new PatternMatchSelection(matches, candidateTail.size(), false, tailStart > 0, false);
-			}
-		}
-
-		return findFlaggedMatches(negativeTail);
-	}
-
-	private static PatternMatchSelection findFlaggedMatches(List<Integer> negativeTail)
-	{
-
-		for (int tailStart = 0; tailStart < negativeTail.size(); tailStart++)
-		{
-			List<Integer> candidateTail = negativeTail.subList(tailStart, negativeTail.size());
-			List<PatternMatch> matches = findSequenceMatchesAnywhere(candidateTail);
-			if (!matches.isEmpty())
-			{
-				return new PatternMatchSelection(matches, candidateTail.size(), true, tailStart > 0, hasInteriorMatch(matches));
-			}
-		}
-
-		return PatternMatchSelection.empty();
-	}
-
-	private static boolean hasInteriorMatch(List<PatternMatch> matches)
-	{
-		for (PatternMatch match : matches)
-		{
-			if (match.startIndex > 0)
-			{
-				return true;
-			}
-		}
-
-		return false;
-	}
-
-	private static List<PatternMatch> findExactPrefixMatches(List<Integer> tail)
-	{
-		List<PatternMatch> matches = new ArrayList<>();
-		for (List<Integer> pattern : getNoVentStabilityPatterns())
-		{
-			if (pattern == null || pattern.size() < tail.size())
-			{
-				continue;
-			}
-
-			boolean matchesTail = true;
-			for (int i = 0; i < tail.size(); i++)
-			{
-				if (!tail.get(i).equals(pattern.get(i)))
-				{
-					matchesTail = false;
-					break;
-				}
-			}
-
-			if (matchesTail)
-			{
-				matches.add(new PatternMatch(pattern, 0));
-			}
-		}
-
-		return matches;
-	}
-
-	private static List<PatternMatch> findSequenceMatchesAnywhere(List<Integer> tail)
-	{
-		List<PatternMatch> matches = new ArrayList<>();
-		for (List<Integer> pattern : getNoVentStabilityPatterns())
-		{
-			if (pattern == null || pattern.size() < tail.size())
-			{
-				continue;
-			}
-
-			for (int startIndex = 0; startIndex <= pattern.size() - tail.size(); startIndex++)
-			{
-				boolean matchesTail = true;
-				for (int i = 0; i < tail.size(); i++)
-				{
-					if (!tail.get(i).equals(pattern.get(startIndex + i)))
-					{
-						matchesTail = false;
-						break;
-					}
-				}
-
-				if (matchesTail)
-				{
-					matches.add(new PatternMatch(pattern, startIndex));
-					break;
-				}
-			}
-		}
-
-		return matches;
-	}
-
-	private static final class PatternMatch
-	{
-		private final List<Integer> pattern;
-		private final int startIndex;
-
-		private PatternMatch(List<Integer> pattern, int startIndex)
-		{
-			this.pattern = pattern;
-			this.startIndex = startIndex;
-		}
-	}
-
-	private static final class PatternMatchSelection
-	{
-		private final List<PatternMatch> matches;
-		private final int usedTailLength;
-		private final boolean usedFlaggedLookup;
-		private final boolean usedTrimmedTail;
-		private final boolean usedInteriorMatch;
-
-		private PatternMatchSelection(List<PatternMatch> matches, int usedTailLength, boolean usedFlaggedLookup, boolean usedTrimmedTail, boolean usedInteriorMatch)
-		{
-			this.matches = matches;
-			this.usedTailLength = usedTailLength;
-			this.usedFlaggedLookup = usedFlaggedLookup;
-			this.usedTrimmedTail = usedTrimmedTail;
-			this.usedInteriorMatch = usedInteriorMatch;
-		}
-
-		private static PatternMatchSelection empty()
-		{
-			return new PatternMatchSelection(Collections.emptyList(), 0, false, false, false);
-		}
-	}
-
-	private static List<List<Integer>> getNoVentStabilityPatterns()
-	{
-		List<List<Integer>> cached = noVentStabilityPatterns;
+		StabilityPatternPredictor cached = noVentStabilityPredictor;
 		if (cached != null)
 		{
 			return cached;
@@ -318,53 +198,45 @@ public final class Simulator
 
 		synchronized (Simulator.class)
 		{
-			if (noVentStabilityPatterns != null)
+			if (noVentStabilityPredictor == null)
 			{
-				return noVentStabilityPatterns;
+				noVentStabilityPredictor = loadNoVentStabilityPredictor();
 			}
-
-			noVentStabilityPatterns = loadNoVentStabilityPatterns();
-			return noVentStabilityPatterns;
+			return noVentStabilityPredictor;
 		}
 	}
 
-	private static List<List<Integer>> loadNoVentStabilityPatterns()
+	private static StabilityPatternPredictor loadNoVentStabilityPredictor()
 	{
 		InputStream stream = Simulator.class.getClassLoader().getResourceAsStream(NO_VENT_STABILITY_RESOURCE);
 		if (stream == null)
 		{
-			return Collections.emptyList();
+			throw new IllegalStateException("Missing stability pattern resource: " + NO_VENT_STABILITY_RESOURCE);
 		}
 
 		try (Reader reader = new InputStreamReader(stream, StandardCharsets.UTF_8))
 		{
-			Type type = new TypeToken<List<List<Integer>>>() { }.getType();
-			List<List<Integer>> parsed = GSON.fromJson(reader, type);
-			if (parsed == null)
+			CompressedStabilityPatterns data = GSON.fromJson(reader, CompressedStabilityPatterns.class);
+			if (data == null || data.patterns == null || data.counts == null)
 			{
-				return Collections.emptyList();
+				throw new IllegalStateException("Invalid stability pattern resource: missing patterns or counts");
 			}
-
-			List<List<Integer>> normalized = new ArrayList<>();
-			for (List<Integer> pattern : parsed)
-			{
-				if (pattern == null || pattern.isEmpty())
-				{
-					continue;
-				}
-				normalized.add(Collections.unmodifiableList(new ArrayList<>(pattern)));
-			}
-
-			return Collections.unmodifiableList(normalized);
+			return new StabilityPatternPredictor(data.patterns, data.counts);
 		}
-		catch (IOException ex)
+		catch (java.io.IOException ex)
 		{
-			return Collections.emptyList();
+			throw new IllegalStateException("Unable to read stability pattern resource: " + NO_VENT_STABILITY_RESOURCE, ex);
 		}
 		catch (RuntimeException ex)
 		{
-			return Collections.emptyList();
+			throw new IllegalStateException("Unable to parse stability pattern resource: " + NO_VENT_STABILITY_RESOURCE, ex);
 		}
+	}
+
+	private static final class CompressedStabilityPatterns
+	{
+		private List<List<Integer>> patterns;
+		private List<Integer> counts;
 	}
 
 	public static VentSweepResult simulateUnknownVent(int unknownVentIndex, int[] knownVentValues, List<Integer> possibleUnknownValues, int chamberStatus, int stability, int time)
@@ -516,6 +388,185 @@ public final class Simulator
 				stability,
 				startTime);
 		}
+	}
+
+	/**
+	 * Generalizes {@link #simulateUnknownVents} to a chain of one or more scheduled chamber flips
+	 * (each toggling a bit of {@code chamberStatus} at a given absolute time), evaluated across
+	 * every combination of the given unknown vents. Used for multi-vent fix scenarios (e.g. fixing
+	 * A then B at different times) where a single before/after flip isn't enough.
+	 */
+	public static MultiVentSweepResult simulateUnknownVentsWithFlips(
+		int[] knownVentValues,
+		List<VentUnknownInput> unknownInputs,
+		int chamberStatus,
+		int stability,
+		int time,
+		List<FlipEvent> flipEvents)
+	{
+		if (knownVentValues == null || knownVentValues.length != 3)
+		{
+			throw new IllegalArgumentException("knownVentValues must have exactly 3 elements");
+		}
+
+		List<FlipEvent> sortedEvents = new ArrayList<>(flipEvents == null ? Collections.emptyList() : flipEvents);
+		Collections.sort(sortedEvents, (left, right) -> Integer.compare(left.time, right.time));
+
+		List<VentUnknownInput> normalizedInputs = new ArrayList<>();
+		if (unknownInputs != null)
+		{
+			for (VentUnknownInput input : unknownInputs)
+			{
+				if (input == null || input.ventIndex < 0 || input.ventIndex >= 3)
+				{
+					throw new IllegalArgumentException("unknown vent index must be in range [0, 2]");
+				}
+
+				if (input.possibleValues == null || input.possibleValues.isEmpty())
+				{
+					return new MultiVentSweepResult(Collections.emptyList(), 0.0, Collections.emptyList());
+				}
+
+				TreeSet<Integer> dedupedAndSortedValues = new TreeSet<>(input.possibleValues);
+				normalizedInputs.add(new VentUnknownInput(input.ventIndex, new ArrayList<>(dedupedAndSortedValues)));
+			}
+		}
+
+		int startTime = clamp(time, 0, EXTENDED_MAX_TIME);
+		List<VentCombinationScenarioResult> scenarios = new ArrayList<>();
+		int[] workingVents = knownVentValues.clone();
+
+		buildUnknownVentFlipScenarios(
+			scenarios,
+			workingVents,
+			normalizedInputs,
+			0,
+			chamberStatus,
+			stability,
+			startTime,
+			sortedEvents);
+
+		int deathCount = 0;
+		for (VentCombinationScenarioResult scenario : scenarios)
+		{
+			if (scenario.result.willDie)
+			{
+				deathCount++;
+			}
+		}
+
+		double blowUpChancePercent = scenarios.isEmpty()
+			? 0.0
+			: (deathCount * 100.0) / scenarios.size();
+
+		int maxTime = getMaxTimeForStart(startTime);
+		List<Integer> times = getStabilityUpdateTimes(startTime, maxTime);
+		List<StabilityRangePoint> stabilityRanges = new ArrayList<>();
+
+		for (int currentTime : times)
+		{
+			int minStability = Integer.MAX_VALUE;
+			int maxStability = Integer.MIN_VALUE;
+
+			for (VentCombinationScenarioResult scenario : scenarios)
+			{
+				int stabilityAtTime = getStabilityAtTime(scenario.result, currentTime, stability);
+				minStability = Math.min(minStability, stabilityAtTime);
+				maxStability = Math.max(maxStability, stabilityAtTime);
+			}
+
+			if (minStability != Integer.MAX_VALUE)
+			{
+				stabilityRanges.add(new StabilityRangePoint(currentTime, minStability, maxStability));
+			}
+		}
+
+		return new MultiVentSweepResult(scenarios, blowUpChancePercent, stabilityRanges);
+	}
+
+	private static void buildUnknownVentFlipScenarios(
+		List<VentCombinationScenarioResult> scenarios,
+		int[] workingVents,
+		List<VentUnknownInput> unknownInputs,
+		int inputIndex,
+		int chamberStatus,
+		int stability,
+		int startTime,
+		List<FlipEvent> sortedEvents)
+	{
+		if (inputIndex >= unknownInputs.size())
+		{
+			SimulationResult result = simulateSequentialPhases(
+				workingVents[0],
+				workingVents[1],
+				workingVents[2],
+				chamberStatus,
+				stability,
+				startTime,
+				sortedEvents);
+			scenarios.add(new VentCombinationScenarioResult(workingVents.clone(), result));
+			return;
+		}
+
+		VentUnknownInput input = unknownInputs.get(inputIndex);
+		for (int value : input.possibleValues)
+		{
+			workingVents[input.ventIndex] = value;
+			buildUnknownVentFlipScenarios(
+				scenarios,
+				workingVents,
+				unknownInputs,
+				inputIndex + 1,
+				chamberStatus,
+				stability,
+				startTime,
+				sortedEvents);
+		}
+	}
+
+	/**
+	 * Runs {@link #simulate} in successive phases split at each flip event's time, carrying the
+	 * vent/stability state (and any already-locked-in death, via getStabilityAtTime's post-death
+	 * clamp-to-0 behavior) forward across the chamber toggle. Only the final phase's willDie matters
+	 * for the overall result; the per-phase stability points are concatenated for display/range use.
+	 */
+	private static SimulationResult simulateSequentialPhases(
+		int a, int b, int c, int chamberStatus, int stability, int startTime, List<FlipEvent> sortedEvents)
+	{
+		List<StabilityPoint> combinedPoints = new ArrayList<>();
+		int currentA = a;
+		int currentB = b;
+		int currentC = c;
+		int currentChamberStatus = chamberStatus;
+		int currentStability = stability;
+		int currentTime = startTime;
+		SimulationResult lastPhase = null;
+
+		for (FlipEvent event : sortedEvents)
+		{
+			if (event.time <= currentTime)
+			{
+				currentChamberStatus ^= event.chamberBit;
+				continue;
+			}
+
+			SimulationResult phase = simulate(currentA, currentB, currentC, currentChamberStatus, currentStability, currentTime);
+			combinedPoints.addAll(phase.stabilityOverTime);
+			lastPhase = phase;
+
+			currentStability = getStabilityAtTime(phase, event.time, currentStability);
+			int[] ventsAtEvent = getVentValuesAtTime(currentA, currentB, currentC, currentChamberStatus, currentTime, event.time);
+			currentA = ventsAtEvent[0];
+			currentB = ventsAtEvent[1];
+			currentC = ventsAtEvent[2];
+			currentChamberStatus ^= event.chamberBit;
+			currentTime = event.time;
+		}
+
+		SimulationResult finalPhase = simulate(currentA, currentB, currentC, currentChamberStatus, currentStability, currentTime);
+		combinedPoints.addAll(finalPhase.stabilityOverTime);
+
+		return new SimulationResult(finalPhase.willDie, combinedPoints);
 	}
 
 	public static int[] updateVents(int a, int b, int c, int chamberStatus)
@@ -693,6 +744,18 @@ public final class Simulator
 		}
 	}
 
+	public static final class FlipEvent
+	{
+		public final int time;
+		public final int chamberBit;
+
+		public FlipEvent(int time, int chamberBit)
+		{
+			this.time = time;
+			this.chamberBit = chamberBit;
+		}
+	}
+
 	public static final class StabilityRangePoint
 	{
 		public final int time;
@@ -756,6 +819,7 @@ public final class Simulator
 
 	public static final class NoVentPatternResult
 	{
+		// Weighted count of matching raw historical observations, not distinct patterns.
 		public final int matchedScenarioCount;
 		public final double blowUpChancePercent;
 		public final List<StabilityRangePoint> stabilityRangeOverTime;
