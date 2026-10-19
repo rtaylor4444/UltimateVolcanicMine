@@ -35,10 +35,21 @@ public interface UltimateVolcanicMineConfig extends Config
 		return true;
 	}
 	@ConfigItem(
+			position = 2,
+			keyName = "showBlowUpChance",
+			name = "Show Blow-Up Chance",
+			description = "Displays an infobox with the current simulated blow-up chance",
+			section = display
+	)
+	default boolean showBlowUpChance()
+	{
+		return true;
+	}
+	@ConfigItem(
 			keyName = "stabilityUpdateHistoryCount",
 			name = "Stability Update History",
 			description = "The number of stability updates to track",
-			position = 2,
+			position = 3,
 			section = display
 	)
 	@Range(
@@ -53,7 +64,7 @@ public interface UltimateVolcanicMineConfig extends Config
 			keyName = "predictedStabilityChangeHistoryCount",
 			name = "Predicted Stability Change History",
 			description = "The number of predicted stability changes to track",
-			position = 3,
+			position = 4,
 			section = display
 	)
 	@Range(
@@ -65,7 +76,7 @@ public interface UltimateVolcanicMineConfig extends Config
 		return 1;
 	}
 	@ConfigItem(
-			position = 4,
+			position = 5,
 			keyName = "ventStatusUpdateHistory",
 			name = "Vent Status Update History",
 			description = "Sends a chat message with the vent status for each stability update",
@@ -76,7 +87,7 @@ public interface UltimateVolcanicMineConfig extends Config
 		return false;
 	}
 	@ConfigItem(
-			position = 5,
+			position = 6,
 			keyName = "ventStatusPrediction",
 			name = "Vent Status Prediction",
 			description = "Displays estimates for missing vents",
@@ -277,6 +288,33 @@ public interface UltimateVolcanicMineConfig extends Config
 	default boolean postResetVentFixNotifier()
 	{
 		return false;
+	}
+	@ConfigItem(
+			position = 8,
+			keyName = "idleNotification",
+			name = "Idle Notification",
+			description = "Repeatedly notifies while you are not moving or playing any animation",
+			section = notifications
+	)
+	default boolean showIdleNotification()
+	{
+		return false;
+	}
+	@ConfigItem(
+			keyName = "idleNotificationTime",
+			name = "Idle Notification Time",
+			description = "Number of seconds of inactivity before you start being notified",
+			position = 9,
+			section = notifications
+	)
+	@Range(
+			max = 60,
+			min = 1
+	)
+	@Units(Units.SECONDS)
+	default int idleNotificationTime()
+	{
+		return 2;
 	}
 
 	@ConfigSection(
@@ -488,6 +526,17 @@ public interface UltimateVolcanicMineConfig extends Config
 			section = solo
 	)
 	default boolean showBoulderHealth()
+	{
+		return false;
+	}
+	@ConfigItem(
+			keyName = "showGuide",
+			name = "Guide",
+			description = "Displays a green indicator when vents A and B are known and stability is predicted safe before the 5-minute vent reset",
+			position = 1,
+			section = solo
+	)
+	default boolean showGuide()
 	{
 		return false;
 	}

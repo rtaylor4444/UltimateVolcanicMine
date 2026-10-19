@@ -44,6 +44,7 @@ public class BoulderHealthOverlay extends Overlay
 	private WorldPoint boulderWorldLocation;
 	private int currentHealth;
 	private int currentBoulderNumber = 1;
+	private boolean boulderMoving;
 
 	@Inject
 	BoulderHealthOverlay(Client client, UltimateVolcanicMineConfig config)
@@ -110,8 +111,14 @@ public class BoulderHealthOverlay extends Overlay
 			++currentBoulderNumber;
 		}
 
+		boulderMoving = true;
 		reset();
 		return true;
+	}
+
+	boolean isBoulderMoving()
+	{
+		return boulderMoving;
 	}
 
 	boolean isFinalBreakStageNpcId(int npcId)
@@ -135,6 +142,11 @@ public class BoulderHealthOverlay extends Overlay
 	int getCurrentHealth()
 	{
 		return currentHealth;
+	}
+
+	int getCurrentBoulderNumber()
+	{
+		return currentBoulderNumber;
 	}
 
 	WorldPoint getBoulderLocation()
@@ -177,6 +189,7 @@ public class BoulderHealthOverlay extends Overlay
 			return;
 		}
 
+		boulderMoving = false;
 		WorldPoint adjustedWorld = adjustBoulderWorldPoint(npc, npc.getWorldLocation());
 		startBoulderTracking(adjustedWorld, npc.getLocalLocation());
 	}

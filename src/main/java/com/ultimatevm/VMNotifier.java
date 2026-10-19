@@ -18,9 +18,11 @@ public class VMNotifier {
         VM_PREDICTED_VENT_FIX,
         VM_PICKAXE_DESPAWN,
         VM_PICKAXE_LOW_STABILITY,
-        VM_PICKAXE_BOULDER_COMPLETE;
+        VM_PICKAXE_BOULDER_COMPLETE,
+        VM_IDLE_PLAYER;
     }
     public static final int NOTIFICATION_START_COOLDOWN_TICKS = 10;
+    private static final int IDLE_NOTIFICATION_REPEAT_TICKS = 8; // ~5 seconds
     @Inject
     private UltimateVolcanicMineConfig config;
     private HashSet<NotificationEvents> oneTimeEvents = new HashSet<>();
@@ -41,9 +43,11 @@ public class VMNotifier {
         oneTimeEvents.add(NotificationEvents.VM_PICKAXE_DESPAWN);
         oneTimeEvents.add(NotificationEvents.VM_PICKAXE_LOW_STABILITY);
         oneTimeEvents.add(NotificationEvents.VM_PICKAXE_BOULDER_COMPLETE);
+        oneTimeEvents.add(NotificationEvents.VM_IDLE_PLAYER);
     }
     private void setContinousEvents() {
         continousEvents.put(NotificationEvents.VM_PICKAXE_DESPAWN, 0);
+        continousEvents.put(NotificationEvents.VM_IDLE_PLAYER, 0);
     }
     public void reset() {
         setOneTimeEvents();
@@ -116,6 +120,15 @@ public class VMNotifier {
             case VM_PICKAXE_BOULDER_COMPLETE:
                 oneTimeEvents.remove(event);
                 notifier.notify("You finished the boulder, pick up your pickaxe!");
+                break;
+
+            case VM_IDLE_PLAYER:
+                if(!config.showIdleNotification()) return;
+                int lastIdleNotifyTick = continousEvents.get(NotificationEvents.VM_IDLE_PLAYER);
+                if(lastIdleNotifyTick + IDLE_NOTIFICATION_REPEAT_TICKS <= ticksPassed) {
+                    notifier.notify("You have been idle for a while!");
+                    continousEvents.put(NotificationEvents.VM_IDLE_PLAYER, ticksPassed);
+                }
                 break;
 
             default:

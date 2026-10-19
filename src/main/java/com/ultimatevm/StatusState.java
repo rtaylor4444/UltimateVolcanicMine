@@ -510,7 +510,7 @@ public class StatusState {
         }
         return true;
     }
-    private int getDirectionFromChambers(int index, int chambers) { return (chambers & (1 << index)) != 0 ? 1 : -1;}
+    public static int getDirectionFromChambers(int index, int chambers) { return (chambers & (1 << index)) != 0 ? 1 : -1;}
     private int getIdentifiedVentTotalValue() {
         int totalVentUpdate = 0;
         for(int i = 0; i < NUM_VENTS; ++i) {

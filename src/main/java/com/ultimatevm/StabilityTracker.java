@@ -1,7 +1,10 @@
 package com.ultimatevm;
 
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.LinkedList;
 import java.util.Iterator;
+import java.util.List;
 
 public class StabilityTracker {
 
@@ -13,9 +16,11 @@ public class StabilityTracker {
     private static final int MAX_STABILITY_CHANGE = 24;
 
     private boolean hasResetHistory = false;
+    private boolean patternPredictionEnabled = true;
     private int currentStability;
     private int numDisplay;
     private LinkedList<Integer> stabilityHistory = new LinkedList<>();
+    private LinkedList<Integer> fullStabilityHistory = new LinkedList<>();
 
     public StabilityTracker() {
         initialize();
@@ -25,12 +30,22 @@ public class StabilityTracker {
     public void initialize() {
         currentStability = STARTING_STABILITY;
         stabilityHistory.clear();
+        fullStabilityHistory.clear();
         hasResetHistory = false;
+        patternPredictionEnabled = true;
     }
 
     public void resetStabilityHistory() {
         if(hasResetHistory) return;
         stabilityHistory.clear();
+        fullStabilityHistory.clear();
+        hasResetHistory = true;
+    }
+
+    public void rebase(int newStability) {
+        currentStability = newStability;
+        stabilityHistory.clear();
+        fullStabilityHistory.clear();
         hasResetHistory = true;
     }
 
@@ -92,9 +107,65 @@ public class StabilityTracker {
         if(stabilityHistory.isEmpty()) return 0;
         return stabilityHistory.getFirst();
     }
+    public boolean hasRecentNegativeChanges(int count) {
+        if (count <= 0) {
+            return true;
+        }
+
+        if (stabilityHistory.size() < count) {
+            return false;
+        }
+
+        Iterator<Integer> it = stabilityHistory.iterator();
+        int checked = 0;
+        while (it.hasNext() && checked < count) {
+            if (it.next() >= 0) {
+                return false;
+            }
+            checked++;
+        }
+
+        return checked == count;
+    }
+    public int getConsecutiveNegativeChangeCount() {
+        int count = 0;
+        for (Integer change : fullStabilityHistory) {
+            if (change > 0) {
+                break;
+            }
+            if (change < 0) {
+                count++;
+            }
+        }
+        return count;
+    }
+    public List<Integer> getConsecutiveNegativeTailOldestFirst() {
+        List<Integer> newestFirst = new ArrayList<>();
+        for (Integer change : fullStabilityHistory) {
+            if (change > 0) {
+                break;
+            }
+            if (change < 0) {
+                newestFirst.add(change);
+            }
+        }
+
+        Collections.reverse(newestFirst);
+        return newestFirst;
+    }
+    public void invalidatePatternHistory() {
+        fullStabilityHistory.clear();
+        patternPredictionEnabled = false;
+    }
+    public boolean isPatternPredictionEnabled() { return patternPredictionEnabled; }
     public void addChange(int change) {
         stabilityHistory.addFirst(change);
         while(stabilityHistory.size() > MAX_STABILITY_UPDATES) stabilityHistory.removeLast();
+
+        fullStabilityHistory.addFirst(change);
+        if (change < 0) {
+            patternPredictionEnabled = true;
+        }
     }
     public void setDisplayCount(int count) { numDisplay = count;}
 }
