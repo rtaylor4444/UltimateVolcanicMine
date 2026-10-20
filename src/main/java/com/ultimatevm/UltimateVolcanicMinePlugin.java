@@ -74,6 +74,9 @@ public class UltimateVolcanicMinePlugin extends Plugin
 	@Inject
 	private GuideOverlay guideOverlay;
 
+	@Inject
+	private Simulator simulator;
+
 	//Constants
 	private static final int PROC_VOLCANIC_MINE_SET_OTHERINFO = 2022;
 	private static final int VARBIT_STABILITY = 5938;
@@ -558,7 +561,7 @@ public class UltimateVolcanicMinePlugin extends Plugin
 				return;
 			}
 
-			Simulator.NoVentPatternResult fallback = Simulator.simulateNoKnownVentsFromPatterns(
+			Simulator.NoVentPatternResult fallback = simulator.simulateNoKnownVentsFromPatterns(
 				currentStability,
 				simulationTime,
 				negativeTail);

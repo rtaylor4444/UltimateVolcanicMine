@@ -11,6 +11,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeSet;
+import javax.inject.Inject;
 
 public final class Simulator
 {
@@ -20,16 +21,18 @@ public final class Simulator
 	private static final int MIN_STABILITY = 0;
 	private static final int MAX_STABILITY = 100;
 	private static final String NO_VENT_STABILITY_RESOURCE = "stability_change.json";
-	private static final Gson GSON = new Gson();
-	private static volatile StabilityPatternPredictor noVentStabilityPredictor;
+	private final Gson gson;
+	private volatile StabilityPatternPredictor noVentStabilityPredictor;
 
 	// Chamber-status bitmask, shared with StatusState.getDirectionFromChambers(index, ...).
 	public static final int CHAMBER_A_BIT = 1;
 	public static final int CHAMBER_B_BIT = 2;
 	public static final int CHAMBER_C_BIT = 4;
 
-	private Simulator()
+	@Inject
+	public Simulator(Gson gson)
 	{
+		this.gson = gson;
 	}
 
 	public static SimulationResult simulate(int a, int b, int c, int chamberStatus, int stability, int time)
@@ -69,7 +72,7 @@ public final class Simulator
 		return new SimulationResult(willDie, stabilityOverTime);
 	}
 
-	public static NoVentPatternResult simulateNoKnownVentsFromPatterns(int stability, int time, List<Integer> negativeTail)
+	public NoVentPatternResult simulateNoKnownVentsFromPatterns(int stability, int time, List<Integer> negativeTail)
 	{
 		if (negativeTail == null || negativeTail.isEmpty())
 		{
@@ -79,7 +82,7 @@ public final class Simulator
 	}
 
 	@Deprecated
-	public static NoVentPatternResult simulateNoKnownVentsFromPatterns(int stability, int time, List<Integer> negativeTail, boolean flaggedLookup)
+	public NoVentPatternResult simulateNoKnownVentsFromPatterns(int stability, int time, List<Integer> negativeTail, boolean flaggedLookup)
 	{
 		return simulateNoKnownVentsFromPatterns(stability, time, negativeTail);
 	}
@@ -188,7 +191,7 @@ public final class Simulator
 			matchedTailLength);
 	}
 
-	static StabilityPatternPredictor getNoVentStabilityPredictor()
+	StabilityPatternPredictor getNoVentStabilityPredictor()
 	{
 		StabilityPatternPredictor cached = noVentStabilityPredictor;
 		if (cached != null)
@@ -196,7 +199,7 @@ public final class Simulator
 			return cached;
 		}
 
-		synchronized (Simulator.class)
+		synchronized (this)
 		{
 			if (noVentStabilityPredictor == null)
 			{
@@ -206,7 +209,7 @@ public final class Simulator
 		}
 	}
 
-	private static StabilityPatternPredictor loadNoVentStabilityPredictor()
+	private StabilityPatternPredictor loadNoVentStabilityPredictor()
 	{
 		InputStream stream = Simulator.class.getClassLoader().getResourceAsStream(NO_VENT_STABILITY_RESOURCE);
 		if (stream == null)
@@ -216,7 +219,7 @@ public final class Simulator
 
 		try (Reader reader = new InputStreamReader(stream, StandardCharsets.UTF_8))
 		{
-			CompressedStabilityPatterns data = GSON.fromJson(reader, CompressedStabilityPatterns.class);
+			CompressedStabilityPatterns data = gson.fromJson(reader, CompressedStabilityPatterns.class);
 			if (data == null || data.patterns == null || data.counts == null)
 			{
 				throw new IllegalStateException("Invalid stability pattern resource: missing patterns or counts");

@@ -1,5 +1,7 @@
 package com.ultimatevm;
 
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
@@ -11,10 +13,34 @@ public class StabilityPatternPredictorTest
 	@Test
 	public void loadsCompressedDatasetWithOriginalOccurrenceCount()
 	{
-		StabilityPatternPredictor predictor = Simulator.getNoVentStabilityPredictor();
+		Simulator simulator = new Simulator(new Gson());
+		StabilityPatternPredictor predictor = simulator.getNoVentStabilityPredictor();
 
 		Assert.assertEquals(6860, predictor.getPatternCount());
 		Assert.assertEquals(46541, predictor.getOccurrenceCount());
+		Assert.assertSame(predictor, simulator.getNoVentStabilityPredictor());
+	}
+
+	@Test(expected = IllegalStateException.class)
+	public void usesSuppliedGsonToLoadPatterns()
+	{
+		Gson gson = new GsonBuilder()
+			.setFieldNamingStrategy(field -> "unused_" + field.getName())
+			.create();
+		Simulator simulator = new Simulator(gson);
+
+		simulator.getNoVentStabilityPredictor();
+	}
+
+	@Test
+	public void simulatesNoKnownVentsUsingLoadedPatterns()
+	{
+		Simulator simulator = new Simulator(new Gson());
+		Simulator.NoVentPatternResult result = simulator.simulateNoKnownVentsFromPatterns(
+			100, 270, Collections.singletonList(-1));
+
+		Assert.assertTrue(result.matchedScenarioCount > 0);
+		Assert.assertFalse(result.stabilityRangeOverTime.isEmpty());
 	}
 
 	@Test
