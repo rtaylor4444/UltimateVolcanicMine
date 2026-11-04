@@ -540,4 +540,49 @@ public interface UltimateVolcanicMineConfig extends Config
 	{
 		return false;
 	}
+	@ConfigItem(
+			keyName = "guideHealth",
+			name = "Guide Health",
+			description = "The minimum stability the guide will require after the 5-minute vent reset (dips before the reset are fine as long as stability never hits 0)",
+			position = 2,
+			section = solo
+	)
+	@Range(
+			max = 100,
+			min = 1
+	)
+	default int guideHealth()
+	{
+		return 1;
+	}
+
+	@ConfigSection(
+			name = "Game chat output",
+			description = "Options for diagnostic text printed to the game chat and console",
+			position = 7,
+			closedByDefault = true
+	)
+	String gameChatOutput = "gameChatOutput";
+	@ConfigItem(
+			keyName = "guideConsoleOutput",
+			name = "Guide Printout",
+			description = "Print the Guide's output to the game chat and console",
+			position = 0,
+			section = gameChatOutput
+	)
+	default boolean guideConsoleOutput()
+	{
+		return false;
+	}
+	@ConfigItem(
+			keyName = "mineStatusPredictionConsoleOutput",
+			name = "Mine Status Predictions",
+			description = "Print mine status predictions to the game chat and console",
+			position = 1,
+			section = gameChatOutput
+	)
+	default boolean mineStatusPredictionConsoleOutput()
+	{
+		return false;
+	}
 }

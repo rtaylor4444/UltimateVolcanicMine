@@ -20,6 +20,7 @@ public final class Simulator
 	private static final int EXTENDED_MAX_TIME = 555; // 0:45, as the 0:30 change always sets stab to 5%
 	private static final int MIN_STABILITY = 0;
 	private static final int MAX_STABILITY = 100;
+	private static final int DEFAULT_MIN_SAFE_STABILITY = 1;
 	private static final String NO_VENT_STABILITY_RESOURCE = "stability_change.json";
 	private final Gson gson;
 	private volatile StabilityPatternPredictor noVentStabilityPredictor;
@@ -36,6 +37,19 @@ public final class Simulator
 	}
 
 	public static SimulationResult simulate(int a, int b, int c, int chamberStatus, int stability, int time)
+	{
+		return simulate(a, b, c, chamberStatus, stability, time, DEFAULT_MIN_SAFE_STABILITY);
+	}
+
+	/**
+	 * Same as {@link #simulate(int, int, int, int, int, int)}, but lets the caller raise the
+	 * "blows up" threshold above the true death point (stability 0) once the 5-minute vent reset
+	 * (see {@link #FIVE_MINUTE_MARK_TIME}) is reached. Before that point, only the real death
+	 * threshold applies - stability is free to dip below {@code minSafeStability} and recover, as
+	 * long as it never actually hits 0. From the reset onward, stability must stay at or above
+	 * {@code minSafeStability} or the scenario is treated as unsafe.
+	 */
+	public static SimulationResult simulate(int a, int b, int c, int chamberStatus, int stability, int time, int minSafeStability)
 	{
 		List<StabilityPoint> stabilityOverTime = new ArrayList<>();
 		int clampedStability = clamp(stability, MIN_STABILITY, MAX_STABILITY);
@@ -62,7 +76,11 @@ public final class Simulator
 				stabilityOverTime.add(new StabilityPoint(currentTime, clampedStability));
 			}
 
-			if (clampedStability <= 0)
+			// The configurable floor only matters once we reach the 5-minute vent reset; before
+			// that point we only guard against the real death threshold (stability hitting 0), so
+			// dips below minSafeStability earlier in the round don't count as unsafe.
+			int effectiveMinSafeStability = currentTime >= FIVE_MINUTE_MARK_TIME ? minSafeStability : DEFAULT_MIN_SAFE_STABILITY;
+			if (clampedStability < effectiveMinSafeStability)
 			{
 				willDie = true;
 				break;
@@ -407,6 +425,23 @@ public final class Simulator
 		int time,
 		List<FlipEvent> flipEvents)
 	{
+		return simulateUnknownVentsWithFlips(knownVentValues, unknownInputs, chamberStatus, stability, time, flipEvents, DEFAULT_MIN_SAFE_STABILITY);
+	}
+
+	/**
+	 * Same as {@link #simulateUnknownVentsWithFlips(int[], List, int, int, int, List)}, but lets
+	 * the caller treat stability below {@code minSafeStability} as "blown up" instead of only
+	 * stability 0.
+	 */
+	public static MultiVentSweepResult simulateUnknownVentsWithFlips(
+		int[] knownVentValues,
+		List<VentUnknownInput> unknownInputs,
+		int chamberStatus,
+		int stability,
+		int time,
+		List<FlipEvent> flipEvents,
+		int minSafeStability)
+	{
 		if (knownVentValues == null || knownVentValues.length != 3)
 		{
 			throw new IllegalArgumentException("knownVentValues must have exactly 3 elements");
@@ -447,7 +482,8 @@ public final class Simulator
 			chamberStatus,
 			stability,
 			startTime,
-			sortedEvents);
+			sortedEvents,
+			minSafeStability);
 
 		int deathCount = 0;
 		for (VentCombinationScenarioResult scenario : scenarios)
@@ -495,7 +531,8 @@ public final class Simulator
 		int chamberStatus,
 		int stability,
 		int startTime,
-		List<FlipEvent> sortedEvents)
+		List<FlipEvent> sortedEvents,
+		int minSafeStability)
 	{
 		if (inputIndex >= unknownInputs.size())
 		{
@@ -506,7 +543,8 @@ public final class Simulator
 				chamberStatus,
 				stability,
 				startTime,
-				sortedEvents);
+				sortedEvents,
+				minSafeStability);
 			scenarios.add(new VentCombinationScenarioResult(workingVents.clone(), result));
 			return;
 		}
@@ -523,7 +561,8 @@ public final class Simulator
 				chamberStatus,
 				stability,
 				startTime,
-				sortedEvents);
+				sortedEvents,
+				minSafeStability);
 		}
 	}
 
@@ -534,7 +573,7 @@ public final class Simulator
 	 * for the overall result; the per-phase stability points are concatenated for display/range use.
 	 */
 	private static SimulationResult simulateSequentialPhases(
-		int a, int b, int c, int chamberStatus, int stability, int startTime, List<FlipEvent> sortedEvents)
+		int a, int b, int c, int chamberStatus, int stability, int startTime, List<FlipEvent> sortedEvents, int minSafeStability)
 	{
 		List<StabilityPoint> combinedPoints = new ArrayList<>();
 		int currentA = a;
@@ -553,7 +592,7 @@ public final class Simulator
 				continue;
 			}
 
-			SimulationResult phase = simulate(currentA, currentB, currentC, currentChamberStatus, currentStability, currentTime);
+			SimulationResult phase = simulate(currentA, currentB, currentC, currentChamberStatus, currentStability, currentTime, minSafeStability);
 			combinedPoints.addAll(phase.stabilityOverTime);
 			lastPhase = phase;
 
@@ -566,7 +605,7 @@ public final class Simulator
 			currentTime = event.time;
 		}
 
-		SimulationResult finalPhase = simulate(currentA, currentB, currentC, currentChamberStatus, currentStability, currentTime);
+		SimulationResult finalPhase = simulate(currentA, currentB, currentC, currentChamberStatus, currentStability, currentTime, minSafeStability);
 		combinedPoints.addAll(finalPhase.stabilityOverTime);
 
 		return new SimulationResult(finalPhase.willDie, combinedPoints);

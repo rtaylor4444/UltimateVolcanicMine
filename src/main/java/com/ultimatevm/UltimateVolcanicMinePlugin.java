@@ -454,7 +454,7 @@ public class UltimateVolcanicMinePlugin extends Plugin
 		VentResolution resolvedB = resolveVentValue(ventB, predictedVents[1]);
 		VentResolution resolvedC = resolveVentValue(ventC, predictedVents[2]);
 
-		log.info("UVM Sim Trigger | tick={}, timeRemainingTicks={}, time={}s, stability={}, chamberStatus={}, trigger=stability-update, A={}, B={}, C={}",
+		logMineStatusPrediction("UVM Sim Trigger | tick={}, timeRemainingTicks={}, time={}s, stability={}, chamberStatus={}, trigger=stability-update, A={}, B={}, C={}",
 			ventStatusPredicter.getCurrentTick(),
 			estimatedTimeRemaining,
 			simulationTime,
@@ -487,7 +487,7 @@ public class UltimateVolcanicMinePlugin extends Plugin
 		setBlowUpChance(blowUpChancePercent);
 		printBlowUpTimelineToChat(blowUpChancePercent, toRangePoints(result.stabilityOverTime));
 
-		log.info("UVM Sim | time={}s, A={}({}), B={}({}), C={}({}), stability={}, chamberStatus={} -> points={}, willDie={}, timeline={}",
+		logMineStatusPrediction("UVM Sim | time={}s, A={}({}), B={}({}), C={}({}), stability={}, chamberStatus={} -> points={}, willDie={}, timeline={}",
 			simulationTime,
 			resolvedA.resolvedValue,
 			resolvedA.source,
@@ -542,7 +542,7 @@ public class UltimateVolcanicMinePlugin extends Plugin
 		{
 			if (!stabilityTracker.isPatternPredictionEnabled())
 			{
-				log.info(
+				logMineStatusPrediction(
 					"UVM Sim Skip | reason=no-vent pattern prediction invalidated by chamber status change, time={}s, stability={}",
 					simulationTime,
 					currentStability);
@@ -553,7 +553,7 @@ public class UltimateVolcanicMinePlugin extends Plugin
 			List<Integer> negativeTail = stabilityTracker.getConsecutiveNegativeTailOldestFirst();
 			if (negativeTail.isEmpty())
 			{
-				log.info(
+				logMineStatusPrediction(
 					"UVM Sim Skip | reason=no negative tail for no-vent lookup, time={}s, stability={}",
 					simulationTime,
 					currentStability);
@@ -568,12 +568,9 @@ public class UltimateVolcanicMinePlugin extends Plugin
 
 			if (fallback.matchedScenarioCount == 0 || fallback.stabilityRangeOverTime.isEmpty())
 			{
-				client.addChatMessage(
-					ChatMessageType.GAMEMESSAGE,
-					"UVM",
-					"No-vent prediction unavailable: no data matches recent negative sequence " + negativeTail + ".",
-					null);
-				log.info(
+				addMineStatusPredictionChatMessage(
+					"No-vent prediction unavailable: no data matches recent negative sequence " + negativeTail + ".");
+				logMineStatusPrediction(
 					"UVM Sim Skip | reason=no pattern matches for no-vent lookup, time={}s, stability={}, tail={}",
 					simulationTime,
 					currentStability,
@@ -586,7 +583,7 @@ public class UltimateVolcanicMinePlugin extends Plugin
 			printBlowUpTimelineToChat(fallback.blowUpChancePercent, fallback.stabilityRangeOverTime);
 			printPredictedExplosionTimeToChat("No-vent data", fallback.stabilityRangeOverTime);
 
-			log.info(
+			logMineStatusPrediction(
 				"UVM Sim Pattern | time={}s, knownCount=0, stability={}, tail={}, matchedTailLength={}, interiorMatch={}, weightedMatches={}, blowUpChance={}%, rangeTimeline= {}",
 				simulationTime,
 				currentStability,
@@ -603,7 +600,7 @@ public class UltimateVolcanicMinePlugin extends Plugin
 		{
 			if (candidateValuesByUnknown.get(i).isEmpty())
 			{
-				log.info("UVM Sim Skip | reason=unknown vent has no possible values, unknownVent={}", ventName(unknownIndices.get(i)));
+				logMineStatusPrediction("UVM Sim Skip | reason=unknown vent has no possible values, unknownVent={}", ventName(unknownIndices.get(i)));
 				clearBlowUpChance();
 				return;
 			}
@@ -626,7 +623,7 @@ public class UltimateVolcanicMinePlugin extends Plugin
 		setBlowUpChance(sweep.blowUpChancePercent);
 		printBlowUpTimelineToChat(sweep.blowUpChancePercent, sweep.stabilityRangeOverTime);
 
-		log.info(
+		logMineStatusPrediction(
 			"UVM Sim Sweep Summary | time={}s, knownCount={}, unknowns={}, combinations={}, blowUpChance={}%, rangeTimeline={}",
 			simulationTime,
 			knownCount,
@@ -674,7 +671,7 @@ public class UltimateVolcanicMinePlugin extends Plugin
 		ventStatusPredicter.reset();
 		clearBlowUpChance();
 		lastKnownChamberStatus = chamberStatus;
-		log.info(
+		logMineStatusPrediction(
 			"UVM Sim Reset | reason=five-minute reset, timeRemainingTicks={}, stability={}, chamberStatus={}",
 			timeRemainingFromServer,
 			currentStability,
@@ -857,7 +854,7 @@ public class UltimateVolcanicMinePlugin extends Plugin
 
 	private void printBlowUpTimelineToChat(double blowUpChancePercent, List<Simulator.StabilityRangePoint> points)
 	{
-		if (!config.showBlowUpChance() || points == null || points.isEmpty())
+		if (!config.showBlowUpChance() || !config.mineStatusPredictionConsoleOutput() || points == null || points.isEmpty())
 		{
 			return;
 		}
@@ -880,7 +877,7 @@ public class UltimateVolcanicMinePlugin extends Plugin
 
 	private void printPredictedExplosionTimeToChat(String sourceLabel, List<Simulator.StabilityRangePoint> points)
 	{
-		if (!config.showBlowUpChance() || points == null || points.isEmpty())
+		if (!config.showBlowUpChance() || !config.mineStatusPredictionConsoleOutput() || points == null || points.isEmpty())
 		{
 			return;
 		}
@@ -1070,16 +1067,29 @@ public class UltimateVolcanicMinePlugin extends Plugin
 	{
 		stabilityTracker.invalidatePatternHistory();
 		refreshBlowUpChance(client.getVarbitValue(VARBIT_STABILITY), newStatus);
-		client.addChatMessage(
-			ChatMessageType.GAMEMESSAGE,
-			"UVM",
-			"No-vent pattern prediction paused after chamber status changed; it will resume after a new negative stability change.",
-			null);
-		log.info(
+		addMineStatusPredictionChatMessage(
+			"No-vent pattern prediction paused after chamber status changed; it will resume after a new negative stability change.");
+		logMineStatusPrediction(
 			"UVM Sim Invalidate | reason=chamber status changed, oldStatus={}, newStatus={}, patternPredictionEnabled=false",
 			oldStatus,
 			newStatus);
 	}
+	private void addMineStatusPredictionChatMessage(String message)
+	{
+		if (config.mineStatusPredictionConsoleOutput())
+		{
+			client.addChatMessage(ChatMessageType.GAMEMESSAGE, "UVM", message, null);
+		}
+	}
+
+	private void logMineStatusPrediction(String message, Object... arguments)
+	{
+		if (config.mineStatusPredictionConsoleOutput())
+		{
+			log.info(message, arguments);
+		}
+	}
+
 	public final VentStatusPredicter getVentStatusPredicter() { return ventStatusPredicter; }
 
 	@Subscribe

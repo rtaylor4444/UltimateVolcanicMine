@@ -21,6 +21,7 @@ public class GuideOverlay extends Overlay
 
 	private final UltimateVolcanicMineConfig config;
 	private GuideManager.Scenario currentScenario;
+	private GuideManager.Scenario secondaryScenario;
 
 	@Inject
 	GuideOverlay(UltimateVolcanicMineConfig config)
@@ -30,14 +31,16 @@ public class GuideOverlay extends Overlay
 		this.config = config;
 	}
 
-	public void setScenario(GuideManager.Scenario scenario)
+	public void setScenario(GuideManager.Scenario scenario, GuideManager.Scenario secondaryScenario)
 	{
 		currentScenario = scenario;
+		this.secondaryScenario = secondaryScenario;
 	}
 
 	public void reset()
 	{
 		currentScenario = null;
+		secondaryScenario = null;
 	}
 
 	@Override
@@ -49,6 +52,14 @@ public class GuideOverlay extends Overlay
 		}
 
 		String label = scenarioLabel(currentScenario);
+		if (label != null && secondaryScenario != null)
+		{
+			String secondaryLabel = scenarioLabel(secondaryScenario);
+			if (secondaryLabel != null)
+			{
+				label = label + " + " + secondaryLabel;
+			}
+		}
 
 		if (label != null)
 		{

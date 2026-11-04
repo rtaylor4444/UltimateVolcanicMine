@@ -97,11 +97,47 @@ public class GuideManager
 		}
 	}
 
+	// A plan whose flip event(s) have already passed the window/timing checks for the current
+	// update, ready to be evaluated alone or joined with another candidate.
+	private static final class FlipCandidate
+	{
+		private final ScenarioPlan plan;
+		private final List<Simulator.FlipEvent> flipEvents;
+
+		private FlipCandidate(ScenarioPlan plan, List<Simulator.FlipEvent> flipEvents)
+		{
+			this.plan = plan;
+			this.flipEvents = flipEvents;
+		}
+	}
+
+	// Result of identifyScenario: secondary is only set when no single scenario met the configured
+	// Guide Health on its own and a second fix had to be joined in to find a safe combination.
+	static final class ScenarioChoice
+	{
+		final Scenario primary;
+		final Scenario secondary;
+
+		ScenarioChoice(Scenario primary)
+		{
+			this(primary, null);
+		}
+
+		ScenarioChoice(Scenario primary, Scenario secondary)
+		{
+			this.primary = primary;
+			this.secondary = secondary;
+		}
+	}
+
 	private final Client client;
 	private final VentStatusPredicter ventStatusPredicter;
 	private final GuideOverlay guideOverlay;
 	private final UltimateVolcanicMineConfig config;
 	private Scenario currentScenario;
+	// Set when currentScenario alone isn't enough margin and a second fix had to be joined in
+	// (e.g. fixing the same vent again at a later anchor) - see identifyScenario's second pass.
+	private Scenario currentSecondaryScenario;
 
 	// Boulder-progress tracking, persistent across update() calls within one game (see reset()).
 	private int previousBoulderNumber = 1;
@@ -119,6 +155,7 @@ public class GuideManager
 	public void reset()
 	{
 		currentScenario = null;
+		currentSecondaryScenario = null;
 		previousBoulderNumber = 1;
 		b1FinishTimeSeconds = null;
 		b2FinishTimeSeconds = null;
@@ -140,26 +177,42 @@ public class GuideManager
 			return;
 		}
 
-		int[] ventIndices = VENT_INDICES_BY_SCENARIO.get(currentScenario);
-		if (ventIndices == null)
-		{
-			return;
-		}
-
 		boolean aFlipped = (oldStatus & Simulator.CHAMBER_A_BIT) != (newStatus & Simulator.CHAMBER_A_BIT);
 		boolean bFlipped = (oldStatus & Simulator.CHAMBER_B_BIT) != (newStatus & Simulator.CHAMBER_B_BIT);
 		boolean cFlipped = (oldStatus & Simulator.CHAMBER_C_BIT) != (newStatus & Simulator.CHAMBER_C_BIT);
+
+		int[] primaryVentIndices = VENT_INDICES_BY_SCENARIO.get(currentScenario);
+		int[] secondaryVentIndices = currentSecondaryScenario != null ? VENT_INDICES_BY_SCENARIO.get(currentSecondaryScenario) : null;
+
+		if (anyVentFlipped(primaryVentIndices, aFlipped, bFlipped, cFlipped)
+			|| anyVentFlipped(secondaryVentIndices, aFlipped, bFlipped, cFlipped))
+		{
+			logGuide("UVM Guide | chamber flip | dismissing scenario={}", describeScenario(currentScenario, currentSecondaryScenario));
+			reset();
+		}
+	}
+
+	private static boolean anyVentFlipped(int[] ventIndices, boolean aFlipped, boolean bFlipped, boolean cFlipped)
+	{
+		if (ventIndices == null)
+		{
+			return false;
+		}
 
 		for (int ventIndex : ventIndices)
 		{
 			boolean flipped = ventIndex == 0 ? aFlipped : ventIndex == 1 ? bFlipped : cFlipped;
 			if (flipped)
 			{
-				log.info("UVM Guide | chamber flip | vent {} flipped, dismissing scenario={}", ventIndex, currentScenario);
-				reset();
-				return;
+				return true;
 			}
 		}
+		return false;
+	}
+
+	private static String describeScenario(Scenario primary, Scenario secondary)
+	{
+		return secondary == null ? String.valueOf(primary) : primary + "+" + secondary;
 	}
 
 	public void update(int estimatedTimeRemaining, int currentStability, int chamberStatus, int simulationTime, int boulderNumber, int boulderHealth)
@@ -177,7 +230,7 @@ public class GuideManager
 		int ventB = client.getVarbitValue(VARBIT_VENT_STATUS_B);
 		if (ventB == VentStatus.STARTING_VENT_VALUE)
 		{
-			log.info("UVM Guide | update | skip: B not server-confirmed");
+			logGuide("UVM Guide | update | skip: B not server-confirmed");
 			guideOverlay.reset();
 			return;
 		}
@@ -185,7 +238,7 @@ public class GuideManager
 		int ventA = client.getVarbitValue(VARBIT_VENT_STATUS_A);
 		int ventC = client.getVarbitValue(VARBIT_VENT_STATUS_C);
 
-		log.info("UVM Guide | update | time={}s, stability={}, chamberStatus={}, boulderNumber={}, boulderHealth={}, ventA={}, ventB={}, ventC={}",
+		logGuide("UVM Guide | update | time={}s, stability={}, chamberStatus={}, boulderNumber={}, boulderHealth={}, ventA={}, ventB={}, ventC={}",
 			simulationTime, currentStability, chamberStatus, boulderNumber, boulderHealth, ventA, ventB, ventC);
 
 		VentStatus[] predictedVents = ventStatusPredicter.getDisplayState().getVents();
@@ -194,7 +247,7 @@ public class GuideManager
 
 		if (possibleAValues.isEmpty() || possibleCValues.isEmpty())
 		{
-			log.info("UVM Guide | update | skip: no possible values, possibleAValues={}, possibleCValues={}", possibleAValues, possibleCValues);
+			logGuide("UVM Guide | update | skip: no possible values, possibleAValues={}, possibleCValues={}", possibleAValues, possibleCValues);
 			guideOverlay.reset();
 			return;
 		}
@@ -218,10 +271,11 @@ public class GuideManager
 			unknownInputs.add(new Simulator.VentUnknownInput(2, possibleCValues));
 		}
 
-		Scenario scenario = identifyScenario(knownVents, unknownInputs, chamberStatus, currentStability, simulationTime, boulderNumber, boulderHealth);
-		currentScenario = scenario;
-		log.info("UVM Guide | update | final scenario={}", scenario);
-		guideOverlay.setScenario(scenario);
+		ScenarioChoice choice = identifyScenario(knownVents, unknownInputs, chamberStatus, currentStability, simulationTime, boulderNumber, boulderHealth);
+		currentScenario = choice.primary;
+		currentSecondaryScenario = choice.secondary;
+		logGuide("UVM Guide | update | final scenario={}", describeScenario(choice.primary, choice.secondary));
+		guideOverlay.setScenario(choice.primary, choice.secondary);
 	}
 
 	void trackBoulderProgress(int boulderNumber, int simulationTime)
@@ -287,14 +341,14 @@ public class GuideManager
 		return boulderNumber == 1 && boulderHealth > 0;
 	}
 
-	Scenario identifyScenario(int[] knownVents, List<Simulator.VentUnknownInput> unknownInputs,
+	ScenarioChoice identifyScenario(int[] knownVents, List<Simulator.VentUnknownInput> unknownInputs,
 		int chamberStatus, int currentStability, int simulationTime, int boulderNumber, int boulderHealth)
 	{
 		double noFixChance = evaluateBlowUpChance(knownVents, unknownInputs, chamberStatus, currentStability, simulationTime, Collections.emptyList());
 		logChanceCheck(Scenario.NO_FIX, noFixChance);
 		if (noFixChance == 0.0)
 		{
-			return Scenario.NO_FIX;
+			return new ScenarioChoice(Scenario.NO_FIX);
 		}
 
 		double b1Anchor = computeB1FinishAnchor(boulderNumber, boulderHealth, simulationTime);
@@ -303,6 +357,7 @@ public class GuideManager
 		boolean afterB2Open = isAfterB2WindowOpen(boulderNumber, boulderHealth);
 		boolean returnB1Open = isReturnB1WindowOpen(boulderNumber, boulderHealth);
 
+		List<FlipCandidate> candidates = new ArrayList<>();
 		for (ScenarioPlan plan : SCENARIO_PLANS)
 		{
 			boolean windowOpen;
@@ -329,57 +384,113 @@ public class GuideManager
 
 			if (!windowOpen)
 			{
-				log.info("UVM Guide | {} | skipped: window closed", plan.scenario);
+				logGuide("UVM Guide | {} | skipped: window closed", plan.scenario);
 				continue;
 			}
 
-			List<Simulator.FlipEvent> flipEvents = new ArrayList<>();
-			double earliestFlipTime = Double.MAX_VALUE;
-			boolean tooLate = false;
-			for (int i = 0; i < plan.ventIndices.length; i++)
+			List<Simulator.FlipEvent> flipEvents = buildFlipEvents(plan, anchor, simulationTime);
+			if (flipEvents == null)
 			{
-				double flipTime = anchor + plan.offsetTicks[i] * TICK_SECONDS;
-				if (flipTime >= SIMULATION_BOUNDARY_TIME)
-				{
-					tooLate = true;
-					break;
-				}
-				earliestFlipTime = Math.min(earliestFlipTime, flipTime);
-				flipEvents.add(new Simulator.FlipEvent((int) Math.round(flipTime), chamberBitFor(plan.ventIndices[i])));
-			}
-
-			if (tooLate)
-			{
-				log.info("UVM Guide | {} | skipped: a flip time >= boundary={}s", plan.scenario, SIMULATION_BOUNDARY_TIME);
-				continue;
-			}
-			if (simulationTime >= earliestFlipTime)
-			{
-				log.info("UVM Guide | {} | skipped: flip time already past (time={}s)", plan.scenario, simulationTime);
 				continue;
 			}
 
-			double chance = evaluateBlowUpChance(knownVents, unknownInputs, chamberStatus, currentStability, simulationTime, flipEvents);
-			logChanceCheck(plan.scenario, chance);
+			candidates.add(new FlipCandidate(plan, flipEvents));
+		}
+
+		// First prefer a single fix, cheapest/least disruptive first (matching SCENARIO_PLANS order).
+		for (FlipCandidate candidate : candidates)
+		{
+			double chance = evaluateBlowUpChance(knownVents, unknownInputs, chamberStatus, currentStability, simulationTime, candidate.flipEvents);
+			logChanceCheck(candidate.plan.scenario, chance);
 			if (chance == 0.0)
 			{
-				return plan.scenario;
+				return new ScenarioChoice(candidate.plan.scenario);
 			}
 		}
 
-		return Scenario.RESET;
+		// No single fix provides enough margin (e.g. a high Guide Health needs more buffer than any
+		// one fix gives) - try joining two fixes together (even the same vent fixed again at a later
+		// anchor) before giving up to a full reset.
+		for (int i = 0; i < candidates.size(); i++)
+		{
+			for (int j = i + 1; j < candidates.size(); j++)
+			{
+				FlipCandidate first = candidates.get(i);
+				FlipCandidate second = candidates.get(j);
+				List<Simulator.FlipEvent> combinedFlips = new ArrayList<>(first.flipEvents.size() + second.flipEvents.size());
+				combinedFlips.addAll(first.flipEvents);
+				combinedFlips.addAll(second.flipEvents);
+
+				double chance = evaluateBlowUpChance(knownVents, unknownInputs, chamberStatus, currentStability, simulationTime, combinedFlips);
+				logChanceCheck(first.plan.scenario, second.plan.scenario, chance);
+				if (chance == 0.0)
+				{
+					return new ScenarioChoice(first.plan.scenario, second.plan.scenario);
+				}
+			}
+		}
+
+		return new ScenarioChoice(Scenario.RESET);
+	}
+
+	// Builds a plan's flip events, or returns null if its window/timing checks fail (already past
+	// the 5-minute boundary, or the earliest flip time has already elapsed).
+	private List<Simulator.FlipEvent> buildFlipEvents(ScenarioPlan plan, double anchor, int simulationTime)
+	{
+		List<Simulator.FlipEvent> flipEvents = new ArrayList<>();
+		double earliestFlipTime = Double.MAX_VALUE;
+		for (int i = 0; i < plan.ventIndices.length; i++)
+		{
+			double flipTime = anchor + plan.offsetTicks[i] * TICK_SECONDS;
+			if (flipTime >= SIMULATION_BOUNDARY_TIME)
+			{
+				logGuide("UVM Guide | {} | skipped: a flip time >= boundary={}s", plan.scenario, SIMULATION_BOUNDARY_TIME);
+				return null;
+			}
+			earliestFlipTime = Math.min(earliestFlipTime, flipTime);
+			flipEvents.add(new Simulator.FlipEvent((int) Math.round(flipTime), chamberBitFor(plan.ventIndices[i])));
+		}
+
+		if (simulationTime >= earliestFlipTime)
+		{
+			logGuide("UVM Guide | {} | skipped: flip time already past (time={}s)", plan.scenario, simulationTime);
+			return null;
+		}
+
+		return flipEvents;
 	}
 
 	private void logChanceCheck(Scenario scenario, double chance)
 	{
-		log.info("UVM Guide | {} check | blowUpChance={}%", scenario, chance);
-		if (config.showBlowUpChance())
+		logGuide("UVM Guide | {} check | blowUpChance={}%", scenario, chance);
+		if (config.showBlowUpChance() && config.guideConsoleOutput())
 		{
 			client.addChatMessage(
 				ChatMessageType.GAMEMESSAGE,
 				"UVM",
 				getScenarioDisplayName(scenario) + " " + String.format(Locale.ROOT, "%.1f%%", chance),
 				null);
+		}
+	}
+
+	private void logChanceCheck(Scenario first, Scenario second, double chance)
+	{
+		logGuide("UVM Guide | {}+{} check | blowUpChance={}%", first, second, chance);
+		if (config.showBlowUpChance() && config.guideConsoleOutput())
+		{
+			client.addChatMessage(
+				ChatMessageType.GAMEMESSAGE,
+				"UVM",
+				getScenarioDisplayName(first) + " + " + getScenarioDisplayName(second) + " " + String.format(Locale.ROOT, "%.1f%%", chance),
+				null);
+		}
+	}
+
+	private void logGuide(String message, Object... arguments)
+	{
+		if (config.guideConsoleOutput())
+		{
+			log.info(message, arguments);
 		}
 	}
 
@@ -423,11 +534,11 @@ public class GuideManager
 		return ventIndex == 0 ? Simulator.CHAMBER_A_BIT : ventIndex == 1 ? Simulator.CHAMBER_B_BIT : Simulator.CHAMBER_C_BIT;
 	}
 
-	private static double evaluateBlowUpChance(int[] knownVents, List<Simulator.VentUnknownInput> unknownInputs,
+	private double evaluateBlowUpChance(int[] knownVents, List<Simulator.VentUnknownInput> unknownInputs,
 		int chamberStatus, int currentStability, int simulationTime, List<Simulator.FlipEvent> flipEvents)
 	{
 		Simulator.MultiVentSweepResult sweep = Simulator.simulateUnknownVentsWithFlips(
-			knownVents, unknownInputs, chamberStatus, currentStability, simulationTime, flipEvents);
+			knownVents, unknownInputs, chamberStatus, currentStability, simulationTime, flipEvents, config.guideHealth());
 		return sweep.blowUpChancePercent;
 	}
 }
