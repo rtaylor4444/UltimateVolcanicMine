@@ -1270,13 +1270,17 @@ final class StrategyCoach
 		advanceTasks(o);
 
 		// Half 2: walk out as soon as the predictor says the mine could blow up before you're out.
-		if (!leaving && o.now >= RESET_TIME && bouldersBroken < 5)
+		if (o.now >= RESET_TIME && bouldersBroken < 5 && !mineScaled)
 		{
 			double exit = currentExitSeconds();
+			// A fix you're on your way to make counts: assume it lands (the simulator would walk out
+			// mid-trip; that's the walk-out the fix is there to prevent).
+			List<Simulator.FlipEvent> fixing = fixUnderWay(o);
 			// The walk-out time only moves when the vents, stability, chambers or route change:
 			// recomputed then, and every 3 s.
 			long key = ((((long) o.chamberStatus * 101 + o.stability) * 100_000 + o.predictorVersion) * 1000
-				+ (long) Math.floor(o.now / 3)) * 31 + Double.hashCode(exit);
+				+ (long) Math.floor(o.now / 3)) * 31 + Double.hashCode(exit)
+				+ (fixing.isEmpty() ? 0 : 7L * fixing.get(0).chamberBit + 1_000_000_007L);
 			if (key != leaveKey)
 			{
 				leaveKey = key;
@@ -1284,19 +1288,25 @@ final class StrategyCoach
 				double now = o.now;
 				// With tens of thousands of possible vents right after 5:00 this takes a while:
 				// worked out in the background, the previous walk-out time holding meanwhile.
-				later(() -> HalfTwoPlanner.leaveTime(p, exit), at ->
+				later(() -> HalfTwoPlanner.leaveTime(p, exit, fixing), at ->
 				{
 					leaveAt = at;
-					trace("leave_time", p, now, "exit", exit, "result", at);
+					trace("leave_time", p, now, "exit", exit, "fixing", fixing.size(), "result", at);
 				});
 			}
-			if (o.now >= leaveAt)
+			if (!leaving && o.now >= leaveAt)
 			{
+				// The steps stay queued: if the danger clears (a fix, a quieter vent), carry on.
 				leaving = true;
 				leaveReason = o.now >= HalfTwoPlanner.GAME_END - exit - 1 ? "out before 10:00" : "the mine could blow up before you're out";
-				tasks.clear();
 				note(o, "Leave now: " + leaveReason);
 				trace("leave", null, o.now, "exit", exit, "leaveAt", leaveAt, "reason", leaveReason);
+			}
+			else if (leaving && o.now < leaveAt && !"out before 10:00".equals(leaveReason))
+			{
+				leaving = false;
+				note(o, "Safe again: carry on");
+				trace("leave_cancelled", null, o.now, "exit", exit, "leaveAt", leaveAt);
 			}
 		}
 		if (leaving)
@@ -1446,6 +1456,22 @@ final class StrategyCoach
 			}
 			return;
 		}
+	}
+
+	/** The flip of a fix you're on your way to (the current step), when it would land; empty if none. */
+	private List<Simulator.FlipEvent> fixUnderWay(Observation o)
+	{
+		Task front = tasks.peekFirst();
+		if (!(front instanceof ChamberTask) || ((ChamberTask) front).cap)
+		{
+			return java.util.Collections.emptyList();
+		}
+		int vent = ((ChamberTask) front).vent;
+		double walk = vent == 1 ? HalfTwoPlanner.B4_TO_B_CHAMBER_TICKS : vent == 2 ? HalfTwoPlanner.B4_TO_C_CHAMBER_TICKS
+			: HalfTwoPlanner.B4_TO_A_CHAMBER_TICKS;
+		double ticks = walk + HalfTwoPlanner.fixTicks(vent, o.chamberStatus, o.rocksInHand > 0);
+		return java.util.Collections.singletonList(
+			new Simulator.FlipEvent((int) Math.ceil(o.now + ticks * TICK - 1e-9), 1 << vent));
 	}
 
 	private double currentExitSeconds()

@@ -491,4 +491,28 @@ public class StrategyCoachTest
 			assertTrue(java.util.Arrays.toString(tile), tile[1] >= 10 && tile[1] <= 14);
 		}
 	}
+
+	@Test
+	public void leavingIsCalledOffWhenTheDangerClears()
+	{
+		Game g = new Game(new int[]{50, 50, 50});
+		g.stability = 60;
+		g.now = 250;
+		g.coach.onBoulderBroken(1, g.observation());
+		g.coach.onBoulderBroken(2, g.observation());
+		g.boulder = 4;
+		g.coach.onBoulderBroken(3, g.observation());
+		g.candidates = new ArrayList<>(Collections.singletonList(new int[]{0, 0, 0}));
+		g.weights = new double[]{1};
+		g.stability = 20;
+		g.now = 320;
+		g.atBoulder = true;
+		assertEquals(CoachAction.LEAVE, g.tick().action);
+		// Fixed (vents at 50 now, stability back up): carry on instead of leaving.
+		g.candidates = new ArrayList<>(Collections.singletonList(new int[]{50, 50, 50}));
+		g.stability = 80;
+		g.now = 324;
+		StrategyCoach.Instruction i = g.tick();
+		assertTrue(i.text, i.action != CoachAction.LEAVE);
+	}
 }

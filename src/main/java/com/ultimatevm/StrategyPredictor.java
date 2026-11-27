@@ -154,11 +154,17 @@ final class StrategyPredictor
 	 */
 	Integer deathTime(int endTime, double risk)
 	{
+		return deathTime(endTime, risk, Collections.emptyList());
+	}
+
+	/** As {@link #deathTime(int, double)}, with these chamber flips. */
+	Integer deathTime(int endTime, double risk, List<Simulator.FlipEvent> flips)
+	{
 		if (isEmpty())
 		{
 			return null;
 		}
-		int[] times = Simulator.blowUpTimes(candidates, chamberStatus, stability, time, endTime, Collections.emptyList());
+		int[] times = Simulator.blowUpTimes(candidates, chamberStatus, stability, time, endTime, flips);
 		int first = firstUpdateAtOrAfter(time);
 		for (int t = first; t <= endTime; t += 15)
 		{

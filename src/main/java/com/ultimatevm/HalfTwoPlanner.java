@@ -64,12 +64,21 @@ final class HalfTwoPlanner
 	 */
 	static double leaveTime(StrategyPredictor predictor, double exitSeconds)
 	{
+		return leaveTime(predictor, exitSeconds, java.util.Collections.emptyList());
+	}
+
+	// Walks from B4 to each chamber for a fix during B4 (optStrategy.OPT_LEGS).
+	static final double B4_TO_B_CHAMBER_TICKS = 2, B4_TO_C_CHAMBER_TICKS = 22, B4_TO_A_CHAMBER_TICKS = 34;
+
+	/** As {@link #leaveTime(StrategyPredictor, double)}, with these fixes assumed to land. */
+	static double leaveTime(StrategyPredictor predictor, double exitSeconds, List<Simulator.FlipEvent> fixes)
+	{
 		double latest = GAME_END - exitSeconds - EPS;
 		if (predictor == null || predictor.time > LAST_UPDATE)
 		{
 			return latest;
 		}
-		Integer death = predictor.deathTime(LAST_UPDATE, EXIT_RISK);
+		Integer death = predictor.deathTime(LAST_UPDATE, EXIT_RISK, fixes);
 		return death == null ? latest : Math.min(latest, death - exitSeconds - EPS);
 	}
 
