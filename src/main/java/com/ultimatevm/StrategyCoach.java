@@ -593,6 +593,10 @@ final class StrategyCoach
 
 	private void decideHalfOne(Observation o, HalfOnePlanner.Checkpoint checkpoint, double miningRemaining, boolean whileMining)
 	{
+		if (bouldersBroken != checkpoint.bouldersCompleted || o.now >= RESET_TIME)
+		{
+			return; // that checkpoint has passed (e.g. a decision queued behind a skipped B check)
+		}
 		StrategyPredictor p = predictorFor(o);
 		if (p == null || p.isEmpty())
 		{
@@ -704,7 +708,17 @@ final class StrategyCoach
 			awaitingDecisionAt = -1;
 		}
 		trace("h1", p, now, "checkpoint", checkpoint.name(), "remaining", miningRemaining, "whileMining", whileMining,
-			"result", decision.plan.name(), "deathRate", decision.deathRate, "startsNow", decision.startsNow(checkpoint));
+			"result", decision.plan.name(), "deathRate", decision.deathRate, "startsNow", decision.startsNow(checkpoint),
+			"stale", bouldersBroken != checkpoint.bouldersCompleted);
+		if (bouldersBroken != checkpoint.bouldersCompleted || now >= RESET_TIME)
+		{
+			// Its boulder has moved on (or it's 5:00): the decision's moment has passed.
+			if (awaitingDecisionAt == checkpoint.bouldersCompleted)
+			{
+				awaitingDecisionAt = -1;
+			}
+			return;
+		}
 		if (teleport || leaving || mineScaled)
 		{
 			return;
@@ -1406,8 +1420,9 @@ final class StrategyCoach
 	{
 		if (o.now >= RESET_TIME)
 		{
-			// First-half vent checks still queued at 5:00 are moot (the vents re-roll).
-			tasks.removeIf(t -> t instanceof CheckTask && t.queuedAtBoulders >= 0 && t.queuedAtBoulders < 3);
+			// First-half steps still queued at 5:00 are moot (the vents re-roll): checks, fixes, the
+			// decisions behind them. (The B4-window caps are queued once B3 has broken: they stay.)
+			tasks.removeIf(t -> t.queuedAtBoulders >= 0 && t.queuedAtBoulders < 3);
 		}
 		for (Task t : tasks)
 		{

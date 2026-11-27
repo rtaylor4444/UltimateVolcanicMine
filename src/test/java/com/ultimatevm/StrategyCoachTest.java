@@ -515,4 +515,34 @@ public class StrategyCoachTest
 		StrategyCoach.Instruction i = g.tick();
 		assertTrue(i.text, i.action != CoachAction.LEAVE);
 	}
+
+	@Test
+	public void aSkippedBCheckLeavesNoStaleFixBehind()
+	{
+		// B1 breaks in a risky game: the coach queues the B check (and the fix decision after it).
+		java.util.List<int[]> vents = new ArrayList<>();
+		for (int b = 15; b <= 30; b++)
+		{
+			vents.add(new int[]{20, b, 25});
+		}
+		Game g = new Game(vents.toArray(new int[0][]));
+		g.stability = 60;
+		g.now = 90;
+		StrategyCoach.Instruction i = g.breakBoulder(1);
+		org.junit.Assume.assumeTrue("needs a B check", i.action == CoachAction.CHECK_VENT);
+		// The player skips it and mines B2; B2 breaks. No B1 fix may turn up now.
+		g.now = 170;
+		i = g.breakBoulder(2);
+		for (int k = 0; k < 5; k++)
+		{
+			assertTrue(i.text, i.text == null || !(i.text.contains("A rock") || i.text.startsWith("Check the B vent")) || g.coach.getBouldersBroken() < 2);
+			g.now += 1;
+			i = g.tick();
+		}
+		// And at 5:00 nothing from the first half is left queued.
+		g.now = 301;
+		g.coach.onBoulderBroken(3, g.observation());
+		i = g.tick();
+		assertTrue(i.text, i.action == CoachAction.TAKE_ROCK || i.action == CoachAction.CAP_CHAMBER || i.action == CoachAction.MINE_BOULDER || i.action == CoachAction.LEAVE);
+	}
 }
