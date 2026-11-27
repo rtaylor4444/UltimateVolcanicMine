@@ -19,10 +19,10 @@ public class VentStatusOverlayOverride
 	}
 
 	private final Client client;
-	private final VentStatusPredicter ventStatusPredicter;
 	private final int ventStatusVarbitA;
 	private final int ventStatusVarbitB;
 	private final int ventStatusVarbitC;
+	private VentInference ventInference;
 	private static final int[] VENT_PERCENTAGE_WIDGET_COMPONENTS = {
 		ComponentID.VOLCANIC_MINE_VENT_A_PERCENTAGE + 1,
 		ComponentID.VOLCANIC_MINE_VENT_B_PERCENTAGE + 1,
@@ -31,13 +31,11 @@ public class VentStatusOverlayOverride
 
 	public VentStatusOverlayOverride(
 		Client client,
-		VentStatusPredicter ventStatusPredicter,
 		int ventStatusVarbitA,
 		int ventStatusVarbitB,
 		int ventStatusVarbitC)
 	{
 		this.client = client;
-		this.ventStatusPredicter = ventStatusPredicter;
 		this.ventStatusVarbitA = ventStatusVarbitA;
 		this.ventStatusVarbitB = ventStatusVarbitB;
 		this.ventStatusVarbitC = ventStatusVarbitC;
@@ -78,8 +76,8 @@ public class VentStatusOverlayOverride
 			return;
 		}
 
-		String text = ventStatusPredicter.getVentStatusText(ventIndex, currentText);
-		if (varbitValue != VentStatus.STARTING_VENT_VALUE)
+		String text = displayText(ventIndex, currentText, varbitValue);
+		if (varbitValue != VentRules.UNKNOWN)
 		{
 			if (isWidgetShowingExactVentValue(currentText, varbitValue))
 			{
@@ -90,6 +88,77 @@ public class VentStatusOverlayOverride
 		}
 
 		widget.setText(text);
+	}
+
+	/** The vent line as shown: the game's text, or the values still possible for an unchecked vent. */
+	public String ventDisplayText(int ventIndex, Widget widget)
+	{
+		if (widget == null || widget.getText() == null)
+		{
+			return "";
+		}
+		int varbit = ventIndex == 0 ? ventStatusVarbitA : ventIndex == 1 ? ventStatusVarbitB : ventStatusVarbitC;
+		return displayText(ventIndex, widget.getText(), client.getVarbitValue(varbit));
+	}
+
+	private String displayText(int ventIndex, String currentText, int varbitValue)
+	{
+		String inferredText = varbitValue == VentRules.UNKNOWN ? formatInferredValues(ventIndex) : null;
+		if (inferredText != null && currentText.length() >= 3)
+		{
+			return currentText.substring(0, 3) + "<col=" + COLOR_BLUE + ">" + inferredText + "</col>";
+		}
+		return currentText;
+	}
+
+	/**
+	 * The values still possible for an unchecked vent, from the vent inference: one or two ranges
+	 * (e.g. "30-33 67-70%"), or the overall span if the possibilities are more scattered.
+	 */
+	private String formatInferredValues(int ventIndex)
+	{
+		java.util.BitSet values = ventInference != null ? ventInference.possibleValues(ventIndex) : null;
+		if (values == null || values.isEmpty())
+		{
+			return null;
+		}
+		return formatValueRanges(values);
+	}
+
+	static String formatValueRanges(java.util.BitSet values)
+	{
+		java.util.List<int[]> runs = new java.util.ArrayList<>();
+		for (int start = values.nextSetBit(0); start >= 0; )
+		{
+			int end = values.nextClearBit(start) - 1;
+			runs.add(new int[]{start, end});
+			start = values.nextSetBit(end + 1);
+		}
+		if (runs.size() > 2)
+		{
+			runs = java.util.Collections.singletonList(new int[]{runs.get(0)[0], runs.get(runs.size() - 1)[1]});
+		}
+		StringBuilder text = new StringBuilder();
+		for (int[] run : runs)
+		{
+			if (text.length() > 0)
+			{
+				text.append(' ');
+			}
+			text.append(run[0]);
+			if (run[1] != run[0])
+			{
+				text.append('-').append(run[1]);
+			}
+			text.append('%');
+		}
+		return text.toString();
+	}
+
+	/** Lets the vent display show the values the vent inference still allows. */
+	public void setVentInference(VentInference ventInference)
+	{
+		this.ventInference = ventInference;
 	}
 
 	private boolean isWidgetShowingExactVentValue(String widgetText, int ventValue)
@@ -250,15 +319,15 @@ public class VentStatusOverlayOverride
 				continue;
 			}
 
-			if (bounds[0] <= VentStatus.PERFECT_VENT_VALUE - 1)
+			if (bounds[0] <= VentRules.PERFECT_VENT - 1)
 			{
 				canBeBelow = true;
 			}
-			if (bounds[1] >= VentStatus.PERFECT_VENT_VALUE + 1)
+			if (bounds[1] >= VentRules.PERFECT_VENT + 1)
 			{
 				canBeAbove = true;
 			}
-			if (bounds[0] <= VentStatus.PERFECT_VENT_VALUE && bounds[1] >= VentStatus.PERFECT_VENT_VALUE)
+			if (bounds[0] <= VentRules.PERFECT_VENT && bounds[1] >= VentRules.PERFECT_VENT)
 			{
 				canBePerfect = true;
 			}

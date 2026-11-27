@@ -37,3 +37,18 @@ New features from my plugin:
 stability and the values of the other two vents
 3) Future Stability Estimation: Determines future stability changes based on the values
 from Vent Status Prediction or if all three vents are identified
+
+## Building and publishing locally
+
+On Windows, build and test before publishing to Maven Local:
+
+```powershell
+.\gradlew.bat build
+if ($LASTEXITCODE -eq 0) {
+    .\gradlew.bat publishToMavenLocal
+}
+```
+
+The publication coordinates are `com.ultimatevm:ultimatevm:1.0`. A successful
+RuneLite client build does not confirm that this plugin built or was published;
+check the plugin's Gradle result before running downstream commands.
