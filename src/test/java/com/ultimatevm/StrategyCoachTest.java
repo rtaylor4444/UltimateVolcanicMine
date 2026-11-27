@@ -545,4 +545,27 @@ public class StrategyCoachTest
 		i = g.tick();
 		assertTrue(i.text, i.action == CoachAction.TAKE_ROCK || i.action == CoachAction.CAP_CHAMBER || i.action == CoachAction.MINE_BOULDER || i.action == CoachAction.LEAVE);
 	}
+
+	@Test
+	public void aFixAlreadyMadeInAnotherOrderIsNotUndone()
+	{
+		// A and B falling fast: "Fix A+B now" (or another plan fixing both) while mining B1.
+		Game g = new Game(new int[]{20, 25, 50});
+		g.stability = 60;
+		g.atBoulder = true;
+		g.now = 30;
+		g.update = true;
+		StrategyCoach.Instruction i = g.tick();
+		org.junit.Assume.assumeTrue("needs a fix now", i.action == CoachAction.TAKE_ROCK || i.action == CoachAction.FIX_CHAMBER);
+		// The player blocks both A and B (whatever order) - nothing may ask to flip either back.
+		g.chamber |= 3;
+		g.caps += 2;
+		g.rocks = 0;
+		for (int k = 0; k < 4; k++)
+		{
+			g.now += 1;
+			i = g.tick();
+			assertTrue(i.text, !i.text.contains("unblock the A") && !i.text.contains("unblock the B"));
+		}
+	}
 }

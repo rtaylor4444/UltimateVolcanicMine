@@ -136,12 +136,22 @@ final class StrategyCoach
 		final int vent;
 		final boolean cap;
 		int startBit = -1;
+		// A fix: the state the chamber should end up in (the opposite of how it was when the fix was
+		// decided), so a fix already made - in another order, or by a teammate - counts. -1 for a cap.
+		int targetBit = -1;
 
 		ChamberTask(int vent, boolean cap, String why)
 		{
 			this.vent = vent;
 			this.cap = cap;
 			this.why = why;
+		}
+
+		/** A fix of the chambers as they were when it was decided. */
+		ChamberTask decidedWith(int chamberStatus)
+		{
+			targetBit = ~chamberStatus & (1 << vent);
+			return this;
 		}
 
 		@Override
@@ -153,6 +163,10 @@ final class StrategyCoach
 		@Override
 		boolean done(Observation o)
 		{
+			if (targetBit >= 0)
+			{
+				return (o.chamberStatus & (1 << vent)) == targetBit;
+			}
 			return startBit >= 0 && (o.chamberStatus & (1 << vent)) != startBit;
 		}
 
@@ -756,7 +770,7 @@ final class StrategyCoach
 				}
 				else
 				{
-					tasks.add(new ChamberTask(step.vent, false, decision.plan.label));
+					tasks.add(new ChamberTask(step.vent, false, decision.plan.label).decidedWith(p.chamberStatus));
 				}
 			}
 		}
@@ -785,7 +799,7 @@ final class StrategyCoach
 			if (flip)
 			{
 				note(obs, "B is heading away from 50 (" + percent(p.pHeadingAway(1)) + "): fix B leaving the chamber");
-				next.add(new ChamberTask(1, false, "B is heading away from 50"));
+				next.add(new ChamberTask(1, false, "B is heading away from 50").decidedWith(obs.chamberStatus));
 			}
 			next.add(new DecideTask(o2 -> lateCapsAndC(o2)));
 			return next;
@@ -865,7 +879,7 @@ final class StrategyCoach
 		{
 			earlyFixC = true;
 			note(o, "C is heading away from 50 (" + percent(p.pHeadingAway(2)) + "): fix C on the way to the C vent");
-			ChamberTask fixC = new ChamberTask(2, false, "C is heading away from 50");
+			ChamberTask fixC = new ChamberTask(2, false, "C is heading away from 50").decidedWith(o.chamberStatus);
 			fixC.exitSeconds = HalfTwoPlanner.EXIT_FAR;
 			next.add(fixC);
 		}
@@ -912,7 +926,7 @@ final class StrategyCoach
 			note(o, "At the B vent: " + option.label);
 			for (int vent : option.vents())
 			{
-				ChamberTask fix = new ChamberTask(vent, false, option.label);
+				ChamberTask fix = new ChamberTask(vent, false, option.label).decidedWith(o.chamberStatus);
 				fix.exitSeconds = HalfTwoPlanner.EXIT_FAR;
 				next.add(fix);
 			}
@@ -1408,7 +1422,8 @@ final class StrategyCoach
 						earlyFixC = true;
 					}
 					note(now, VENT[vent] + " is heading away from 50 (" + percent(p.pHeadingAway(vent)) + "): fix it now, then back to B4");
-					ChamberTask fix = new ChamberTask(vent, false, VENT[vent] + " is heading away from 50, then back to B4");
+					ChamberTask fix = new ChamberTask(vent, false, VENT[vent] + " is heading away from 50, then back to B4")
+						.decidedWith(p.chamberStatus);
 					fix.exitSeconds = vent == 1 ? HalfTwoPlanner.EXIT_NEAR_B_CHAMBER : HalfTwoPlanner.EXIT_FAR;
 					tasks.add(fix);
 				}
