@@ -119,6 +119,61 @@ public interface UltimateVolcanicMineConfig extends Config
 	{
 		return false;
 	}
+	@ConfigItem(
+			keyName = "showGuide",
+			name = "Strategy Coach",
+			description = "Always shows the next thing to do with the simulator's best solo strategy: mine a boulder, check a vent, fix or cap a chamber, take a rock, leave or teleport",
+			position = 8,
+			section = display
+	)
+	default boolean showGuide()
+	{
+		return false;
+	}
+	@ConfigItem(
+			keyName = "showBoulderHealth",
+			name = "Show Boulder Health",
+			description = "Displays the boulder's remaining HP above the boulder (estimated for teammates' mining in a team)",
+			position = 9,
+			section = display
+	)
+	default boolean showBoulderHealth()
+	{
+		return false;
+	}
+	@ConfigItem(
+			keyName = "coachHighlight",
+			name = "Coach Highlights",
+			description = "Highlights in the mine the boulder, vent, chamber, rock or staircase the coach's next step is about",
+			position = 10,
+			section = display
+	)
+	default boolean coachHighlight()
+	{
+		return true;
+	}
+	@ConfigItem(
+			keyName = "coachPath",
+			name = "Coach Path",
+			description = "Draws the route for the coach's step as tiles (green) and the next step's (light orange); lava tiles, where you build a platform, are stronger",
+			position = 12,
+			section = display
+	)
+	default boolean coachPath()
+	{
+		return true;
+	}
+	@ConfigItem(
+			keyName = "coachChat",
+			name = "Coach Chat",
+			description = "Says each new step from the coach in the game chat",
+			position = 11,
+			section = display
+	)
+	default boolean coachChat()
+	{
+		return true;
+	}
 
 	@ConfigSection(
 			name = "Timing",
@@ -512,61 +567,16 @@ public interface UltimateVolcanicMineConfig extends Config
 	}
 
 	@ConfigSection(
-			name = "Solo",
-			description = "Solo-specific helpers",
-			position = 6,
-			closedByDefault = true
-	)
-	String solo = "solo";
-	@ConfigItem(
-			keyName = "showBoulderHealth",
-			name = "Show Boulder Health",
-			description = "Displays current boulder HP above the boulder",
-			position = 0,
-			section = solo
-	)
-	default boolean showBoulderHealth()
-	{
-		return false;
-	}
-	@ConfigItem(
-			keyName = "showGuide",
-			name = "Guide",
-			description = "Displays a green indicator when vents A and B are known and stability is predicted safe before the 5-minute vent reset",
-			position = 1,
-			section = solo
-	)
-	default boolean showGuide()
-	{
-		return false;
-	}
-	@ConfigItem(
-			keyName = "guideHealth",
-			name = "Guide Health",
-			description = "The minimum stability the guide will require after the 5-minute vent reset (dips before the reset are fine as long as stability never hits 0)",
-			position = 2,
-			section = solo
-	)
-	@Range(
-			max = 100,
-			min = 1
-	)
-	default int guideHealth()
-	{
-		return 1;
-	}
-
-	@ConfigSection(
 			name = "Game chat output",
 			description = "Options for diagnostic text printed to the game chat and console",
-			position = 7,
+			position = 6,
 			closedByDefault = true
 	)
 	String gameChatOutput = "gameChatOutput";
 	@ConfigItem(
 			keyName = "guideConsoleOutput",
-			name = "Guide Printout",
-			description = "Print the Guide's output to the game chat and console",
+			name = "Coach Decisions",
+			description = "Print the coach's decisions (and the chances behind them) to the game chat and console",
 			position = 0,
 			section = gameChatOutput
 	)
@@ -582,6 +592,58 @@ public interface UltimateVolcanicMineConfig extends Config
 			section = gameChatOutput
 	)
 	default boolean mineStatusPredictionConsoleOutput()
+	{
+		return false;
+	}
+	@ConfigItem(
+			keyName = "mineAuditLog",
+			name = "Prediction Audit Log",
+			description = "Log stability, vent moves, earthquakes and every stability prediction (with a check against what really happened) to the RuneLite log file",
+			position = 2,
+			section = gameChatOutput
+	)
+	default boolean mineAuditLog()
+	{
+		return false;
+	}
+
+	@ConfigSection(
+			name = "Coach debugging",
+			description = "Records games so the coach can be checked against the simulator (decisions, XP, walking times) and its display reviewed",
+			position = 7,
+			closedByDefault = true
+	)
+	String coachDebugging = "coachDebugging";
+	@ConfigItem(
+			keyName = "coachTrace",
+			name = "Record Games",
+			description = "Writes each game to .runelite/ultimate-volcanic-mine/coach/<time>/trace.jsonl: every tick, XP drop, point, click and coach decision with its inputs (for volcanicMine/verify_coach_trace.py)",
+			position = 0,
+			section = coachDebugging
+	)
+	default boolean coachTrace()
+	{
+		return true;
+	}
+	@ConfigItem(
+			keyName = "coachScreenshots",
+			name = "Screenshot Each Step",
+			description = "Saves a screenshot (with the coach's panel and highlight) in the game's folder each time the coach shows a new step",
+			position = 1,
+			section = coachDebugging
+	)
+	default boolean coachScreenshots()
+	{
+		return true;
+	}
+	@ConfigItem(
+			keyName = "coachDebug",
+			name = "Debug View",
+			description = "Shows the coach's internal state, what the highlight found, and labels every vent, chamber, rock and staircase the coach knows about",
+			position = 2,
+			section = coachDebugging
+	)
+	default boolean coachDebug()
 	{
 		return false;
 	}

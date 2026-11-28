@@ -1,35 +1,48 @@
 plugins {
-	id 'java'
+    id 'java'
+    id 'maven-publish'
 }
 
 repositories {
-	mavenLocal()
-	maven {
-		url = 'https://repo.runelite.net'
-	}
-	mavenCentral()
+    mavenLocal()
+    maven {
+        url = 'https://repo.runelite.net'
+    }
+    mavenCentral()
 }
 
 def runeLiteVersion = '1.10.29'
 
 dependencies {
-	testImplementation 'org.junit.jupiter:junit-jupiter:5.8.1'
-	testImplementation 'org.junit.jupiter:junit-jupiter:5.8.1'
-	testImplementation 'org.testng:testng:7.1.0'
-	compileOnly group: 'net.runelite', name:'client', version: runeLiteVersion
+    testImplementation 'org.junit.jupiter:junit-jupiter:5.8.1'
+    testImplementation 'org.testng:testng:7.1.0'
+    compileOnly group: 'net.runelite', name:'client', version: runeLiteVersion
 
-	compileOnly 'org.projectlombok:lombok:1.18.20'
-	annotationProcessor 'org.projectlombok:lombok:1.18.20'
+    compileOnly 'org.projectlombok:lombok:1.18.20'
+    annotationProcessor 'org.projectlombok:lombok:1.18.20'
 
-	testImplementation 'junit:junit:4.12'
-	testImplementation group: 'net.runelite', name:'client', version: runeLiteVersion
-	testImplementation group: 'net.runelite', name:'jshell', version: runeLiteVersion
+    testImplementation 'junit:junit:4.12'
+    testImplementation group: 'net.runelite', name:'client', version: runeLiteVersion
+    testImplementation group: 'net.runelite', name:'jshell', version: runeLiteVersion
 }
 
-group = 'com.example'
-version = '1.0-SNAPSHOT'
+group = 'com.ultimatevm'
+version = '1.0'
 sourceCompatibility = '1.8'
 
 tasks.withType(JavaCompile) {
-	options.encoding = 'UTF-8'
+    options.encoding = 'UTF-8'
+}
+
+publishing {
+    publications {
+        maven(MavenPublication) {
+            from components.java
+        }
+    }
+}
+// The coach's whole-game tests: gradlew test -DcoachGames=120 -DcoachBackgroundGames=30 for a longer run.
+test {
+    systemProperty 'coachGames', System.getProperty('coachGames', '20')
+    systemProperty 'coachBackgroundGames', System.getProperty('coachBackgroundGames', '6')
 }
